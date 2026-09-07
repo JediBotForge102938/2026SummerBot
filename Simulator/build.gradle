@@ -35,6 +35,13 @@ sourceSets {
     }
 }
 
+tasks.named('processResources') {
+    from('../robot-configs') {
+        include 'starterbot-drive-only.xml'
+        into 'robot-configs'
+    }
+}
+
 dependencies {
     implementation fileTree(dir: '../third_party/virtual_robot/lib', include: ['*.jar'])
 }

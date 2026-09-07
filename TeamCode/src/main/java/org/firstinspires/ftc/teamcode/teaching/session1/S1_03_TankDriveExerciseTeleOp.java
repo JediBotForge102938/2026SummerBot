@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode.teaching.session1;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import org.firstinspires.ftc.teamcode.HardwareMapUtil;
 
 @TeleOp(name = "[S1-03] Tank Drive - Exercise", group = "Teaching S1")
 public class S1_03_TankDriveExerciseTeleOp extends OpMode {

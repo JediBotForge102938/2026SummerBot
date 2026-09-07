@@ -52,6 +52,11 @@ The XML files in this directory are the repository copies of the robot
 hardware profiles. Edit or replace them only after verifying the physical hub
 ports and device names. Keep each profile focused on one wiring layout.
 
+The simulator consumes `starterbot-drive-only.xml` from this directory at build
+time. Its named drive motors are therefore derived from the same XML that is
+uploaded to the Control Hub. The simulator still supplies the physical model
+(mecanum geometry, motor behavior, and virtual sensors) separately.
+
 With the Control Hub connected over USB and authorized for ADB, push every
 configuration with:
 
