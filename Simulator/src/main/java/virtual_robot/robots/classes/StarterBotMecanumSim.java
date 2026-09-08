@@ -6,6 +6,8 @@ import local_simulator_config.RobotHardwareConfig;
 import virtual_robot.controller.BotConfig;
 
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @BotConfig(name = "Stryker: StarterBot", filename = "starterbot")
 public class StarterBotMecanumSim extends MecanumPhysicsBase {
@@ -29,20 +31,33 @@ public class StarterBotMecanumSim extends MecanumPhysicsBase {
                             + configuredMotors.size());
         }
 
+        Set<String> wheelSlots = new HashSet<>();
         for (RobotHardwareConfig.Motor motor : configuredMotors) {
-            hardwareMap.put(motor.name(), hardwareMap.get(DcMotorEx.class, internalMotorName(motor.port())));
+            String wheelSlot = internalMotorName(motor.name());
+            if (!wheelSlots.add(wheelSlot)) {
+                throw new IllegalArgumentException(
+                        "Multiple configured motors map to simulator wheel " + wheelSlot);
+            }
+            hardwareMap.put(motor.name(), hardwareMap.get(DcMotorEx.class, wheelSlot));
         }
         hardwareMap.setActive(false);
     }
 
-    private static String internalMotorName(int port) {
-        return switch (port) {
-            case 0 -> "back_left_motor";
-            case 1 -> "front_left_motor";
-            case 2 -> "front_right_motor";
-            case 3 -> "back_right_motor";
-            default -> throw new IllegalArgumentException(
-                    "StarterBot drive motor port must be between 0 and 3, found " + port);
-        };
+    private static String internalMotorName(String configuredName) {
+        String name = configuredName.toLowerCase().replace('-', '_').replace(' ', '_');
+        if (name.contains("left_front") || name.contains("front_left")) {
+            return "front_left_motor";
+        }
+        if (name.contains("right_front") || name.contains("front_right")) {
+            return "front_right_motor";
+        }
+        if (name.contains("left_back") || name.contains("back_left")) {
+            return "back_left_motor";
+        }
+        if (name.contains("right_back") || name.contains("back_right")) {
+            return "back_right_motor";
+        }
+        throw new IllegalArgumentException(
+                "Configured motor name does not identify a StarterBot wheel position: " + configuredName);
     }
 }

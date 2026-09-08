@@ -54,8 +54,11 @@ ports and device names. Keep each profile focused on one wiring layout.
 
 The simulator consumes `starterbot-drive-only.xml` from this directory at build
 time. Its named drive motors are therefore derived from the same XML that is
-uploaded to the Control Hub. The simulator still supplies the physical model
-(mecanum geometry, motor behavior, and virtual sensors) separately.
+uploaded to the Control Hub. Wheel positions are inferred from the semantic
+names (`left_front`, `right_front`, `left_back`, and `right_back`), so changing
+REV hub ports in the XML does not require simulator code changes. The simulator
+still supplies the physical model (mecanum geometry, motor behavior, and
+virtual sensors) separately.
 
 With the Control Hub connected over USB and authorized for ADB, push every
 configuration with:
