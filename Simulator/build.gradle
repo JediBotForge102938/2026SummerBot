@@ -40,6 +40,10 @@ tasks.named('processResources') {
         include 'starterbot-drive-only.xml'
         into 'robot-configs'
     }
+    from('../robot-configs') {
+        include 'lessons/s3_04_configuration_exercise.xml'
+        into 'robot-configs'
+    }
 }
 
 dependencies {

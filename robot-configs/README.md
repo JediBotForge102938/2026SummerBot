@@ -8,8 +8,8 @@ omitted and is optional in both OpModes.
 | ---: | --- | --- |
 | 0 | Rear left | `left_back_drive` |
 | 1 | Rear right | `right_back_drive` |
-| 2 | Front left | `left_front_drive` |
-| 3 | Front right | `right_front_drive` |
+| 2 | Front right | `right_front_drive` |
+| 3 | Front left | `left_front_drive` |
 
 The XML uses the FTC hardware-configuration format and the embedded Control Hub
 metadata from the current robot. The motor names are intentionally distinct
@@ -32,7 +32,7 @@ configuration with:
 powershell.exe -ExecutionPolicy Bypass -File .\robot-configs\scripts\push-configs.ps1
 ```
 
-The script uploads all `*.xml` files directly inside `robot-configs\` to
+The script recursively uploads all `*.xml` files under `robot-configs\` to
 `/sdcard/FIRST/`. To target a specific ADB device when more than one is
 connected:
 
@@ -54,11 +54,19 @@ ports and device names. Keep each profile focused on one wiring layout.
 
 The simulator consumes `starterbot-drive-only.xml` from this directory at build
 time. Its named drive motors are therefore derived from the same XML that is
-uploaded to the Control Hub. Wheel positions are inferred from the semantic
-names (`left_front`, `right_front`, `left_back`, and `right_back`), so changing
-REV hub ports in the XML does not require simulator code changes. The simulator
-still supplies the physical model (mecanum geometry, motor behavior, and
-virtual sensors) separately.
+uploaded to the Control Hub. The normal StarterBot simulator maps wheel
+positions from the semantic motor names. The S3-04 exercise simulator instead
+uses the configured Control Hub ports so its deliberate port mismatch is
+visible as it would be on the physical robot. The simulator still supplies the
+physical model (mecanum geometry, motor behavior, and virtual sensors)
+separately.
+
+The `lessons\` folder contains lesson-specific exercise configurations.
+The push script recursively uploads XML files from this directory, so the
+S3-04 exercise also appears in Driver Station -> Configure Robot. Its
+`lessons\s3_04_configuration_exercise.xml` file is a deliberately miswired
+copy of the starter profile; compare it with `starterbot-drive-only.xml` to
+repair the exercise.
 
 With the Control Hub connected over USB and authorized for ADB, push every
 configuration with:
@@ -67,7 +75,7 @@ configuration with:
 powershell.exe -ExecutionPolicy Bypass -File .\robot-configs\scripts\push-configs.ps1
 ```
 
-The script uploads all `*.xml` files directly inside `robot-configs\` to
+The script recursively uploads all `*.xml` files under `robot-configs\` to
 `/sdcard/FIRST/`. To target a specific ADB device when more than one is
 connected:
 

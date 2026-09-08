@@ -1,4 +1,81 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>S2-02: speed toggle | Stryker FTC</title><link rel="stylesheet" href="../assets/style.css"></head>
-<body><header class="site-header"><div class="header-inner"><p class="eyebrow">S2-02 · Lesson 2</p><h1>S2-02 · Bumper speed toggle</h1><p>Make one button press change a remembered drive mode.</p><nav class="site-nav"><a href="../index.html">Course map</a><a href="../mission.html">Mission</a><a href="../resources.html">Resources</a><a href="../notes.html">Instructor notes</a></nav></div></header>
-<main><div class="layout"><article><span class="tag">Button state and speed</span><p class="lede">The exercise compiles, but holding the bumper causes the mode to change repeatedly. Diagnose why, add the missing button-state check, and retest.</p><h2 id="simulator">See the problem</h2><ol><li>Launch the simulator with the Android Studio <strong>Simulator</strong> run configuration.</li><li>Select the preconfigured robot configuration and <code>[S2-02] Speed toggle - Exercise</code>.</li><li>Press <strong>INIT</strong> and <strong>START</strong>. Drive briefly so you can recognize the normal control.</li><li>Tap the right bumper once. Then hold it down. Watch the mode change rapidly instead of changing once.</li></ol><h2 id="goal">Your repair</h2><ol><li>Stop the OpMode and open <code>S2_02_SpeedToggleExerciseTeleOp.java</code> in the Session 2 package.</li><li>Use Search Everywhere with <strong>Shift+Shift</strong>, or navigate through the Project view.</li><li>Find the <code>pressed</code>, <code>wasPressed</code>, and <code>slow</code> variables.</li><li>Change the toggle condition so it runs only when the bumper is pressed now and was not pressed during the previous loop.</li><li>Build and run the exercise again. A tap should change the mode once; holding the bumper should not repeat the change.</li><li>Open <code>S2_02_SpeedToggleSolutionTeleOp.java</code> and compare the edge-detection condition.</li></ol><h2 id="concept">What the program remembers</h2><p><code>loop()</code> runs many times per second. A button can remain pressed across many loops, so checking only “is it pressed?” repeats the action. Comparing the current value with the previous value detects the transition from released to pressed.</p><table><thead><tr><th>State</th><th>Meaning</th></tr></thead><tbody><tr><td><code>pressed</code></td><td>What the bumper says during this loop</td></tr><tr><td><code>wasPressed</code></td><td>What the bumper said during the previous loop</td></tr><tr><td><code>slow</code></td><td>The mode remembered by the program</td></tr></tbody></table><h2 id="takeaway">What you should be able to explain</h2><p>By the end of this lesson, every student should be able to explain why a held button is not the same as a button tap, use a previous-state variable to detect one press, and prove the fix with a simulator retest.</p><div class="tip">Test tap, hold, release, and tap again. Those four actions reveal whether the program is detecting a button state or a button transition.</div><p><a href="../reference-docs/workflow.html">Workflow reference</a></p><nav class="lesson-nav" aria-label="Lesson navigation"><a href="s2-01b-hardware.html">&larr; Previous: mecanum hardware practice</a><a href="s2-02b-hardware.html">Next: test the speed toggle on the robot &rarr;</a></nav></article><aside class="toc"><h2>On this page</h2><ul><li><a href="#simulator">Simulator</a></li><li><a href="#goal">Your repair</a></li><li><a href="#concept">Program state</a></li><li><a href="#takeaway">Takeaway</a></li></ul></aside></div></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S2-02: speed toggle | Stryker FTC</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <p class="eyebrow">S2-02 · Lesson 2</p>
+      <h1>S2-02 · Bumper speed toggle</h1>
+      <p>Use a working OpMode as a reference, then repair the exercise.</p>
+      <nav class="site-nav">
+        <a href="../index.html">Course map</a>
+        <a href="../mission.html">Mission</a>
+        <a href="../resources.html">Resources</a>
+        <a href="../notes.html">Instructor notes</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="layout">
+      <article>
+        <span class="tag">Button state and speed</span>
+        <p class="lede">First observe the correct button behavior in the solution OpMode. Then run the exercise, reproduce the held-bumper problem, and iterate until the exercise matches the reference.</p>
+        <h2 id="reference">Use the working reference</h2>
+        <ol>
+          <li>Launch the simulator with the Android Studio <strong>Simulator</strong> run configuration.</li>
+          <li>Select the preconfigured robot configuration and <code>[S2-02] Speed toggle - Solution</code>.</li>
+          <li>Press <strong>INIT</strong> and <strong>START</strong>. Drive briefly so you can recognize the normal control.</li>
+          <li>Tap the right bumper once. Confirm that the mode changes once.</li>
+          <li>Hold the right bumper. Confirm that the mode does not keep changing while the bumper is held.</li>
+          <li>Release the bumper, then tap it again. Confirm that the next tap changes the mode once.</li>
+          <li>Stop the OpMode and explain what the solution remembers between loops.</li>
+        </ol>
+        <h2 id="exercise">Run and repair the exercise</h2>
+        <ol>
+          <li>Select <code>[S2-02] Speed toggle - Exercise</code> and press <strong>INIT</strong> and <strong>START</strong>.</li>
+          <li>Repeat the same tap, hold, release, and tap-again sequence from the solution. Watch for the mode to change repeatedly while the bumper is held.</li>
+          <li>Stop the OpMode and open <code>S2_02_SpeedToggleExerciseTeleOp.java</code> in the Session 2 package.</li>
+          <li>Use Search Everywhere with <strong>Shift+Shift</strong>, or navigate through the Project view.</li>
+          <li>Compare the exercise with <code>S2_02_SpeedToggleSolutionTeleOp.java</code>. Find the <code>pressed</code>, <code>wasPressed</code>, and <code>slow</code> variables.</li>
+          <li>Change the toggle condition so it runs only when the bumper is pressed now and was not pressed during the previous loop.</li>
+          <li>Build and run the exercise again. Repeat the exact reference tests and iterate until tap changes once, hold does not repeat, and the next tap changes the mode once.</li>
+        </ol>
+        <h2 id="concept">What the program remembers</h2>
+        <p><code>loop()</code> runs many times per second. A button can remain pressed across many loops, so checking only “is it pressed?” repeats the action. Comparing the current value with the previous value detects the transition from released to pressed.</p>
+        <table>
+          <thead>
+            <tr><th>State</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>pressed</code></td><td>What the bumper says during this loop</td></tr>
+            <tr><td><code>wasPressed</code></td><td>What the bumper said during the previous loop</td></tr>
+            <tr><td><code>slow</code></td><td>The mode remembered by the program</td></tr>
+          </tbody>
+        </table>
+        <h2 id="takeaway">What you should be able to explain</h2>
+        <p>By the end of this lesson, every student should be able to use a working OpMode as a behavioral reference, explain why a held button is not the same as a button tap, use a previous-state variable to detect one press, and prove the exercise fix with the same simulator tests.</p>
+        <div class="tip">Use the solution as the reference before changing the exercise. Test both OpModes with tap, hold, release, and tap again so the comparison is fair.</div>
+        <p><a href="../reference-docs/workflow.html">Workflow reference</a></p>
+        <nav class="lesson-nav" aria-label="Lesson navigation">
+          <a href="s2-01b-hardware.html">&larr; Previous: mecanum hardware practice</a>
+          <a href="s2-02b-hardware.html">Next: test the speed toggle on the robot &rarr;</a>
+        </nav>
+      </article>
+      <aside class="toc">
+        <h2>On this page</h2>
+        <ul>
+          <li><a href="#reference">Working reference</a></li>
+          <li><a href="#exercise">Exercise</a></li>
+          <li><a href="#concept">Program state</a></li>
+          <li><a href="#takeaway">Takeaway</a></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

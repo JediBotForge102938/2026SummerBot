@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S2-03: Working with Hardware Map | Stryker FTC</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <p class="eyebrow">S2-03 · Lesson 3</p>
+      <h1>S2-03 · Working with Hardware Map</h1>
+      <p>Keep the robot, code, and simulator using the same hardware names.</p>
+      <nav class="site-nav">
+        <a href="../index.html">Course map</a>
+        <a href="../mission.html">Mission</a>
+        <a href="../resources.html">Resources</a>
+        <a href="../notes.html">Instructor notes</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="layout">
+      <article>
+        <span class="tag">Robot configuration</span>
+        <p class="lede">A configuration file is the map that tells FTC which device name belongs to which hub port. In this repository, <code>robot-configs\</code> is the source of record: if the wiring map changes, update the repository copy first.</p>
+
+        <h2 id="source">One source of record</h2>
+        <p>The shared profile is <code>robot-configs\starterbot-drive-only.xml</code>. It records four motors, their names, and their Control Hub ports.</p>
+        <table>
+          <thead>
+            <tr><th>Hub port</th><th>Configuration name</th><th>Physical position</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>0</td><td><code>left_back_drive</code></td><td>Left rear</td></tr>
+            <tr><td>1</td><td><code>right_back_drive</code></td><td>Right rear</td></tr>
+            <tr><td>2</td><td><code>right_front_drive</code></td><td>Right front</td></tr>
+            <tr><td>3</td><td><code>left_front_drive</code></td><td>Left front</td></tr>
+          </tbody>
+        </table>
+        <p>Java code uses the configuration names, not the port numbers. This is why <code>left_front_drive</code> must be spelled exactly the same in the XML and in the OpMode.</p>
+
+        <h2 id="upload">When the robot is updated</h2>
+        <p>When the prepared TeamCode run configuration updates the robot, it also restores the configuration from <code>robot-configs\</code>. <strong>Important:</strong> any configuration changes made on the Driver Station will be overwritten the next time the robot is updated.</p>
+        <p>Use Driver Station to select the profile, but make lasting configuration changes in the repository source of record with instructor guidance.</p>
+
+        <h2 id="simulator">Why the simulator matches</h2>
+        <p>The simulator also starts from the same XML. During its build, Gradle copies <code>starterbot-drive-only.xml</code> into the simulator resources. The StarterBot simulator loads that resource and creates its named motors from the file.</p>
+        <p>That gives us one map used in two places:</p>
+        <table>
+          <thead>
+            <tr><th>Place</th><th>How it uses the map</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Physical robot</td><td>The upload script copies the XML to the Control Hub.</td></tr>
+            <tr><td>Simulator</td><td>The simulator build packages the XML and loads its motor names and ports.</td></tr>
+            <tr><td>OpMode code</td><td><code>hardwareMap</code> looks up the names from the XML.</td></tr>
+          </tbody>
+        </table>
+        <p>If the repository XML is correct, the simulator is a useful check before using the robot. If the XML is wrong, both paths can be wrong in the same way.</p>
+
+        <h2 id="takeaway">What you should be able to explain</h2>
+        <p>By the end of this lesson, every student should be able to explain that <code>robot-configs\</code> is the source of record, predict that updating the robot overwrites Driver Station configuration changes, and explain how the simulator loads the same mapping. .</p>
+        <div class="tip">Configuration is a shared contract: the XML names, the OpMode names, and the physical wiring must agree.</div>
+        <p><a href="../reference-docs/configuration.html">Configuration reference</a> · <a href="../reference-docs/upload-config.html">Upload reference</a></p>
+        <nav class="lesson-nav" aria-label="Lesson navigation">
+          <a href="s2-02b-hardware.html">&larr; Previous: test the speed toggle</a>
+          <a href="s3-04-configuration-exercise.html">Next: S3-04 configuration exercise &rarr;</a>
+        </nav>
+      </article>
+      <aside class="toc">
+        <h2>On this page</h2>
+        <ul>
+          <li><a href="#source">Source of record</a></li>
+          <li><a href="#upload">Upload</a></li>
+          <li><a href="#simulator">Simulator</a></li>
+          <li><a href="#takeaway">Takeaway</a></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

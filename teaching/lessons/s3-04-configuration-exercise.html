@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S3-04: Repair a robot configuration | Stryker FTC</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <p class="eyebrow">S3-04 · Lesson 4</p>
+      <h1>S3-04 · Repair a robot configuration</h1>
+      <p>Use the simulator's behavior to find and fix a hardware-map mistake.</p>
+      <nav class="site-nav">
+        <a href="../index.html">Course map</a>
+        <a href="../mission.html">Mission</a>
+        <a href="../resources.html">Resources</a>
+        <a href="../notes.html">Instructor notes</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="layout">
+      <article>
+        <span class="tag">Configuration troubleshooting</span>
+        <p class="lede">The exercise configuration is a copy of the StarterBot profile with its motor ports jumbled. Use the working StarterBot configuration as the solution reference, then iterate with the simulator until the exercise drives normally.</p>
+
+        <h2 id="reference">Start with the solution reference</h2>
+        <ol>
+          <li>Launch the simulator and select <strong>Stryker: StarterBot</strong>.</li>
+          <li>Run a forward, strafe, and turn test with a teaching OpMode.</li>
+          <li>Compare <code>robot-configs\starterbot-drive-only.xml</code> with the port table in S2-03.</li>
+          <li>Explain why each configuration name must remain paired with its correct port.</li>
+        </ol>
+
+        <h2 id="exercise">Run and repair the exercise</h2>
+        <ol>
+          <li>Open <code>robot-configs\lessons\s3_04_configuration_exercise.xml</code>. This is the exercise copy; do not change the shared starter profile.</li>
+          <li>Launch the simulator and select <strong>Stryker: S3-04 Configuration Exercise</strong>.</li>
+          <li>Run forward, strafe, and turn tests. Describe exactly what is funny or unexpected before editing anything.</li>
+          <li>Compare the exercise XML with <code>starterbot-drive-only.xml</code>. Find the jumbled port assignments.</li>
+          <li>Fix the exercise XML, rebuild or reload the simulator as needed, and repeat the same three tests.</li>
+          <li>Iterate until the exercise behaves like the working StarterBot, then explain how the simulator helped identify the wiring-map error.</li>
+        </ol>
+
+        <h2 id="takeaway">What you should be able to explain</h2>
+        <p>By the end of this lesson, every student should be able to use a known-good configuration as a reference, connect an unexpected drive pattern to a port assignment, and prove a repair with repeatable simulator tests.</p>
+        <div class="tip">Change one value at a time and rerun the same tests. A clear prediction before each test makes the debugging evidence useful.</div>
+        <p><a href="s2-03-configuration.html">Previous lesson: configuration map</a> · <a href="../reference-docs/configuration.html">Configuration reference</a></p>
+        <nav class="lesson-nav" aria-label="Lesson navigation">
+          <a href="s2-03-configuration.html">&larr; Previous: configuration map</a>
+          <a href="../index.html">Course map &rarr;</a>
+        </nav>
+      </article>
+      <aside class="toc">
+        <h2>On this page</h2>
+        <ul>
+          <li><a href="#reference">Solution reference</a></li>
+          <li><a href="#exercise">Exercise</a></li>
+          <li><a href="#takeaway">Takeaway</a></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

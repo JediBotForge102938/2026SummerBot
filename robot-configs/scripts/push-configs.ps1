@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $configDirectory = Split-Path -Parent $PSScriptRoot
-$configs = @(Get-ChildItem -Path $configDirectory -Filter "*.xml" -File)
+$configs = @(Get-ChildItem -Path $configDirectory -Filter "*.xml" -File -Recurse)
 
 if ($configs.Count -eq 0) {
     throw "No XML configuration files found in $configDirectory"
