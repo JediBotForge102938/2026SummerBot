@@ -9,10 +9,10 @@ import java.util.Set;
 
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
-@BotConfig(name = "Stryker: S3-04 Configuration Exercise", filename = "s3_04_configuration_exercise")
+@BotConfig(name = "Stryker: S2-04 Configuration Exercise", filename = "s2_04_configuration_exercise")
 public class StarterBotConfigurationExerciseSim extends MecanumPhysicsBase {
     private static final String ROBOT_CONFIG_RESOURCE =
-            "/robot-configs/lessons/s3_04_configuration_exercise.xml";
+            "/robot-configs/lessons/s2_04_configuration_exercise.xml";
 
     @Override
     protected boolean isWheelMechanicallyReversed(int wheelIndex) {

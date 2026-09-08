@@ -55,7 +55,7 @@ ports and device names. Keep each profile focused on one wiring layout.
 The simulator consumes `starterbot-drive-only.xml` from this directory at build
 time. Its named drive motors are therefore derived from the same XML that is
 uploaded to the Control Hub. The normal StarterBot simulator maps wheel
-positions from the semantic motor names. The S3-04 exercise simulator instead
+positions from the semantic motor names. The S2-04 exercise simulator instead
 uses the configured Control Hub ports so its deliberate port mismatch is
 visible as it would be on the physical robot. The simulator still supplies the
 physical model (mecanum geometry, motor behavior, and virtual sensors)
@@ -63,8 +63,8 @@ separately.
 
 The `lessons\` folder contains lesson-specific exercise configurations.
 The push script recursively uploads XML files from this directory, so the
-S3-04 exercise also appears in Driver Station -> Configure Robot. Its
-`lessons\s3_04_configuration_exercise.xml` file is a deliberately miswired
+S2-04 exercise also appears in Driver Station -> Configure Robot. Its
+`lessons\s2_04_configuration_exercise.xml` file is a deliberately miswired
 copy of the starter profile; compare it with `starterbot-drive-only.xml` to
 repair the exercise.
 

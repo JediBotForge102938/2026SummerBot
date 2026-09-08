@@ -41,7 +41,7 @@ tasks.named('processResources') {
         into 'robot-configs'
     }
     from('../robot-configs') {
-        include 'lessons/s3_04_configuration_exercise.xml'
+        include 'lessons/s2_04_configuration_exercise.xml'
         into 'robot-configs'
     }
 }
