@@ -43,8 +43,8 @@ powershell.exe -ExecutionPolicy Bypass -File .\robot-configs\scripts\push-config
 
 After uploading, use **Driver Station -> Configure Robot** to refresh the
 configuration list and activate `starterbot-drive-only`. Pushing a file does
-not automatically activate it. Deploy Robot Controller code from Android
-Studio; the configuration XML is separate from the APK.
+not automatically activate it. The shareable `TeamCode` Android Studio run
+configuration runs this upload task before deploying the Robot Controller APK.
 
 ## Managing configurations
 

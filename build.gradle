@@ -29,3 +29,10 @@ allprojects {
 repositories {
     mavenCentral()
 }
+
+tasks.register('pushRobotConfigs', Exec) {
+    workingDir rootDir
+    commandLine 'powershell.exe',
+            '-ExecutionPolicy', 'Bypass',
+            '-File', file('robot-configs/scripts/push-configs.ps1').absolutePath
+}
