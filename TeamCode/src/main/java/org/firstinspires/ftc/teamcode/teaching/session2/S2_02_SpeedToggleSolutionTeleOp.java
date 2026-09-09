@@ -7,37 +7,44 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 @TeleOp(name = "[S2-02] Speed toggle - Solution", group = "Teaching S2")
 public class S2_02_SpeedToggleSolutionTeleOp extends OpMode {
     private static final double LESSON_SPEED = 0.5;
-    private DcMotor lf, rf, lb, rb;
-    private boolean slowMode;
-    private boolean lastBumper;
+    private DcMotor leftFront, rightFront, leftBack, rightBack;
+    private boolean slow;
+    private boolean wasPressed;
 
     @Override
     public void init() {
-        lf = hardwareMap.get(DcMotor.class, "left_front_drive");
-        rf = hardwareMap.get(DcMotor.class, "right_front_drive");
-        lb = hardwareMap.get(DcMotor.class, "left_back_drive");
-        rb = hardwareMap.get(DcMotor.class, "right_back_drive");
-        lf.setDirection(DcMotor.Direction.REVERSE);
-        lb.setDirection(DcMotor.Direction.FORWARD);
-        rb.setDirection(DcMotor.Direction.REVERSE);
-        for (DcMotor motor : new DcMotor[] {lf, rf, lb, rb}) {
+        leftFront = hardwareMap.get(DcMotor.class, "left_front_drive");
+        rightFront = hardwareMap.get(DcMotor.class, "right_front_drive");
+        leftBack = hardwareMap.get(DcMotor.class, "left_back_drive");
+        rightBack = hardwareMap.get(DcMotor.class, "right_back_drive");
+        leftFront.setDirection(DcMotor.Direction.REVERSE);
+        rightFront.setDirection(DcMotor.Direction.FORWARD);
+        leftBack.setDirection(DcMotor.Direction.FORWARD);
+        rightBack.setDirection(DcMotor.Direction.REVERSE);
+        for (DcMotor motor : new DcMotor[] {leftFront, rightFront, leftBack, rightBack}) {
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
     }
 
     @Override
     public void loop() {
-        boolean bumper = gamepad1.right_bumper;
-        if (bumper && !lastBumper) {
-            slowMode = !slowMode;
+        boolean pressed = gamepad1.right_bumper;
+        if (pressed) {
+            if (wasPressed == false) {
+                if (slow == false) {
+                    slow = true;
+                } else {
+                    slow = false;
+                }
+            }
         }
-        lastBumper = bumper;
-        double speed = LESSON_SPEED * (slowMode ? 0.35 : 1.0);
+        wasPressed = pressed;
+        double speed = LESSON_SPEED * (slow ? 0.35 : 1.0);
         double forward = -gamepad1.left_stick_y;
         double turn = gamepad1.right_stick_x;
-        setSide(speed * (forward + turn), lf, lb);
-        setSide(speed * (forward - turn), rf, rb);
-        telemetry.addData("Speed", slowMode ? "SLOW" : "FULL");
+        setSide(speed * (forward + turn), leftFront, leftBack);
+        setSide(speed * (forward - turn), rightFront, rightBack);
+        telemetry.addData("Speed", slow ? "SLOW" : "FULL");
         telemetry.addLine("Tap right bumper once to toggle; hold does not repeat.");
     }
 

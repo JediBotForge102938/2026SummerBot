@@ -18,6 +18,7 @@ public class S2_02_SpeedToggleExerciseTeleOp extends OpMode {
         leftBack = hardwareMap.get(DcMotor.class, "left_back_drive");
         rightBack = hardwareMap.get(DcMotor.class, "right_back_drive");
         leftFront.setDirection(DcMotor.Direction.REVERSE);
+        rightFront.setDirection(DcMotor.Direction.FORWARD);
         leftBack.setDirection(DcMotor.Direction.FORWARD);
         rightBack.setDirection(DcMotor.Direction.REVERSE);
         for (DcMotor motor : new DcMotor[] {leftFront, rightFront, leftBack, rightBack}) {
@@ -29,7 +30,11 @@ public class S2_02_SpeedToggleExerciseTeleOp extends OpMode {
     public void loop() {
         boolean pressed = gamepad1.right_bumper;
         if (pressed) {
-            slow = !slow;
+            if (slow == false) {
+                slow = true;
+            } else {
+                slow = false;
+            }
         }
         wasPressed = pressed;
         double forward = -gamepad1.left_stick_y;
