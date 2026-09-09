@@ -5,113 +5,14 @@ This repository contains the public FTC SDK for the DECODE (2025-2026) competiti
 ## Welcome!
 This GitHub repository contains the source code that is used to build an Android app to control a *FIRST* Tech Challenge competition robot.  To use this SDK, download/clone the entire project to your local computer.
 
+## JediBotForge team documentation
+
+For workstation setup, simulator instructions, deployment procedures, and team lessons, see the [JediBotForge Software Handbook](teaching/index.html).
+
 ## Requirements
-To use this Android Studio project, you will need Android Studio Panda or later.
+To use this Android Studio project, you will need Android Studio Ladybug (2024.2) or later.
 
 To program your robot in Blocks or OnBot Java, you do not need Android Studio.
-
-## Desktop Simulator
-
-This project includes a desktop simulator target backed by the pinned
-[`virtual_robot`](https://github.com/Beta8397/virtual_robot) submodule. It uses the same
-`TeamCode/src/main/java` source tree as the Android application, but uses a separate FTC SDK
-implementation.
-
-### Prerequisites
-
-Install:
-
-* Git, with access to GitHub
-* Android Studio Panda or later for the Android Robot Controller
-  build and deployment workflow
-* [Liberica JDK 17 Full](https://bell-sw.com/pages/downloads/#jdk-17-lts), which includes the
-  JavaFX runtime required by the desktop simulator
-
-On Windows, install all three prerequisites with WinGet:
-
-```text
-winget install --exact --id Git.Git --accept-package-agreements --accept-source-agreements
-winget install --exact --id Google.AndroidStudio --accept-package-agreements --accept-source-agreements
-winget install --exact --id BellSoft.LibericaJDK.17.Full --accept-package-agreements --accept-source-agreements
-```
-
-### Cloning and Updating the Submodule
-
-Clone the repository and its submodule together:
-
-```text
-git clone --recurse-submodules https://github.com/JediBotForge/2026SummerBot.git
-cd 2026SummerBot
-```
-
-For an existing clone, or after pulling a revision that changes the pinned submodule commit,
-initialize the submodule at the version recorded by this repository:
-
-```text
-git submodule update --init --recursive
-```
-
-To intentionally advance the pinned `virtual_robot` version, update its `master` branch, test
-the simulator, then commit the updated submodule pointer in this repository:
-
-```text
-git -C third_party/virtual_robot fetch origin
-git -C third_party/virtual_robot switch master
-git -C third_party/virtual_robot pull --ff-only origin master
-git add third_party/virtual_robot
-git commit -m "Update virtual_robot submodule"
-```
-
-### Running the Desktop Simulator
-
-In Android Studio, select the **Simulator** run configuration from the toolbar and click the
-green **Run** button.
-
-Choose `StarterBot` from the simulator Configuration dropdown before selecting either
-StarterBot TeleOp. The single simulator profile exposes the four shared drive motor names
-used by both TeleOps.
-
-### Using Physical Gamepads
-
-The simulator is configured for physical USB or Bluetooth gamepads rather than its on-screen
-virtual gamepad. Connect one or two gamepads before launching the simulator. After it starts,
-press **Start+A** on the controller to assign it to gamepad 1, or **Start+B** to assign it to
-gamepad 2.
-
-To switch input modes, edit `Simulator/src/main/java/local_simulator_config/Config.java` and
-change this setting:
-
-```java
-public static final boolean USE_VIRTUAL_GAMEPAD = false;
-```
-
-Use `false` for physical gamepads or `true` for the on-screen virtual gamepad. Restart the
-simulator after changing the setting. This root-project configuration overrides the corresponding
-file in the `virtual_robot` submodule, so do not edit the submodule to change gamepad mode.
-
-### Building and Deploying to a Control Hub
-
-Use the Android Studio `FtcRobotController` run configuration to build, install, and launch the
-Android Robot Controller app on a REV Control Hub connected through ADB. This is separate from
-the `Simulator` run configuration, which only launches the desktop simulator.
-
-## Teaching Lessons
-
-The beginner curriculum is in [`teaching/index.html`](teaching/index.html). It contains the
-session table of contents, lessons, simulator and configuration references, and instructor notes.
-The corresponding isolated teaching OpModes are under
-`TeamCode/src/main/java/org/firstinspires/ftc/teamcode/teaching/`.
-
-The lessons are static HTML files and do not require Gradle or a web server. From the repository
-root, open the course map in the default browser with:
-
-```powershell
-Start-Process .\teaching\index.html
-```
-
-Alternatively, in Android Studio, locate `teaching/index.html` in the Project view, right-click
-it, and choose **Open In > Browser**. Use the browser rather than Android Studio's embedded
-preview when presenting lessons or printing references.
 
 ## Getting Started
 If you are new to robotics or new to the *FIRST* Tech Challenge, then you should consider reviewing the [FTC Blocks Tutorial](https://ftc-docs.firstinspires.org/programming_resources/blocks/Blocks-Tutorial.html) to get familiar with how to use the control system:

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Workstation setup | Stryker FTC</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <p class="eyebrow">Stryker FTC software handbook</p>
+      <h1>Set up your workstation.</h1>
+      <p>Install the tools, get the repository, and run the same code in the simulator and on the robot.</p>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="../index.html">Handbook home</a>
+        <a href="../mission.html">Mission</a>
+        <a href="../resources.html">Resources</a>
+        <a href="../notes.html">Instructor notes</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="layout">
+      <article>
+        <span class="tag">Member setup guide</span>
+        <h1>From a new laptop to a running robot program.</h1>
+        <p class="lede">Follow these steps in order on a Windows workstation. The repository includes both the Android Robot Controller project and a desktop simulator.</p>
+
+        <h2 id="requirements">Install the required tools</h2>
+        <p>Install Git, <strong>Android Studio Panda 4 Patch 1 (2025.3.4.7)</strong>, and Liberica JDK 17 Full. The full JDK distribution includes the JavaFX runtime needed by the desktop simulator. We pin Panda for workstation consistency even though newer Android Studio release families are available.</p>
+        <p>On Windows, WinGet can install all three:</p>
+        <pre><code>winget install --exact --id Git.Git --accept-package-agreements --accept-source-agreements
+winget install --exact --id Google.AndroidStudio --version 2025.3.4.7 --accept-package-agreements --accept-source-agreements
+winget install --exact --id BellSoft.LibericaJDK.17.Full --accept-package-agreements --accept-source-agreements</code></pre>
+        <div class="tip"><strong>If WinGet is not available.</strong> Install <a href="https://apps.microsoft.com/detail/9nblggh4nns1?hl=en-US&amp;gl=US">App Installer from the Microsoft Store</a>, then open a new PowerShell or Windows Terminal window and run the commands again.</div>
+        <p>Open Android Studio once after installation and allow it to complete its first-run setup. Accept the recommended Android SDK components. Confirm the installed version is <strong>Panda 4 Patch 1 (2025.3.4.7)</strong> before opening the project.</p>
+
+        <h2 id="clone">Get the repository</h2>
+        <p>Keep team projects in one easy-to-find folder. We recommend <code>Documents\FTC</code>.</p>
+        <ol>
+          <li>Open File Explorer and create a folder named <code>FTC</code> inside your Documents folder.</li>
+          <li>Open the new <code>FTC</code> folder.</li>
+          <li>Right-click an empty area and choose <strong>Open in Terminal</strong>.</li>
+        </ol>
+        <p>In the terminal window, clone the repository with its pinned <code>virtual_robot</code> submodule. This creates a new <code>2026SummerBot</code> folder inside <code>Documents\FTC</code>:</p>
+        <pre><code>git clone --recurse-submodules https://github.com/JediBotForge/2026SummerBot.git</code></pre>
+        <div class="tip"><strong>Choose the folder, not a file.</strong> Do not clone the project inside another repository, the Android Studio installation folder, or the Downloads folder.</div>
+        <p>If you already cloned the repository without submodules, open the <code>2026SummerBot</code> folder in File Explorer, choose <strong>Open in Terminal</strong>, and run:</p>
+        <pre><code>git submodule update --init --recursive</code></pre>
+        <div class="tip"><strong>Keep the submodule pinned.</strong> Do not edit files inside <code>third_party/virtual_robot</code> for normal team work. The root project supplies the configuration used by our simulator.</div>
+
+        <h2 id="android-studio">Open the project in Android Studio</h2>
+        <ol>
+          <li>Start Android Studio and choose <strong>Open</strong>.</li>
+          <li>Select the repository folder, not the <code>TeamCode</code> folder.</li>
+          <li>Wait for Gradle sync to finish before running anything.</li>
+          <li>If Android Studio asks to use a different JDK, select the installed JDK 17.</li>
+        </ol>
+
+        <h2 id="simulator">Run the desktop simulator</h2>
+        <ol>
+          <li>Connect a gamepad before launching the simulator.</li>
+          <li>In Android Studio, open the run-configuration dropdown in the top toolbar and select <strong>Simulator</strong>.</li>
+          <li>Click the green <strong>Run</strong> button in the toolbar to launch that configuration.</li>
+          <li>Choose <code>StarterBot</code> from the simulator Configuration dropdown.</li>
+          <li>Select a teaching OpMode, then press <strong>INIT</strong> and <strong>START</strong>.</li>
+        </ol>
+        <p>Press <strong>Start+A</strong> on a controller to assign it to gamepad 1, or <strong>Start+B</strong> to assign it to gamepad 2.</p>
+        <p>For the simulator's on-screen gamepad, edit <code>Simulator/src/main/java/local_simulator_config/Config.java</code>, set <code>USE_VIRTUAL_GAMEPAD</code> to <code>true</code>, and restart the simulator. The team default is <code>false</code>, which uses physical gamepads.</p>
+        <p><a href="simulator.html">Open the simulator reference</a> for controller details and troubleshooting.</p>
+
+        <h2 id="robot">Deploy to the Control Hub</h2>
+        <ol>
+          <li>Connect the REV Control Hub to the computer.</li>
+          <li>In Android Studio, open the run-configuration dropdown in the top toolbar and select <strong>TeamCode</strong>.</li>
+          <li>Click the green <strong>Run</strong> button in the toolbar to build, install, and launch the Android Robot Controller app.</li>
+        </ol>
+        <p>The <strong>Simulator</strong> and <strong>TeamCode</strong> entries are dedicated run configurations. Use the simulator for practice and the TeamCode configuration for the physical robot.</p>
+        <p><a href="upload-config.html">Open the upload reference</a> for the team configuration procedure.</p>
+
+        <h2 id="next">Continue learning</h2>
+        <p>Once the simulator launches, start with <a href="../lessons/s1-01-workflow.html">Session 1: From INIT to LOOP</a>. It introduces the simulator workflow before asking you to change code.</p>
+      </article>
+      <aside class="toc" aria-label="Workstation setup table of contents">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#requirements">Install tools</a></li>
+          <li><a href="#clone">Get the repository</a></li>
+          <li><a href="#android-studio">Open Android Studio</a></li>
+          <li><a href="#simulator">Run the simulator</a></li>
+          <li><a href="#robot">Deploy to the Control Hub</a></li>
+          <li><a href="#next">Continue learning</a></li>
+        </ol>
+      </aside>
+    </div>
+  </main>
+  <script src="../assets/theme.js"></script>
+</body>
+</html>
