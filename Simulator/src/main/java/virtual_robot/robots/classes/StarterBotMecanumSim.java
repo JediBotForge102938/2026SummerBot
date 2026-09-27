@@ -4,14 +4,18 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import local_simulator_config.RobotHardwareConfig;
 import virtual_robot.controller.BotConfig;
+import virtual_robot.controller.VirtualField;
 
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
+import org.dyn4j.geometry.Transform;
 
 @BotConfig(name = "Stryker: StarterBot", filename = "starterbot")
 public class StarterBotMecanumSim extends MecanumPhysicsBase {
     private static final String ROBOT_CONFIG_RESOURCE = "/robot-configs/starterbot-drive-only.xml";
+    private static final int STARTING_COLUMN = 3;
+    private static final int STARTING_ROW = 6;
 
     @Override
     protected void createHardwareMap() {
@@ -36,6 +40,29 @@ public class StarterBotMecanumSim extends MecanumPhysicsBase {
             hardwareMap.put(motor.name(), hardwareMap.get(DcMotorEx.class, wheelSlot));
         }
         hardwareMap.setActive(false);
+    }
+
+    @Override
+    public void initialize() {
+        super.initialize();
+
+        double cellSize = VirtualField.FIELD_WIDTH / 6.0;
+        x = (STARTING_COLUMN - 0.5) * cellSize - VirtualField.HALF_FIELD_WIDTH;
+        y = VirtualField.HALF_FIELD_WIDTH - (STARTING_ROW - 0.5) * cellSize;
+
+        Transform transform = new Transform();
+        transform.translate(
+                x / VirtualField.PIXELS_PER_METER,
+                y / VirtualField.PIXELS_PER_METER);
+        chassisBody.setTransform(transform);
+        chassisBody.setLinearVelocity(0, 0);
+        chassisBody.setAngularVelocity(0);
+    }
+
+    @Override
+    protected void setUpDisplayGroup(javafx.scene.Group group) {
+        super.setUpDisplayGroup(group);
+        updateDisplay();
     }
 
     private static String internalMotorName(String configuredName) {

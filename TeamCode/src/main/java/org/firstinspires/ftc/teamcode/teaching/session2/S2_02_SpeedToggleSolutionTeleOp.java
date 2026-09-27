@@ -19,8 +19,8 @@ public class S2_02_SpeedToggleSolutionTeleOp extends OpMode {
         rightBack = hardwareMap.get(DcMotor.class, "right_back_drive");
         leftFront.setDirection(DcMotor.Direction.REVERSE);
         rightFront.setDirection(DcMotor.Direction.FORWARD);
-        leftBack.setDirection(DcMotor.Direction.FORWARD);
-        rightBack.setDirection(DcMotor.Direction.REVERSE);
+        leftBack.setDirection(DcMotor.Direction.REVERSE);
+        rightBack.setDirection(DcMotor.Direction.FORWARD);
         for (DcMotor motor : new DcMotor[] {leftFront, rightFront, leftBack, rightBack}) {
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }

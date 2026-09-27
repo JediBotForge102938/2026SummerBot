@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.hardware.configuration.MotorType;
 import javafx.scene.image.Image;
 import virtual_robot.controller.Game;
 import virtual_robot.controller.VirtualBot;
-import virtual_robot.games.NoGame;
+import virtual_robot.games.BioBuzz;
 import virtual_robot.robots.classes.StarterBotMecanumSim;
 
 /**
@@ -28,7 +28,7 @@ public class Config {
 
     public static final boolean HOLD_CONTROLS_BY_DEFAULT = false;
 
-    public static final Game GAME = new NoGame();
+    public static final Game GAME = new BioBuzz();
 
     public static final double FIELD_FRICTION_COEFF = 10;
 
