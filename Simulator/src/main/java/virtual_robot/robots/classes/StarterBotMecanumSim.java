@@ -14,11 +14,6 @@ public class StarterBotMecanumSim extends MecanumPhysicsBase {
     private static final String ROBOT_CONFIG_RESOURCE = "/robot-configs/starterbot-drive-only.xml";
 
     @Override
-    protected boolean isWheelMechanicallyReversed(int wheelIndex) {
-        return wheelIndex == 0 || wheelIndex == 3;
-    }
-
-    @Override
     protected void createHardwareMap() {
         super.createHardwareMap();
 

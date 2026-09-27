@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.hardware.configuration.MotorType;
 import javafx.scene.image.Image;
 import virtual_robot.controller.Game;
 import virtual_robot.controller.VirtualBot;
-import virtual_robot.games.Decode;
+import virtual_robot.games.NoGame;
 import virtual_robot.robots.classes.StarterBotMecanumSim;
 
 /**
@@ -24,11 +24,11 @@ public class Config {
      */
     public static final boolean USE_VIRTUAL_GAMEPAD = false;
 
-    public static final Image BACKGROUND = new Image("/virtual_robot/assets/decode648.bmp");
+    public static final Image BACKGROUND = new Image("/virtual_robot/assets/biobuzz648.bmp");
 
     public static final boolean HOLD_CONTROLS_BY_DEFAULT = false;
 
-    public static final Game GAME = new Decode();
+    public static final Game GAME = new NoGame();
 
     public static final double FIELD_FRICTION_COEFF = 10;
 

@@ -15,11 +15,6 @@ public class StarterBotConfigurationExerciseSim extends MecanumPhysicsBase {
             "/robot-configs/lessons/s2_04_configuration_exercise.xml";
 
     @Override
-    protected boolean isWheelMechanicallyReversed(int wheelIndex) {
-        return wheelIndex == 0 || wheelIndex == 3;
-    }
-
-    @Override
     protected void createHardwareMap() {
         super.createHardwareMap();
 
