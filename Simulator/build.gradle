@@ -41,6 +41,10 @@ tasks.named('processResources') {
         into 'robot-configs'
     }
     from('../robot-configs') {
+        include 'biobuzz-starterbot.xml'
+        into 'robot-configs'
+    }
+    from('../robot-configs') {
         include 'lessons/s2_04_configuration_exercise.xml'
         into 'robot-configs'
     }

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.Group?>
+<?import javafx.scene.shape.Rectangle?>
+
+<Group xmlns="http://javafx.com/javafx"
+       xmlns:fx="http://javafx.com/fxml"
+       fx:controller="virtual_robot.robots.classes.BioBuzzStarterBotSim">
+    <children>
+        <Rectangle arcHeight="5.0" arcWidth="5.0" fill="YELLOW" height="75.0" stroke="BLACK" strokeType="INSIDE" width="75.0" />
+        <Rectangle arcHeight="5.0" arcWidth="5.0" fill="BLUE" height="20.0" stroke="BLACK" strokeType="INSIDE" width="10.0" y="55.0" />
+        <Rectangle arcHeight="5.0" arcWidth="5.0" fill="BLUE" height="20.0" stroke="BLACK" strokeType="INSIDE" width="10.0" />
+        <Rectangle arcHeight="5.0" arcWidth="5.0" fill="BLUE" height="20.0" stroke="BLACK" strokeType="INSIDE" width="10.0" x="65.0" />
+        <Rectangle arcHeight="5.0" arcWidth="5.0" fill="BLUE" height="20.0" stroke="BLACK" strokeType="INSIDE" width="10.0" x="65.0" y="55.0" />
+        <Rectangle fx:id="intakeVisual0" fill="ORANGE" height="5.0" stroke="BLACK" strokeType="INSIDE" width="12.5" x="6.0" />
+        <Rectangle fx:id="intakeVisual1" fill="ORANGE" height="5.0" stroke="BLACK" strokeType="INSIDE" width="12.5" x="22.8333" />
+        <Rectangle fx:id="intakeVisual2" fill="ORANGE" height="5.0" stroke="BLACK" strokeType="INSIDE" width="12.5" x="39.6667" />
+        <Rectangle fx:id="intakeVisual3" fill="ORANGE" height="5.0" stroke="BLACK" strokeType="INSIDE" width="12.5" x="56.5" />
+        <Rectangle fx:id="launcherVisual" fill="RED" height="10.0" stroke="BLACK" strokeType="INSIDE" width="25.0" x="25.0" y="75.0" />
+        <Rectangle fx:id="leftIntakeServoVisual" fill="LIMEGREEN" height="12.0" stroke="BLACK" strokeType="INSIDE" width="6.0" x="-3.0" y="-10.0" />
+        <Rectangle fx:id="rightIntakeServoVisual" fill="LIMEGREEN" height="12.0" stroke="BLACK" strokeType="INSIDE" width="6.0" x="72.0" y="-10.0" />
+        <Group fx:id="windmillVisual">
+            <children>
+                <Rectangle fill="PURPLE" height="4.0" rotate="45.0" stroke="BLACK" strokeType="INSIDE" width="25.0" x="25.0" y="35.5" />
+                <Rectangle fill="PURPLE" height="4.0" rotate="-45.0" stroke="BLACK" strokeType="INSIDE" width="25.0" x="25.0" y="35.5" />
+            </children>
+        </Group>
+    </children>
+</Group>

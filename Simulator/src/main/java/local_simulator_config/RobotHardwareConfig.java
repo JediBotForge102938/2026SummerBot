@@ -11,8 +11,10 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.xml.sax.SAXException;
@@ -21,10 +23,25 @@ public final class RobotHardwareConfig {
     private RobotHardwareConfig() {
     }
 
+    public enum DeviceType {
+        MOTOR,
+        SERVO
+    }
+
+    public record Device(String name, int port, DeviceType type) {
+    }
+
     public record Motor(String name, int port) {
     }
 
     public static List<Motor> loadMotors(String resourcePath) {
+        return loadDevices(resourcePath).stream()
+                .filter(device -> device.type() == DeviceType.MOTOR)
+                .map(device -> new Motor(device.name(), device.port()))
+                .toList();
+    }
+
+    public static List<Device> loadDevices(String resourcePath) {
         try (InputStream input = RobotHardwareConfig.class.getResourceAsStream(resourcePath)) {
             if (input == null) {
                 throw new IOException("Robot configuration resource not found: " + resourcePath);
@@ -40,13 +57,23 @@ public final class RobotHardwareConfig {
 
             Document document = factory.newDocumentBuilder().parse(input);
             NodeList nodes = document.getElementsByTagName("*");
-            List<Motor> motors = new ArrayList<>();
+            List<Device> devices = new ArrayList<>();
             Set<String> names = new HashSet<>();
-            Set<Integer> ports = new HashSet<>();
+            Map<Node, Set<Integer>> motorPortsByModule = new HashMap<>();
+            Map<Node, Set<Integer>> servoPortsByModule = new HashMap<>();
 
             for (int i = 0; i < nodes.getLength(); i++) {
                 Node node = nodes.item(i);
-                if (!(node instanceof Element element) || !element.getTagName().toLowerCase().contains("motor")) {
+                if (!(node instanceof Element element)) {
+                    continue;
+                }
+                String tagName = element.getTagName().toLowerCase();
+                DeviceType type;
+                if (tagName.contains("motor")) {
+                    type = DeviceType.MOTOR;
+                } else if (tagName.contains("servo")) {
+                    type = DeviceType.SERVO;
+                } else {
                     continue;
                 }
 
@@ -64,18 +91,24 @@ public final class RobotHardwareConfig {
                 }
 
                 if (!names.add(name)) {
-                    throw new IllegalArgumentException("Duplicate motor name in " + resourcePath + ": " + name);
+                    throw new IllegalArgumentException("Duplicate device name in " + resourcePath + ": " + name);
                 }
+                Node module = element.getParentNode();
+                Map<Node, Set<Integer>> portsByModule =
+                        type == DeviceType.MOTOR ? motorPortsByModule : servoPortsByModule;
+                Set<Integer> ports = portsByModule.computeIfAbsent(module, ignored -> new HashSet<>());
                 if (!ports.add(port)) {
-                    throw new IllegalArgumentException("Duplicate motor port in " + resourcePath + ": " + port);
+                    throw new IllegalArgumentException(
+                            "Duplicate " + type.name().toLowerCase() + " port in the same module in "
+                                    + resourcePath + ": " + port);
                 }
-                motors.add(new Motor(name, port));
+                devices.add(new Device(name, port, type));
             }
 
-            if (motors.isEmpty()) {
-                throw new IllegalArgumentException("No motors found in " + resourcePath);
+            if (devices.isEmpty()) {
+                throw new IllegalArgumentException("No motors or servos found in " + resourcePath);
             }
-            return List.copyOf(motors);
+            return List.copyOf(devices);
         } catch (IllegalArgumentException exception) {
             throw exception;
         } catch (IOException | ParserConfigurationException | SAXException exception) {

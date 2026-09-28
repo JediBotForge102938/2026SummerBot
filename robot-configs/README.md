@@ -19,6 +19,18 @@ from the vestigial names in the previous `BioBuzz` configuration.
 `right_back_drive`) for two-motor tank drive. `StarterBotMecChassisTeleop` uses
 the same configuration's four motors for mecanum drive.
 
+`BioBuzzStarterbotTeleopMecanum` additionally requires these configured devices:
+`intake` (motor), `launcher` (motor with encoder support), `left_intake_servo`
+and `right_intake_servo` (continuous-rotation servos), and `windmillServo`
+(continuous-rotation servo). The current `starterbot-drive-only.xml` profile is
+intentionally drive-only and does not contain those devices. The
+`biobuzz-starterbot.xml` profile contains the Level 1 simulator mappings; its
+mechanism ports must be updated to the actual wiring before deployment.
+
+The simulator's `biobuzz-starterbot.xml` is a Level 1 test profile with the
+mechanism devices assigned to a simulated expansion hub. Replace its mechanism
+ports with the team's actual wiring before deploying it to a Control Hub.
+
 ## Managing configurations
 
 The XML file in this directory is the repository copy of the robot hardware
