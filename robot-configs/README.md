@@ -27,6 +27,10 @@ intentionally drive-only and does not contain those devices. The
 `biobuzz-starterbot.xml` profile contains the Level 1 simulator mappings; its
 mechanism ports must be updated to the actual wiring before deployment.
 
+`BioBuzzStarterbotTeleopMecanumFieldCentric` uses the same devices as the
+robot-centric BioBuzz OpMode and additionally requires the configured hub IMU
+named `imu`. Press `A` during teleop to reset the field heading.
+
 The simulator's `biobuzz-starterbot.xml` is a Level 1 test profile with the
 mechanism devices assigned to a simulated expansion hub. Replace its mechanism
 ports with the team's actual wiring before deploying it to a Control Hub.
