@@ -31,6 +31,20 @@ mechanism ports must be updated to the actual wiring before deployment.
 robot-centric BioBuzz OpMode and additionally requires the configured hub IMU
 named `imu`. Press `A` during teleop to reset the field heading.
 
+The lesson sensor-check OpMode also uses the built-in IMU. In
+`biobuzz-starterbot.xml`, configure it as the REV Controller IMU on I2C Bus 0,
+Port 0, named `imu`:
+
+```xml
+<ControlHubImuBHI260AP name="imu" port="0" bus="0" />
+```
+
+Keep both the `port` and `bus` attributes. If this device is missing from the
+Driver Station configuration, use **Configure Robot -> Control Hub Portal ->
+I2C Bus 0 -> Port 0**, select **REV Controller IMU**, name it `imu`, and save
+and activate the configuration. Update the repository XML from the working
+configuration before uploading it again.
+
 The simulator's `biobuzz-starterbot.xml` is a Level 1 test profile with the
 mechanism devices assigned to a simulated expansion hub. Replace its mechanism
 ports with the team's actual wiring before deploying it to a Control Hub.

@@ -56,9 +56,16 @@ imu.initialize(new IMU.Parameters(orientationOnRobot));</code></pre>
 telemetry.addData("Heading", "%.1f degrees",
         imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES));</code></pre>
 
+        <h2 id="configuration">Configure the built-in IMU</h2>
+        <p>The BioBuzz robot's internal Control Hub IMU is configured on <strong>I2C Bus 0, Port 0</strong> as <strong>REV Controller IMU</strong>, with the name <code>imu</code>. In Driver Station, use <strong>Configure Robot → Control Hub Portal → I2C Bus 0 → Port 0</strong>, select that device, name it <code>imu</code>, then save and activate the configuration.</p>
+        <p>The repository profile <code>robot-configs/biobuzz-starterbot.xml</code> must retain the same mapping:</p>
+        <pre><code>&lt;ControlHubImuBHI260AP name="imu" port="0" bus="0" /&gt;</code></pre>
+        <p>The <code>port</code> and <code>bus</code> attributes are both required in this XML entry. Without a port, the FTC SDK reads the missing value as invalid and can fail when the OpMode initializes the IMU.</p>
+
         <h2 id="checks">If the reading seems wrong</h2>
         <ol>
-          <li>Confirm the selected robot configuration contains an IMU named <code>imu</code>.</li>
+          <li>Confirm the selected robot configuration contains the REV Controller IMU on I2C Bus 0, Port 0, named <code>imu</code>.</li>
+          <li>Check the repository XML entry includes both <code>port="0"</code> and <code>bus="0"</code>.</li>
           <li>Compare the actual Hub mounting with the <code>LogoFacingDirection</code> and <code>UsbFacingDirection</code> in code.</li>
           <li>Check that the robot is being rotated around its vertical axis; forward motion alone is not a yaw turn.</li>
           <li>Remember the heading can start away from zero and yaw can drift slowly. Use <code>resetYaw()</code> to choose a fresh reference when appropriate.</li>
@@ -83,6 +90,7 @@ telemetry.addData("Heading", "%.1f degrees",
         <ol>
           <li><a href="#terms">Terms</a></li>
           <li><a href="#pattern">Code pattern</a></li>
+          <li><a href="#configuration">Configuration</a></li>
           <li><a href="#checks">Troubleshooting</a></li>
           <li><a href="#sources">Trusted reading</a></li>
         </ol>

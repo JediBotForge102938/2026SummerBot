@@ -59,11 +59,12 @@
         <h2 id="read">Use the sensor-check OpMode</h2>
         <ol>
           <li>Open <code>S3_01_IMUSensorTeleOp.java</code> under <code>TeamCode/src/main/java/org/firstinspires/ftc/teamcode/teaching/session3/</code>. In Android Studio, use <strong>Shift+Shift</strong> and search for the filename.</li>
+          <li>Open <code>robot-configs/biobuzz-starterbot.xml</code> and find the Control Hub IMU entry. It must name the device <code>imu</code> and specify I2C <code>port="0"</code> and <code>bus="0"</code>.</li>
           <li>In <code>init()</code>, find <code>hardwareMap.get(IMU.class, "imu")</code>. The name <code>imu</code> must match the active robot configuration.</li>
           <li>Read the next few lines: this code declares the Hub logo <code>UP</code> and its USB ports <code>FORWARD</code>, then initializes the IMU with that mounting orientation.</li>
           <li>In <code>loop()</code>, find the yaw, pitch, and roll telemetry. Each value comes from the same orientation reading, expressed in degrees.</li>
         </ol>
-        <div class="tip"><strong>Mounting check:</strong> the code only works as intended if the physical Hub matches the declared orientation. With an instructor, compare the actual robot to the code before changing these directions. The BioBuzz configuration identifies its internal sensor as <code>imu</code>.</div>
+        <div class="tip"><strong>If the IMU is missing from the configuration:</strong> in Driver Station, open Configure Robot, select Control Hub Portal, then I2C Bus 0 / Port 0, choose <strong>REV Controller IMU</strong>, name it <code>imu</code>, and save and activate the configuration. The repository XML must preserve the same device mapping or a later config upload can restore the broken entry. The Hub's physical orientation in the Java code is a separate setting; verify it with an instructor.</div>
 
         <h2 id="practice">Make a prediction, then test</h2>
         <ol>
