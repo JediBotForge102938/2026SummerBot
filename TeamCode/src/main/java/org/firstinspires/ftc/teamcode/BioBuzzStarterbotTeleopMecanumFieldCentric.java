@@ -52,6 +52,9 @@ public class BioBuzzStarterbotTeleopMecanumFieldCentric extends OpMode {
     private static final int LAUNCHER_TARGET_VELOCITY = 1250;
     private static final int LAUNCHER_MIN_VELOCITY = 1200;
 
+    //original values 1250; 1200
+    // 650; 600 does not work
+
     private double leftFrontPower;
     private double rightFrontPower;
     private double leftBackPower;
@@ -89,13 +92,14 @@ public class BioBuzzStarterbotTeleopMecanumFieldCentric extends OpMode {
         leftIntakeServo.setPower(0);
         rightIntakeServo.setPower(0);
         windmillServo.setPower(0);
-        rightIntakeServo.setDirection(DcMotorSimple.Direction.REVERSE);
-        windmillServo.setDirection(DcMotorSimple.Direction.REVERSE);
+        rightIntakeServo.setDirection(DcMotorSimple.Direction.FORWARD);
+        leftIntakeServo.setDirection(DcMotorSimple.Direction.REVERSE);
+        windmillServo.setDirection(DcMotorSimple.Direction.FORWARD);
 
         imu = hardwareMap.get(IMU.class, "imu");
         RevHubOrientationOnRobot orientationOnRobot = new RevHubOrientationOnRobot(
                 RevHubOrientationOnRobot.LogoFacingDirection.UP,
-                RevHubOrientationOnRobot.UsbFacingDirection.FORWARD);
+                RevHubOrientationOnRobot.UsbFacingDirection.BACKWARD);
         imu.initialize(new IMU.Parameters(orientationOnRobot));
 
         telemetry.addData("Status", "Initialized");

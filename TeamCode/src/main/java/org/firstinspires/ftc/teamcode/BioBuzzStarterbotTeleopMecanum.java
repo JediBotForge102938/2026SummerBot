@@ -84,8 +84,9 @@ public class BioBuzzStarterbotTeleopMecanum extends OpMode {
         leftIntakeServo.setPower(0);
         rightIntakeServo.setPower(0);
         windmillServo.setPower(0);
-        rightIntakeServo.setDirection(DcMotorSimple.Direction.REVERSE);
-        windmillServo.setDirection(DcMotorSimple.Direction.REVERSE);
+        leftIntakeServo.setDirection(DcMotorSimple.Direction.REVERSE);
+        rightIntakeServo.setDirection(DcMotorSimple.Direction.FORWARD);
+        windmillServo.setDirection(DcMotorSimple.Direction.FORWARD);
 
         telemetry.addData("Status", "Initialized");
     }
@@ -104,6 +105,10 @@ public class BioBuzzStarterbotTeleopMecanum extends OpMode {
                 leftFrontPower, rightFrontPower, leftBackPower, rightBackPower);
         telemetry.addData("Triggers", "left (%.2f), right (%.2f)",
                 gamepad1.left_trigger, gamepad1.right_trigger);
+
+        telemetry.addData("windmill", "(%.2f)", windmillServo.getPower());
+        telemetry.addData("intakeservo", "l(%.2f) r(%.2f)" ,leftIntakeServo.getPower(), rightIntakeServo.getPower());
+        telemetry.addData("velocity","(%.2f)",launcher.getVelocity());
     }
 
     private void mecanumDrive(double forward, double strafe, double rotate) {
