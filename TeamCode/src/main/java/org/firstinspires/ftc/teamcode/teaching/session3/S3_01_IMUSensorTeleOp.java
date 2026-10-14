@@ -18,7 +18,7 @@ public class S3_01_IMUSensorTeleOp extends OpMode {
 
         RevHubOrientationOnRobot orientationOnRobot = new RevHubOrientationOnRobot(
                 RevHubOrientationOnRobot.LogoFacingDirection.UP,
-                RevHubOrientationOnRobot.UsbFacingDirection.FORWARD);
+                RevHubOrientationOnRobot.UsbFacingDirection.BACKWARD);
         imu.initialize(new IMU.Parameters(orientationOnRobot));
 
         telemetry.addLine("IMU initialized. Start, then gently rotate the robot by hand.");
