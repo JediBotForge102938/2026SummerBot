@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S3-02: Robot-centric vs field-centric driving | Stryker FTC</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <p class="eyebrow">S3-02 · Lesson 2</p>
+      <h1>S3-02 · Robot-centric vs field-centric driving</h1>
+      <p>Use IMU heading to make the gamepad's directions stay aligned with the field as the robot turns.</p>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="../index.html">Course map</a>
+        <a href="../mission.html">Mission</a>
+        <a href="../resources.html">Resources</a>
+        <a href="../notes.html">Instructor notes</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="layout">
+      <article>
+        <span class="tag">IMU · field-centric drive</span>
+        <p class="lede">In S3-01, you watched yaw change as the robot turned. Now connect that reading to two different meanings of “forward”: forward relative to the robot, or forward relative to the field.</p>
+
+        <h2 id="frames">Two coordinate frames</h2>
+        <p>A <strong>coordinate frame</strong> is simply the viewpoint used to describe a direction.</p>
+        <table>
+          <thead><tr><th>Frame</th><th>What “forward” means</th><th>What happens when the robot turns?</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Robot-centric</strong></td><td>Toward the robot's nose.</td><td>The forward direction turns with the robot.</td></tr>
+            <tr><td><strong>Field-centric</strong></td><td>Toward a chosen direction on the field, such as the wall the team calls field-forward.</td><td>The chosen field direction stays fixed while the robot rotates.</td></tr>
+          </tbody>
+        </table>
+        <p>In the S2-01 mecanum lesson, the joystick commands are robot-centric: pushing forward asks the robot to move toward its own front. With field-centric control, pushing forward asks it to move toward the chosen field-forward direction—even when the robot is facing sideways.</p>
+        <div class="tip"><strong>Picture it:</strong> turn the robot so its nose points toward the field's right wall. Robot-centric forward points toward that wall. Field-centric forward still points in the field direction the team chose as forward.</div>
+
+        <h2 id="imu">How the IMU connects the frames</h2>
+        <p>The IMU reports the robot's yaw relative to a zero direction. The drive code uses that angle to convert a joystick direction from the field frame into the robot frame before calculating wheel powers. In this way, the sensor reading lets the robot compensate for its own rotation.</p>
+        <p>The IMU does <strong>not</strong> know where the robot is on the field or which wall your team means by “forward.” Before testing, point the robot in the desired field-forward direction and press <strong>A</strong> to call <code>resetYaw()</code>. That sets the current direction as zero for this control scheme; it does not physically move the robot or establish a permanent field compass direction. Review <a href="s3-01-imu.html">S3-01</a> if yaw, heading, or the Hub orientation needs a refresher.</p>
+
+        <h2 id="code">Find the conversion in the code</h2>
+        <ol>
+          <li>Open <code>BioBuzzStarterbotTeleopMecanumFieldCentric.java</code> under <code>TeamCode/src/main/java/org/firstinspires/ftc/teamcode/</code>. Use <strong>Shift+Shift</strong> and search for the filename.</li>
+          <li>In <code>loop()</code>, find the A-button check. It calls <code>imu.resetYaw()</code> while the button is held; press and release A after setting the reference.</li>
+          <li>Find <code>driveFieldRelative()</code>. It reads yaw in radians and adjusts the joystick angle by the robot's heading.</li>
+          <li>Find <code>mecanumDrive()</code>. That method turns the adjusted forward, strafe, and rotate values into four wheel powers.</li>
+        </ol>
+        <p>The transform is the important idea—not the trigonometry yet: the code uses the measured robot heading to express the driver's field-relative intent in directions the robot's wheels can carry out.</p>
+        <p>For the video companion, jump to <a href="https://www.youtube.com/watch?v=8mB7x6SNUKo&amp;t=398s">6:38 · the OpMode example</a> to see heading used in a complete program. The video is a conceptual companion; follow the current <a href="https://ftc-docs.firstinspires.org/en/latest/programming_resources/imu/imu.html">FTC Universal IMU guide</a> for SDK details.</p>
+
+        <h2 id="practice">Experience field-centric control</h2>
+        <ol>
+          <li>With an instructor, use the <strong>BioBuzz StarterBot</strong> configuration and select <strong>Mec BioBuzz StarterBot Field Centric Teleop</strong>. This OpMode expects the BioBuzz drive train and mechanisms to be configured.</li>
+          <li>Clear the driving area. Keep hands and objects away from the robot while it is enabled. Use only small, brief stick movements, and keep the triggers and bumpers released.</li>
+          <li>Point the robot toward the team's chosen field-forward landmark. Press and release <strong>A</strong> to set this as zero heading.</li>
+          <li>Give a brief forward input with the left stick and observe the direction of travel. Stop and let the robot settle.</li>
+          <li>Use a brief, slow right-stick input to turn the robot about a quarter turn. Release the stick. Predict which way the robot will move if you now push the left stick forward.</li>
+          <li>Give another brief forward input. In field-centric mode, it should still travel along the original field-forward direction, not toward its newly rotated nose. Compare this with the robot-centric behavior from S2-01.</li>
+        </ol>
+        <p>Stop the OpMode when finished. If the robot's orientation reference was not set or the Hub mounting is wrong, the field-relative direction can be wrong too; return to <a href="s3-01-imu.html">the sensor-check lesson</a> with an instructor.</p>
+
+        <h2 id="takeaway">Quick retrieval check</h2>
+        <p>Explain to a teammate: <strong>What stays fixed in a field-centric frame? What turns with the robot in a robot-centric frame? What measurement lets the code convert between them? What does pressing A establish?</strong></p>
+        <div class="tip">Field-centric controls preserve a chosen field direction, not the robot's location. The driver or code must establish the field-forward reference before the IMU angle can be used that way.</div>
+        <p><a href="../reference-docs/imu.html">IMU quick reference</a> · Ask the teacher agent or instructor about any unclear result or code line.</p>
+        <nav class="lesson-nav" aria-label="Lesson navigation">
+          <a href="s3-01-imu.html">&larr; Previous: read the IMU</a>
+          <a href="../index.html">Course map &rarr;</a>
+        </nav>
+      </article>
+      <aside class="toc" aria-label="On this page">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#frames">Coordinate frames</a></li>
+          <li><a href="#imu">IMU connection</a></li>
+          <li><a href="#code">Code</a></li>
+          <li><a href="#practice">Practice</a></li>
+          <li><a href="#takeaway">Retrieval check</a></li>
+        </ol>
+      </aside>
+    </div>
+  </main>
+  <script src="../assets/theme.js"></script>
+</body>
+</html>

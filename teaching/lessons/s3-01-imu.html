@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S3-01: Read the robot's heading | Stryker FTC</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <p class="eyebrow">S3-01 · Lesson 1</p>
+      <h1>S3-01 · Read the robot's heading</h1>
+      <p>Gently rotate the robot by hand and watch its IMU report yaw, pitch, and roll.</p>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="../index.html">Course map</a>
+        <a href="../mission.html">Mission</a>
+        <a href="../resources.html">Resources</a>
+        <a href="../notes.html">Instructor notes</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="layout">
+      <article>
+        <span class="tag">Robot sensors · IMU</span>
+        <p class="lede">Start with the sensor and the robot's axes. Then connect yaw to heading and watch all three orientation readings change as you rotate the robot by hand.</p>
+
+        <h2 id="what">What is an IMU?</h2>
+        <p><strong>IMU</strong> means <em>Inertial Measurement Unit</em>. It is a small motion-sensing package built into this robot's Control Hub. Inside, accelerometers sense acceleration (including the pull of gravity), while gyroscopes measure how quickly the Hub is rotating. The FTC software processes these measurements into useful orientation readings. The programming interface exposes the Hub's built-in sensor as an <code>IMU</code>.</p>
+        <p>Think of it as a way for the robot to estimate <strong>how it is oriented and rotating</strong>—not a camera that sees the field, a GPS that locates the robot, or an encoder that counts wheel movement. The FTC SDK notes that yaw can drift over time, so the IMU is not a perfect compass or an absolute field-position sensor. See <a href="https://itp.nyu.edu/physcomp/lessons/accelerometers-gyros-and-imus-the-basics/">NYU's introduction to accelerometers, gyros, and IMUs</a> for the sensor basics and the <a href="https://ftc-docs.firstinspires.org/en/latest/programming_resources/imu/imu.html">FTC Universal IMU guide</a> for how FTC uses them.</p>
+
+        <h2 id="axes">Three rotations: yaw, pitch, and roll</h2>
+        <p>To describe orientation, FTC gives the robot its own three-dimensional coordinate system: <strong>forward</strong> is +Y, <strong>right</strong> is +X, and <strong>up</strong> is +Z. Yaw, pitch, and roll each describe rotation around one of those axes.</p>
+        <table>
+          <thead><tr><th>Rotation</th><th>Robot axis</th><th>Picture the robot...</th><th>Why it matters</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Yaw</strong></td><td>Up/down (+Z)</td><td>Turning left or right on the floor, like changing which wall the robot faces.</td><td>Tracks direction while driving on a flat field.</td></tr>
+            <tr><td><strong>Pitch</strong></td><td>Right/left (+X)</td><td>Tilting nose-up or nose-down, such as climbing a ramp.</td><td>Describes front-to-back tilt.</td></tr>
+            <tr><td><strong>Roll</strong></td><td>Forward/back (+Y)</td><td>Leaning toward the robot's left or right side.</td><td>Describes side-to-side tilt.</td></tr>
+          </tbody>
+        </table>
+        <p>For FTC's robot axes, yaw is rotation around vertical, pitch around the robot's right-side axis, and roll around its forward axis. Those axis names are more reliable than memorizing a picture of a sensor mounted a particular way; the Hub's physical orientation is configured separately.</p>
+
+        <h2 id="heading">Yaw becomes heading</h2>
+        <p>In FTC driving code, <strong>heading</strong> usually means the robot's yaw angle: which way its front points around the vertical axis. Yaw describes the rotation; heading is the direction value we use in robot logic. On a level field, teams often use those words almost interchangeably.</p>
+        <p>The number needs a reference direction. It is not automatically “north” or a known spot on the field. This sensor-check program does not reset yaw, so do not expect its first reading to be zero. The FTC SDK can preserve heading between OpModes. In the next lesson, you will choose a field direction as zero before trying field-centric driving.</p>
+
+        <h2 id="video">Watch the relevant parts</h2>
+        <p>The requested video is a beginner-oriented walkthrough. These approximate chapter markers are a guide; watch the opening section first for context, then skip to the topic you need. The current code examples in this lesson follow the FTC SDK documentation.</p>
+        <ul>
+          <li><a href="https://www.youtube.com/watch?v=8mB7x6SNUKo&amp;t=0s">0:00 · Introduction</a> — why an IMU matters in FTC.</li>
+          <li><a href="https://www.youtube.com/watch?v=8mB7x6SNUKo&amp;t=61s">1:01 · IMU orientation</a> — orientation and mounting concepts; use the table above for the robot-axis definitions.</li>
+          <li><a href="https://www.youtube.com/watch?v=8mB7x6SNUKo&amp;t=199s">3:19 · Initialize the IMU</a> — Java setup.</li>
+          <li><a href="https://www.youtube.com/watch?v=8mB7x6SNUKo&amp;t=305s">5:05 · Read a heading</a> — getter method and angle reading.</li>
+          <li><a href="https://www.youtube.com/watch?v=8mB7x6SNUKo&amp;t=565s">9:25 · Practice examples</a> — try the follow-up exercises.</li>
+        </ul>
+
+        <h2 id="read">Use the sensor-check OpMode</h2>
+        <ol>
+          <li>Open <code>S3_01_IMUSensorTeleOp.java</code> under <code>TeamCode/src/main/java/org/firstinspires/ftc/teamcode/teaching/session3/</code>. In Android Studio, use <strong>Shift+Shift</strong> and search for the filename.</li>
+          <li>In <code>init()</code>, find <code>hardwareMap.get(IMU.class, "imu")</code>. The name <code>imu</code> must match the active robot configuration.</li>
+          <li>Read the next few lines: this code declares the Hub logo <code>UP</code> and its USB ports <code>FORWARD</code>, then initializes the IMU with that mounting orientation.</li>
+          <li>In <code>loop()</code>, find the yaw, pitch, and roll telemetry. Each value comes from the same orientation reading, expressed in degrees.</li>
+        </ol>
+        <div class="tip"><strong>Mounting check:</strong> the code only works as intended if the physical Hub matches the declared orientation. With an instructor, compare the actual robot to the code before changing these directions. The BioBuzz configuration identifies its internal sensor as <code>imu</code>.</div>
+
+        <h2 id="practice">Make a prediction, then test</h2>
+        <ol>
+          <li>Build and deploy the TeamCode app. With an instructor, select the <strong>BioBuzz StarterBot</strong> robot configuration and <strong>[S3-01] IMU Sensor Check</strong>.</li>
+          <li>Press <strong>INIT</strong>, then <strong>START</strong>. This OpMode only initializes the IMU and reports telemetry; it does not command the drive motors.</li>
+          <li>On a clear floor, with an instructor supervising, keep fingers clear of the wheels and mechanisms. Gently rotate the robot by hand while a teammate watches the three readings.</li>
+          <li>Predict before each movement: which reading should change most when you turn the robot on the floor? What should happen to pitch and roll if the chassis stays level?</li>
+          <li>Stop the OpMode. If the reading direction or size seems surprising, check the declared Hub mounting with an instructor before changing code.</li>
+        </ol>
+        <p>If the team does not have the BioBuzz robot/configuration available, do the code walk-through only—do not run this OpMode with a different robot profile.</p>
+
+        <h2 id="next">Where this leads</h2>
+        <p>You have measured how the robot is rotated. In <a href="s3-02-field-centric.html">S3-02 · Robot-centric vs field-centric driving</a>, you will learn how code uses yaw to translate between directions defined by the robot and directions defined by the field.</p>
+        <p><a href="../reference-docs/imu.html">Open the IMU quick reference</a> for the sensor terms, code pattern, and common checks. The <a href="https://www.youtube.com/watch?v=8mB7x6SNUKo">video walkthrough</a> has the setup sections linked above; use the FTC guide as the authority for current SDK behavior.</p>
+
+        <h2 id="takeaway">Quick retrieval check</h2>
+        <p>Without looking back, tell a teammate: <strong>What does an IMU sense? Which way does the robot rotate for yaw, pitch, and roll? When the robot turns on a level floor, which reading should change most?</strong> Then check your answers against the page above.</p>
+        <div class="tip">An IMU reading is only useful when the sensor name and the Hub orientation in code match the real robot. This sensor-check OpMode only observes motion; it does not drive the robot or reset yaw.</div>
+        <p>Ask the teacher agent or instructor about any unclear word, code line, or test result.</p>
+        <nav class="lesson-nav" aria-label="Lesson navigation">
+          <a href="s2-04-configuration-exercise.html">&larr; Previous: repair a configuration</a>
+          <a href="s3-02-field-centric.html">Next: field-centric driving &rarr;</a>
+        </nav>
+      </article>
+      <aside class="toc" aria-label="On this page">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#what">What is an IMU?</a></li>
+          <li><a href="#axes">Yaw, pitch, roll</a></li>
+          <li><a href="#heading">Heading</a></li>
+          <li><a href="#video">Video timestamps</a></li>
+          <li><a href="#read">Find it in code</a></li>
+          <li><a href="#practice">Practice</a></li>
+          <li><a href="#next">Next lesson</a></li>
+          <li><a href="#takeaway">Retrieval check</a></li>
+        </ol>
+      </aside>
+    </div>
+    <footer>Use robot hardware only with instructor supervision and the matching configuration.</footer>
+  </main>
+  <script src="../assets/theme.js"></script>
+</body>
+</html>

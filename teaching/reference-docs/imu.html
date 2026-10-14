@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IMU quick reference | Stryker FTC</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <p class="eyebrow">Reference · Sensors</p>
+      <h1>IMU quick reference</h1>
+      <p>Find, initialize, read, and reset the FTC robot's heading.</p>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="../index.html">Course map</a>
+        <a href="../mission.html">Mission</a>
+        <a href="../resources.html">Resources</a>
+        <a href="../notes.html">Instructor notes</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="layout">
+      <article>
+        <span class="tag">Current FTC SDK · Universal IMU</span>
+        <p class="lede">This repository uses the current universal FTC <code>IMU</code> interface. The official <a href="https://ftc-docs.firstinspires.org/en/latest/programming_resources/imu/imu.html">FTC Universal IMU guide</a> is the source of truth; this page is a compact companion for the field-centric example.</p>
+
+        <h2 id="terms">Read this first</h2>
+        <table>
+          <thead><tr><th>Term</th><th>Meaning here</th></tr></thead>
+          <tbody>
+            <tr><td>IMU</td><td>Inertial Measurement Unit: a sensor package whose accelerometers and gyroscopes help estimate motion and orientation.</td></tr>
+            <tr><td>Yaw</td><td>Rotation around the robot's vertical axis; on a flat FTC field, it tracks which direction the robot faces.</td></tr>
+            <tr><td>Pitch</td><td>Rotation around the robot's right-side axis; describes nose-up or nose-down tilt.</td></tr>
+            <tr><td>Roll</td><td>Rotation around the robot's forward axis; describes side-to-side tilt.</td></tr>
+            <tr><td>Heading</td><td>The direction the robot faces, commonly represented by yaw relative to a chosen zero reference.</td></tr>
+            <tr><td>Hub orientation</td><td>The REV Hub's physical mounting directions, described in code so sensor axes line up with robot axes.</td></tr>
+            <tr><td>Reset yaw</td><td>Set the current direction as the zero-heading reference. It does not move the robot or set an absolute field direction.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="pattern">The repository code pattern</h2>
+        <p>In <code>BioBuzzStarterbotTeleopMecanumFieldCentric.java</code>, initialization happens once in <code>init()</code>:</p>
+        <pre><code>imu = hardwareMap.get(IMU.class, "imu");
+RevHubOrientationOnRobot orientationOnRobot = new RevHubOrientationOnRobot(
+        RevHubOrientationOnRobot.LogoFacingDirection.UP,
+        RevHubOrientationOnRobot.UsbFacingDirection.FORWARD);
+imu.initialize(new IMU.Parameters(orientationOnRobot));</code></pre>
+        <p>The logo and USB directions shown are the mounting assumed by this example. Verify the actual robot before using or changing them.</p>
+        <p>In the repeating <code>loop()</code>, the sample reports yaw in degrees and resets it when A is pressed:</p>
+        <pre><code>if (gamepad1.a) {
+    imu.resetYaw();
+}
+
+telemetry.addData("Heading", "%.1f degrees",
+        imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES));</code></pre>
+
+        <h2 id="checks">If the reading seems wrong</h2>
+        <ol>
+          <li>Confirm the selected robot configuration contains an IMU named <code>imu</code>.</li>
+          <li>Compare the actual Hub mounting with the <code>LogoFacingDirection</code> and <code>UsbFacingDirection</code> in code.</li>
+          <li>Check that the robot is being rotated around its vertical axis; forward motion alone is not a yaw turn.</li>
+          <li>Remember the heading can start away from zero and yaw can drift slowly. Use <code>resetYaw()</code> to choose a fresh reference when appropriate.</li>
+          <li>Check units at the call site: telemetry uses degrees; the field-centric math reads radians.</li>
+        </ol>
+        <div class="tip">Reset yaw while the robot is not rotating, and release the A button after the reset. This example checks the button continuously while it is held.</div>
+
+        <h2 id="sources">Trusted reading</h2>
+        <ul>
+          <li><a href="https://itp.nyu.edu/physcomp/lessons/accelerometers-gyros-and-imus-the-basics/">NYU: Accelerometers, Gyros, and IMUs</a> — accessible explanation of the component sensors and motion axes.</li>
+          <li><a href="https://ftc-docs.firstinspires.org/en/latest/programming_resources/imu/imu.html">FTC Docs: Universal IMU Interface</a> — official SDK guide, including mounting diagrams, heading reset, and yaw drift.</li>
+          <li><a href="https://docs.revrobotics.com/duo-control/sensors/i2c/imu/orientating-the-imu">REV Robotics: Orientating the IMU</a> — mounting-orientation illustrations and setup notes.</li>
+          <li><a href="https://www.youtube.com/watch?v=8mB7x6SNUKo">IMU/Gyro Beginners Guide (Learn Java For FTC Robotics)</a> — beginner video companion; verify SDK-specific details against FTC Docs.</li>
+        </ul>
+        <nav class="lesson-nav" aria-label="Page navigation">
+          <a href="../lessons/s3-01-imu.html">&larr; Lesson: read the robot's heading</a>
+          <a href="../index.html">Course map &rarr;</a>
+        </nav>
+      </article>
+      <aside class="toc" aria-label="On this page">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#terms">Terms</a></li>
+          <li><a href="#pattern">Code pattern</a></li>
+          <li><a href="#checks">Troubleshooting</a></li>
+          <li><a href="#sources">Trusted reading</a></li>
+        </ol>
+      </aside>
+    </div>
+  </main>
+  <script src="../assets/theme.js"></script>
+</body>
+</html>
