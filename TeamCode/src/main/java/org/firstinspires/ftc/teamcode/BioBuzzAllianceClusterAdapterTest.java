@@ -1,37 +1,28 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.hardware.limelightvision.LLResult;
-import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
+import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @TeleOp(name = "BioBuzz Alliance Cluster Adapter Test", group = "Vision")
 public class BioBuzzAllianceClusterAdapterTest extends OpMode {
-    private static final String LIMELIGHT_NAME = "limelight";
-    // Configure this slot for 36h11 AprilTags with a 3.25-inch tag size.
-    private static final int LIMELIGHT_PIPELINE = 0;
-
-    private Limelight3A limelight;
-    private final BioBuzzLimelightClusterAdapter clusterAdapter =
-            new BioBuzzLimelightClusterAdapter();
+    private final VisionSubsystem vision = new VisionSubsystem();
     private BioBuzzLimelightClusterAdapter.Alliance selectedAlliance =
             BioBuzzLimelightClusterAdapter.Alliance.BLUE;
 
     @Override
     public void init() {
-        limelight = hardwareMap.get(Limelight3A.class, LIMELIGHT_NAME);
-        limelight.pipelineSwitch(LIMELIGHT_PIPELINE);
-        limelight.start();
-
-        telemetry.addData("Selected Team", selectedAlliance);
-        telemetry.addData("Controls", "Press OPTIONS to switch alliances");
-        telemetry.addData("Limelight", LIMELIGHT_NAME);
-        telemetry.addData("Pipeline", LIMELIGHT_PIPELINE);
-        telemetry.addData("Status", "Ready");
+        vision.init(hardwareMap);
+        telemetry.addData("Limelight", VisionSubsystem.LIMELIGHT_NAME);
+        telemetry.addData("Pipeline", VisionSubsystem.LIMELIGHT_PIPELINE);
+        telemetry.addData("Selected alliance", selectedAlliance);
+        telemetry.addLine("Press Options to switch alliance");
     }
 
     @Override
@@ -42,23 +33,23 @@ public class BioBuzzAllianceClusterAdapterTest extends OpMode {
                     : BioBuzzLimelightClusterAdapter.Alliance.BLUE;
         }
 
-        telemetry.addData("Selected Team", selectedAlliance);
-        telemetry.addData("Controls", "Press OPTIONS to switch alliances");
+        telemetry.addData("Selected alliance", selectedAlliance);
+        telemetry.addLine("Press Options to switch alliance");
+        telemetry.addLine("Roll check assumes camera optical axis aligns with launcher");
 
-        LLResult result = limelight.getLatestResult();
-        if (result == null || !result.isValid()) {
+        VisionSubsystem.DetectionSnapshot snapshot = vision.update(selectedAlliance);
+        if (!snapshot.hasValidResult) {
             telemetry.addLine("No valid Limelight result");
             telemetry.update();
             return;
         }
 
-        List<BioBuzzLimelightClusterAdapter.ClusterDetection> clusters =
-                clusterAdapter.detect(result, selectedAlliance);
-        if (clusters.isEmpty()) {
-            telemetry.addLine("No " + selectedAlliance + " BioBuzz cluster tags detected");
+        List<String> downCells = new ArrayList<>();
+        List<String> unknownPoseCells = new ArrayList<>();
+        if (snapshot.clusters.isEmpty()) {
+            telemetry.addLine("No selected-alliance BioBuzz cluster tags detected");
         }
-
-        for (BioBuzzLimelightClusterAdapter.ClusterDetection cluster : clusters) {
+        for (BioBuzzLimelightClusterAdapter.ClusterDetection cluster : snapshot.clusters) {
             telemetry.addLine("==== " + cluster.name);
             telemetry.addData(
                     "Tags found",
@@ -68,7 +59,8 @@ public class BioBuzzAllianceClusterAdapterTest extends OpMode {
                     cluster.visibleTagIds);
 
             if (!cluster.hasPose()) {
-                telemetry.addLine("Cluster pose unavailable");
+                telemetry.addLine("Cell status: UNKNOWN (pose unavailable)");
+                unknownPoseCells.add(cluster.name);
                 continue;
             }
 
@@ -80,20 +72,37 @@ public class BioBuzzAllianceClusterAdapterTest extends OpMode {
                     pose.getPosition().y,
                     pose.getPosition().z);
             telemetry.addData(
-                    "Yaw / pitch / roll (deg)",
+                    "Limelight yaw / pitch / roll (deg)",
                     "%6.1f / %6.1f / %6.1f",
                     pose.getOrientation().getYaw(AngleUnit.DEGREES),
                     pose.getOrientation().getPitch(AngleUnit.DEGREES),
                     pose.getOrientation().getRoll(AngleUnit.DEGREES));
+
+            double ftcRoll = VisionSubsystem.getFtcRollDegrees(cluster);
+            VisionSubsystem.CellStatus cellStatus = VisionSubsystem.classifyCell(cluster);
+            telemetry.addData(
+                    "Cell status",
+                    "%s (FTC-equivalent roll %.1f deg)",
+                    cellStatus,
+                    ftcRoll);
+            if (cellStatus == VisionSubsystem.CellStatus.UNKNOWN_POSE) {
+                unknownPoseCells.add(cluster.name);
+            } else if (cellStatus == VisionSubsystem.CellStatus.NOT_SCORABLE) {
+                downCells.add(cluster.name);
+            }
         }
 
+        telemetry.addData(
+                "Down / not scorable cells",
+                downCells.isEmpty() ? "none" : String.join(", ", downCells));
+        telemetry.addData(
+                "Unknown-pose cells",
+                unknownPoseCells.isEmpty() ? "none" : String.join(", ", unknownPoseCells));
         telemetry.update();
     }
 
     @Override
     public void stop() {
-        if (limelight != null) {
-            limelight.stop();
-        }
+        vision.stop();
     }
 }
