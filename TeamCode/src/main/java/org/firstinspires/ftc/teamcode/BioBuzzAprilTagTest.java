@@ -18,6 +18,25 @@ public class BioBuzzAprilTagTest extends OpMode {
     // This slot must be configured as an AprilTag pipeline in the Limelight web UI.
     private static final int LIMELIGHT_PIPELINE = 0;
 
+    private enum Alliance {
+        BLUE,
+        RED;
+
+        private Alliance opposite() {
+            return this == BLUE ? RED : BLUE;
+        }
+    }
+
+    private static final String[] BLUE_CLUSTER_NAMES = {
+            "BLUE SCORING",
+            "BLUE AUDIENCE"
+    };
+
+    private static final int[][] BLUE_CLUSTER_TAG_IDS = {
+            {42, 43, 44, 45},
+            {38, 39, 40, 41}
+    };
+
     private static final String[] RED_CLUSTER_NAMES = {
             "RED SCORING",
             "RED AUDIENCE"
@@ -29,6 +48,7 @@ public class BioBuzzAprilTagTest extends OpMode {
     };
 
     private Limelight3A limelight;
+    private Alliance selectedAlliance = Alliance.BLUE;
 
     @Override
     public void init() {
@@ -36,35 +56,47 @@ public class BioBuzzAprilTagTest extends OpMode {
         limelight.pipelineSwitch(LIMELIGHT_PIPELINE);
         limelight.start();
 
+        telemetry.addData("Selected Team", selectedAlliance);
+        telemetry.addData("Controls", "Press OPTIONS to switch alliances");
         telemetry.addData("Limelight", LIMELIGHT_NAME);
         telemetry.addData("Pipeline", LIMELIGHT_PIPELINE);
-        telemetry.addData("Cluster filter", "Red");
         telemetry.addData("Status", "Ready");
     }
 
     @Override
     public void loop() {
+        if (gamepad1.optionsWasPressed()) {
+            selectedAlliance = selectedAlliance.opposite();
+        }
+
+        telemetry.addData("Selected Team", selectedAlliance);
+        telemetry.addData("Controls", "Press OPTIONS to switch alliances");
+
         LLResult result = limelight.getLatestResult();
-        Map<Integer, LLResultTypes.FiducialResult> detectedRedTags = new HashMap<>();
+        Map<Integer, LLResultTypes.FiducialResult> detectedAllianceTags = new HashMap<>();
 
         if (result != null && result.isValid()) {
             List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
             for (LLResultTypes.FiducialResult fiducial : fiducials) {
                 int id = fiducial.getFiducialId();
-                if (isRedClusterTag(id)) {
-                    detectedRedTags.put(id, fiducial);
+                if (isSelectedAllianceTag(id)) {
+                    detectedAllianceTags.put(id, fiducial);
                 }
             }
         } else {
             telemetry.addLine("No valid Limelight result");
         }
 
-        for (int clusterIndex = 0; clusterIndex < RED_CLUSTER_NAMES.length; clusterIndex++) {
-            int[] tagIds = RED_CLUSTER_TAG_IDS[clusterIndex];
+        String[] clusterNames = selectedAlliance == Alliance.BLUE
+                ? BLUE_CLUSTER_NAMES : RED_CLUSTER_NAMES;
+        int[][] clusterTagIds = selectedAlliance == Alliance.BLUE
+                ? BLUE_CLUSTER_TAG_IDS : RED_CLUSTER_TAG_IDS;
+        for (int clusterIndex = 0; clusterIndex < clusterNames.length; clusterIndex++) {
+            int[] tagIds = clusterTagIds[clusterIndex];
             StringBuilder visibleIds = new StringBuilder();
 
             for (int id : tagIds) {
-                if (detectedRedTags.containsKey(id)) {
+                if (detectedAllianceTags.containsKey(id)) {
                     if (visibleIds.length() > 0) {
                         visibleIds.append(", ");
                     }
@@ -72,8 +104,8 @@ public class BioBuzzAprilTagTest extends OpMode {
                 }
             }
 
-            int visibleCount = detectedRedTagsFor(tagIds, detectedRedTags);
-            telemetry.addLine("==== " + RED_CLUSTER_NAMES[clusterIndex]);
+            int visibleCount = detectedAllianceTagsFor(tagIds, detectedAllianceTags);
+            telemetry.addLine("==== " + clusterNames[clusterIndex]);
             telemetry.addData("Tags found", "%d/%d (%d%%): %s",
                     visibleCount, tagIds.length, visibleCount * 100 / tagIds.length,
                     visibleIds.length() == 0 ? "none" : visibleIds.toString());
@@ -81,7 +113,7 @@ public class BioBuzzAprilTagTest extends OpMode {
             int poseCount = 0;
             int uprightCount = 0;
             for (int id : tagIds) {
-                LLResultTypes.FiducialResult fiducial = detectedRedTags.get(id);
+                LLResultTypes.FiducialResult fiducial = detectedAllianceTags.get(id);
                 if (fiducial != null) {
                     Pose3D tagPose = fiducial.getTargetPoseCameraSpace();
                     if (tagPose == null) {
@@ -124,8 +156,10 @@ public class BioBuzzAprilTagTest extends OpMode {
         limelight.stop();
     }
 
-    private boolean isRedClusterTag(int id) {
-        for (int[] tagIds : RED_CLUSTER_TAG_IDS) {
+    private boolean isSelectedAllianceTag(int id) {
+        int[][] clusterTagIds = selectedAlliance == Alliance.BLUE
+                ? BLUE_CLUSTER_TAG_IDS : RED_CLUSTER_TAG_IDS;
+        for (int[] tagIds : clusterTagIds) {
             for (int tagId : tagIds) {
                 if (id == tagId) {
                     return true;
@@ -135,12 +169,12 @@ public class BioBuzzAprilTagTest extends OpMode {
         return false;
     }
 
-    private int detectedRedTagsFor(
+    private int detectedAllianceTagsFor(
             int[] tagIds,
-            Map<Integer, LLResultTypes.FiducialResult> detectedRedTags) {
+            Map<Integer, LLResultTypes.FiducialResult> detectedAllianceTags) {
         int count = 0;
         for (int id : tagIds) {
-            if (detectedRedTags.containsKey(id)) {
+            if (detectedAllianceTags.containsKey(id)) {
                 count++;
             }
         }
