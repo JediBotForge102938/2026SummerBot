@@ -57,6 +57,7 @@ public class BioBuzzAllianceClusterAdapterTest extends OpMode {
                     cluster.visibleTagIds.size(),
                     cluster.percentClusterFound,
                     cluster.visibleTagIds);
+            telemetry.addData("Tags left to right", cluster.visibleTagIdsLeftToRight);
 
             if (!cluster.hasPose()) {
                 telemetry.addLine("Cell status: UNKNOWN (pose unavailable)");
@@ -78,13 +79,13 @@ public class BioBuzzAllianceClusterAdapterTest extends OpMode {
                     pose.getOrientation().getPitch(AngleUnit.DEGREES),
                     pose.getOrientation().getRoll(AngleUnit.DEGREES));
 
-            double ftcRoll = VisionSubsystem.getFtcRollDegrees(cluster);
+            double clusterRoll = VisionSubsystem.getClusterRollDegrees(cluster);
             VisionSubsystem.CellStatus cellStatus = VisionSubsystem.classifyCell(cluster);
             telemetry.addData(
                     "Cell status",
-                    "%s (FTC-equivalent roll %.1f deg)",
-                    cellStatus,
-                    ftcRoll);
+                    "%s (ascending IDs and negative roll)",
+                    cellStatus);
+            telemetry.addData("Cluster roll (diagnostic)", "%.1f deg", clusterRoll);
             if (cellStatus == VisionSubsystem.CellStatus.UNKNOWN_POSE) {
                 unknownPoseCells.add(cluster.name);
             } else if (cellStatus == VisionSubsystem.CellStatus.NOT_SCORABLE) {

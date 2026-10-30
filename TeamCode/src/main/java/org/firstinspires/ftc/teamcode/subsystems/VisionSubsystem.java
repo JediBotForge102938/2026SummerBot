@@ -14,12 +14,10 @@ import java.util.List;
 /**
  * Limelight-based BioBuzz cluster detection.
  *
- * <p>The cell-up check assumes the Limelight optical axis is aligned with the robot's launcher
- * axis, with the camera's right/down/forward frame mounted level. FTC camera axes are +X right,
- * +Y forward, +Z up; Limelight camera axes are +X right, +Y down, +Z forward. The basis change
- * maps Limelight's +Z rotation axis to FTC's +Y, so an optical-axis rotation (Limelight yaw)
- * becomes FTC cluster roll. This deliberately does not use Limelight's Euler {@code roll}, which
- * is about camera +X.</p>
+ * <p>The scorable check assumes the camera faces the cell in the same direction as the robot's
+ * launcher. It compares member-tag IDs from left to right: ascending IDs are upright, while
+ * descending IDs are upside down. A cell is scorable only when the IDs ascend and cluster roll
+ * is negative. At least two posed tags are needed to determine orientation.</p>
  */
 public class VisionSubsystem {
     public static final String LIMELIGHT_NAME = "limelight";
@@ -83,27 +81,56 @@ public class VisionSubsystem {
 
     public static CellStatus classifyCell(
             BioBuzzLimelightClusterAdapter.ClusterDetection cluster) {
-        if (cluster == null || !cluster.hasPose()) {
+        if (!hasForwardPose(cluster)) {
             return CellStatus.UNKNOWN_POSE;
         }
 
-        double ftcRollDegrees = getFtcRollDegrees(cluster);
-        if (!Double.isFinite(ftcRollDegrees)) {
+        // The cluster's tags are defined left-to-right in ascending ID order.
+        List<Integer> leftToRightIds = cluster.visibleTagIdsLeftToRight;
+        if (leftToRightIds.size() < 2) {
             return CellStatus.UNKNOWN_POSE;
         }
-        return Math.abs(ftcRollDegrees) < 90.0
-                ? CellStatus.SCORABLE
-                : CellStatus.NOT_SCORABLE;
+
+        double clusterRollDegrees = getClusterRollDegrees(cluster);
+        if (!Double.isFinite(clusterRollDegrees)) {
+            return CellStatus.UNKNOWN_POSE;
+        }
+
+        boolean ascending = true;
+        boolean descending = true;
+        for (int index = 1; index < leftToRightIds.size(); index++) {
+            int previousId = leftToRightIds.get(index - 1);
+            int currentId = leftToRightIds.get(index);
+            ascending &= previousId < currentId;
+            descending &= previousId > currentId;
+        }
+        if (ascending) {
+            return clusterRollDegrees < 0.0
+                    ? CellStatus.SCORABLE
+                    : CellStatus.NOT_SCORABLE;
+        }
+        if (descending) {
+            return CellStatus.NOT_SCORABLE;
+        }
+        return CellStatus.UNKNOWN_POSE;
     }
 
-    public static double getFtcRollDegrees(
+    public static double getClusterRollDegrees(
             BioBuzzLimelightClusterAdapter.ClusterDetection cluster) {
-        if (cluster == null || !cluster.hasPose()) {
+        if (!hasForwardPose(cluster)) {
             return Double.NaN;
         }
 
-        // The frame conversion is FTC = [Limelight.x, Limelight.z, -Limelight.y].
-        // Conjugating a Limelight Rz(yaw) rotation by that basis change gives FTC Ry(yaw).
-        return cluster.poseCameraSpace.getOrientation().getYaw(AngleUnit.DEGREES);
+        return cluster.poseCameraSpace.getOrientation().getRoll(AngleUnit.DEGREES);
+    }
+
+    private static boolean hasForwardPose(
+            BioBuzzLimelightClusterAdapter.ClusterDetection cluster) {
+        if (cluster == null || !cluster.hasPose()) {
+            return false;
+        }
+
+        double forward = cluster.poseCameraSpace.getPosition().z;
+        return Double.isFinite(forward) && forward > 0.0;
     }
 }

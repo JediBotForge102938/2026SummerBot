@@ -10,6 +10,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,16 +43,20 @@ public final class BioBuzzLimelightClusterAdapter {
     public static final class ClusterDetection {
         public final String name;
         public final List<Integer> visibleTagIds;
+        public final List<Integer> visibleTagIdsLeftToRight;
         public final int percentClusterFound;
         public final Pose3D poseCameraSpace;
 
         private ClusterDetection(
                 String name,
                 List<Integer> visibleTagIds,
+                List<Integer> visibleTagIdsLeftToRight,
                 int percentClusterFound,
                 Pose3D poseCameraSpace) {
             this.name = name;
             this.visibleTagIds = Collections.unmodifiableList(new ArrayList<>(visibleTagIds));
+            this.visibleTagIdsLeftToRight =
+                    Collections.unmodifiableList(new ArrayList<>(visibleTagIdsLeftToRight));
             this.percentClusterFound = percentClusterFound;
             this.poseCameraSpace = poseCameraSpace;
         }
@@ -83,6 +88,7 @@ public final class BioBuzzLimelightClusterAdapter {
             }
 
             List<Integer> visibleTagIds = new ArrayList<>();
+            List<TagObservation> posedTags = new ArrayList<>();
             PoseAccumulator poseAccumulator = new PoseAccumulator();
             for (int memberIndex = 0; memberIndex < TAGS_PER_CLUSTER; memberIndex++) {
                 int tagId = cluster.firstTagId + memberIndex;
@@ -94,15 +100,23 @@ public final class BioBuzzLimelightClusterAdapter {
                 visibleTagIds.add(tagId);
                 Pose3D tagPose = fiducial.getTargetPoseCameraSpace();
                 if (hasUsablePose(tagPose)) {
+                    Position tagPosition = tagPose.getPosition().toUnit(DistanceUnit.INCH);
+                    posedTags.add(new TagObservation(tagId, tagPosition.x));
                     poseAccumulator.add(tagPose, TAG_X_INCHES[memberIndex], TAG_Y_INCHES, TAG_Z_INCHES);
                 }
             }
 
             if (!visibleTagIds.isEmpty()) {
+                posedTags.sort(Comparator.comparingDouble(tag -> tag.cameraX));
+                List<Integer> visibleTagIdsLeftToRight = new ArrayList<>();
+                for (TagObservation tag : posedTags) {
+                    visibleTagIdsLeftToRight.add(tag.id);
+                }
                 int percentFound = Math.round(100.0f * visibleTagIds.size() / TAGS_PER_CLUSTER);
                 clusters.add(new ClusterDetection(
                         cluster.name,
                         visibleTagIds,
+                        visibleTagIdsLeftToRight,
                         percentFound,
                         poseAccumulator.build()));
             }
@@ -131,6 +145,16 @@ public final class BioBuzzLimelightClusterAdapter {
             this.name = name;
             this.firstTagId = firstTagId;
             this.alliance = alliance;
+        }
+    }
+
+    private static final class TagObservation {
+        final int id;
+        final double cameraX;
+
+        TagObservation(int id, double cameraX) {
+            this.id = id;
+            this.cameraX = cameraX;
         }
     }
 

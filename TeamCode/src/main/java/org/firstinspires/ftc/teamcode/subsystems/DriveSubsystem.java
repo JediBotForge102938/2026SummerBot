@@ -58,6 +58,10 @@ public class DriveSubsystem {
         mecanumDrive(robotForward, robotStrafe, rotate);
     }
 
+    public void driveRobotRelative(double forward, double strafe, double rotate) {
+        mecanumDrive(forward, strafe, rotate);
+    }
+
     public double getLeftFrontPower() {
         return leftFrontPower;
     }
