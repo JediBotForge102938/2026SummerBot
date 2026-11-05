@@ -11,8 +11,8 @@
         <LynxModule name="Control Hub" port="173">
             <goBILDA5202SeriesMotor name="right_front_drive" port="0" />
             <goBILDA5202SeriesMotor name="right_back_drive" port="1" />
-            <goBILDA5202SeriesMotor name="intake" port="2" />
-            <goBILDA5202SeriesMotor name="right_launcher" port="3" />
+            <goBILDA5202SeriesMotor name="right_launcher" port="2" />
+            <goBILDA5202SeriesMotor name="intake" port="3" />
             <Servo name="gate" port="0" />
             <ControlHubImuBHI260AP name="imu" port="0" bus="0" />
         </LynxModule>
