@@ -29,8 +29,8 @@ import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.LauncherSubsystem;
 
-@TeleOp(name = "Mec BioBuzz StarterBot Field Centric Teleop", group = "StarterBot")
-public class BioBuzzStarterbotTeleopMecanumFieldCentric extends OpMode {
+@TeleOp(name = "Mec BioBuzz CompetitionBot Field Centric Teleop", group = "CompetitionBot")
+public class BioBuzzCompetitionbotTeleopMecanumFieldCentric extends OpMode {
     private final DriveSubsystem drive = new DriveSubsystem();
     private final IntakeSubsystem intake = new IntakeSubsystem();
     private final LauncherSubsystem launcher = new LauncherSubsystem();

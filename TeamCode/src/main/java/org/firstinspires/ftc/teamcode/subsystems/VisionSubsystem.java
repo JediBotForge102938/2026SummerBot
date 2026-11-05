@@ -22,6 +22,7 @@ import java.util.List;
 public class VisionSubsystem {
     public static final String LIMELIGHT_NAME = "limelight";
     public static final int LIMELIGHT_PIPELINE = 0;
+    public static final long MAX_RESULT_AGE_MS = 250;
 
     public enum CellStatus {
         SCORABLE,
@@ -30,6 +31,7 @@ public class VisionSubsystem {
     }
 
     public static final class DetectionSnapshot {
+        /** True only for a valid result no older than MAX_RESULT_AGE_MS. */
         public final boolean hasValidResult;
         public final List<BioBuzzLimelightClusterAdapter.ClusterDetection> clusters;
 
@@ -67,6 +69,10 @@ public class VisionSubsystem {
 
         LLResult result = limelight.getLatestResult();
         if (result == null || !result.isValid()) {
+            return new DetectionSnapshot(false, Collections.emptyList());
+        }
+        long ageMs = result.getStaleness();
+        if (ageMs < 0 || ageMs > MAX_RESULT_AGE_MS) {
             return new DetectionSnapshot(false, Collections.emptyList());
         }
         return new DetectionSnapshot(true, clusterAdapter.detect(result, alliance));

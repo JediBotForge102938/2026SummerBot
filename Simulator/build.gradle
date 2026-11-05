@@ -24,6 +24,7 @@ sourceSets {
                     'src/main/java'
             ]
             exclude 'virtual_robot/config/Config.java'
+            exclude 'org/firstinspires/ftc/teamcode/control/DriveModePreferences.java'
         }
         resources {
             srcDirs = [
