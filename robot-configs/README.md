@@ -1,120 +1,80 @@
-# Robot hardware configuration
+# Robot hardware configurations
 
-The single `starterbot-drive-only.xml` profile supports both StarterBot
-TeleOps. It contains only the four drive motors; intake hardware is intentionally
-omitted and is optional in both OpModes.
+These XML files map FTC hardware names to hub ports. Keep the repository copy
+in sync with the physical wiring, and verify every port before uploading.
 
-| Port | Physical position | Configuration name |
+## Profiles
+
+| File | Purpose |
+| --- | --- |
+| `biobuzz-starterbot.xml` | Full StarterBot profile used by the BioBuzz StarterBot TeleOp and simulator. |
+| `biobuzz-competitionbot.xml` | Competition bot wiring profile. |
+| `starterbot-drive-only.xml` | Four-drive-motor profile for the basic StarterBot TeleOps and simulator; not a full BioBuzz profile. |
+| `lessons/s2_04_configuration_exercise.xml` | Deliberately miswired lesson exercise; do not select for normal driving. |
+
+The drive-only profile maps ports as follows:
+
+| Port | Position | Configuration name |
 | ---: | --- | --- |
 | 0 | Rear left | `left_back_drive` |
 | 1 | Rear right | `right_back_drive` |
 | 2 | Front right | `right_front_drive` |
 | 3 | Front left | `left_front_drive` |
 
-The XML uses the FTC hardware-configuration format and the embedded Control Hub
-metadata from the current robot. The motor names are intentionally distinct
-from the vestigial names in the previous `BioBuzz` configuration.
+The full StarterBot TeleOp requires the four named drive motors, `imu`,
+`intake`, `launcher`, `left_intake_servo`, `right_intake_servo`,
+`windmillServo`, and a Limelight named `limelight`. The IMU is configured on
+I2C bus 0, port 0; its expected hub orientation is logo right, USB up. Vision
+uses Limelight pipeline 0. The profile also includes an OTOS device.
 
-`StarterBotChassisTeleop` uses only the rear pair (`left_back_drive` and
-`right_back_drive`) for two-motor tank drive. `StarterBotMecChassisTeleop` uses
-the same configuration's four motors for mecanum drive.
+The competition profile maps `left_launcher`, `right_launcher`, and `gate`;
+it is a hardware profile, not an implementation of the competition TeleOp.
 
-`BioBuzzStarterbotTeleopMecanum` additionally requires these configured devices:
-`intake` (motor), `launcher` (motor with encoder support), `left_intake_servo`
-and `right_intake_servo` (continuous-rotation servos), and `windmillServo`
-(continuous-rotation servo). The current `starterbot-drive-only.xml` profile is
-intentionally drive-only and does not contain those devices. The
-`biobuzz-starterbot.xml` profile contains the Level 1 simulator mappings; its
-mechanism ports must be updated to the actual wiring before deployment.
+## StarterBot TeleOp controls
 
-`BioBuzzStarterbotTeleopMecanumFieldCentric` uses the same devices as the
-robot-centric BioBuzz OpMode and additionally requires the configured hub IMU
-named `imu`. Press `A` during teleop to reset the field heading.
+| Input | Action |
+| --- | --- |
+| Left stick | Drive translation |
+| Right stick X | Manual rotation |
+| A, held | Aim rotation at a visible scorable hive; translation remains manual |
+| Left bumper, held | Use 35% drive power |
+| Right / left trigger | Intake forward / reverse |
+| Right bumper, held | Run launcher; feed after it reaches speed |
+| D-pad up / down | Adjust launcher target by 25 encoder ticks/second (0–6000) |
+| D-pad left / right | Select RED / BLUE tracking alliance |
+| Share + Options / Back + Start | Toggle robot-centric / field-centric drive |
+| Options / Start alone, released | Reset heading in field-centric mode |
 
-The lesson sensor-check OpMode also uses the built-in IMU. In
-`biobuzz-starterbot.xml`, configure it as the REV Controller IMU on I2C Bus 0,
-Port 0, named `imu`:
+Drive mode, launcher target, and tracking alliance are saved in preferences.
+The launcher target defaults to 1250 encoder ticks/second. Feeding is enabled
+only after the launcher holds above its target threshold for 200 ms; a zero
+target disables launcher feeding. Start and Options are SDK aliases, so the
+drive-mode toggle uses Share + Options on PlayStation or Back + Start on Xbox.
 
-```xml
-<ControlHubImuBHI260AP name="imu" port="0" bus="0" />
-```
+The simulator packages `biobuzz-starterbot.xml` for its BioBuzz robot and
+`starterbot-drive-only.xml` for its basic StarterBot. The S2-04 exercise
+simulator reads the lesson configuration to demonstrate incorrect port
+assignments.
 
-Keep both the `port` and `bus` attributes. If this device is missing from the
-Driver Station configuration, use **Configure Robot -> Control Hub Portal ->
-I2C Bus 0 -> Port 0**, select **REV Controller IMU**, name it `imu`, and save
-and activate the configuration. Update the repository XML from the working
-configuration before uploading it again.
+## Uploading configurations
 
-The simulator's `biobuzz-starterbot.xml` is a Level 1 test profile with the
-mechanism devices assigned to a simulated expansion hub. Replace its mechanism
-ports with the team's actual wiring before deploying it to a Control Hub.
-
-## Managing configurations
-
-The XML file in this directory is the repository copy of the robot hardware
-profile. Edit or replace it only after verifying the physical hub ports and
-device names.
-
-With the Control Hub connected over USB and authorized for ADB, push the
-configuration with:
+With the Control Hub connected over USB and authorized for ADB, run:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\robot-configs\scripts\push-configs.ps1
 ```
 
-The script recursively uploads all `*.xml` files under `robot-configs\` to
-`/sdcard/FIRST/`. To target a specific ADB device when more than one is
-connected:
+The script uploads every XML file under `robot-configs\`, including lesson
+profiles, to `/sdcard/FIRST/`. If multiple ADB devices are connected, specify
+the target:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\robot-configs\scripts\push-configs.ps1 `
   -DeviceSerial <adb-device-serial>
 ```
 
-After uploading, use **Driver Station -> Configure Robot** to refresh the
-configuration list and activate `starterbot-drive-only`. Pushing a file does
-not automatically activate it. The shareable `TeamCode` Android Studio run
-configuration runs this upload task before deploying the Robot Controller APK.
-
-## Managing configurations
-
-The XML files in this directory are the repository copies of the robot
-hardware profiles. Edit or replace them only after verifying the physical hub
-ports and device names. Keep each profile focused on one wiring layout.
-
-The simulator consumes `starterbot-drive-only.xml` from this directory at build
-time. Its named drive motors are therefore derived from the same XML that is
-uploaded to the Control Hub. The normal StarterBot simulator maps wheel
-positions from the semantic motor names. The S2-04 exercise simulator instead
-uses the configured Control Hub ports so its deliberate port mismatch is
-visible as it would be on the physical robot. The simulator still supplies the
-physical model (mecanum geometry, motor behavior, and virtual sensors)
-separately.
-
-The `lessons\` folder contains lesson-specific exercise configurations.
-The push script recursively uploads XML files from this directory, so the
-S2-04 exercise also appears in Driver Station -> Configure Robot. Its
-`lessons\s2_04_configuration_exercise.xml` file is a deliberately miswired
-copy of the starter profile; compare it with `starterbot-drive-only.xml` to
-repair the exercise.
-
-With the Control Hub connected over USB and authorized for ADB, push every
-configuration with:
-
-```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\robot-configs\scripts\push-configs.ps1
-```
-
-The script recursively uploads all `*.xml` files under `robot-configs\` to
-`/sdcard/FIRST/`. To target a specific ADB device when more than one is
-connected:
-
-```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\robot-configs\scripts\push-configs.ps1 `
-  -DeviceSerial <adb-device-serial>
-```
-
-After uploading, use **Driver Station -> Configure Robot** to refresh the
-configuration list and activate the desired profile. Pushing a file does not
-automatically activate it. Deploy Robot Controller code from Android Studio;
-the configuration XMLs are separate from the APK.
+Uploading copies files but does not remove old files from the Control Hub or
+activate a profile. In Driver Station, refresh the configuration list and
+select the profile for the connected robot. The TeamCode Android Studio run
+configuration also uploads the XML files before deploying the Robot Controller
+APK.
