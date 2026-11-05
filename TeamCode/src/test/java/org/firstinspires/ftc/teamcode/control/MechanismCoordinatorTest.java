@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.LauncherSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.WindmillSubsystem;
 import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
 import org.junit.Before;
 import org.junit.Test;
@@ -41,7 +42,9 @@ public class MechanismCoordinatorTest {
         intake.init(hardware);
         launcher = new LauncherSubsystem(() -> now);
         launcher.init(hardware);
-        mechanisms = new MechanismCoordinator(intake, launcher);
+        WindmillSubsystem feeder = new WindmillSubsystem();
+        feeder.init(hardware);
+        mechanisms = new MechanismCoordinator(intake, launcher, feeder);
         clearInvocations(intakeMotor, flywheel, windmill, leftServo, rightServo);
     }
 

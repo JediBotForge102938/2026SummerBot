@@ -27,8 +27,19 @@ The full StarterBot TeleOp requires the four named drive motors, `imu`,
 I2C bus 0, port 0; its expected hub orientation is logo right, USB up. Vision
 uses Limelight pipeline 0. The profile also includes an OTOS device.
 
-The competition profile maps `left_launcher`, `right_launcher`, and `gate`;
-it is a hardware profile, not an implementation of the competition TeleOp.
+The competition profile maps `left_launcher`, `right_launcher`, and `gate`.
+The CompetitionBot TeleOp uses the shared launcher subsystem with the left motor
+REVERSE and the right motor FORWARD. Both receive the same encoder ticks/second
+target. Readiness requires every motor above target minus 50 ticks/s together for
+200 ms; any motor at or below target minus 75 ticks/s removes readiness.
+The StarterBot windmill is a separate feeder subsystem. Competition positional
+gate actuation is deferred until safe blocked/feeding positions are measured;
+the CompetitionBot TeleOp does not command `gate`.
+The competition TeleOp now uses the same `TeleopController` and controls as the
+StarterBot, including hive tracking, slow aiming translation, rumble and alliance
+LEDs. Drive mode, launcher target and alliance currently share the StarterBot
+preferences; the saved drive mode determines robot- versus field-centric driving.
+Competition intake servos are disabled because its profile has only an intake motor.
 
 ## StarterBot TeleOp controls
 

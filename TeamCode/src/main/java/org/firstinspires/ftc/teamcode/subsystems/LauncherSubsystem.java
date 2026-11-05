@@ -1,15 +1,19 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
 import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
 import org.firstinspires.ftc.teamcode.telemetry.TelemetrySource;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.LongSupplier;
 
 public class LauncherSubsystem implements TelemetrySource {
@@ -24,8 +28,21 @@ public class LauncherSubsystem implements TelemetrySource {
         OFF, SPINNING_UP, READY, BELOW_TARGET
     }
 
-    private DcMotorEx launcher;
-    private CRServo windmillServo;
+    public static final class MotorConfig {
+        public final String name;
+        public final DcMotor.Direction direction;
+
+        public MotorConfig(String name, DcMotor.Direction direction) {
+            if (name == null || name.trim().isEmpty()) {
+                throw new IllegalArgumentException("Launcher motor name must not be blank");
+            }
+            this.name = name;
+            this.direction = Objects.requireNonNull(direction, "Launcher motor direction");
+        }
+    }
+
+    private final List<MotorConfig> motorConfigs;
+    private final List<DcMotorEx> motors = new ArrayList<>();
     private int targetVelocity = DEFAULT_TARGET_VELOCITY;
     private final LongSupplier nanoTime;
     private boolean timingReadiness;
@@ -39,37 +56,72 @@ public class LauncherSubsystem implements TelemetrySource {
     }
 
     public LauncherSubsystem(LongSupplier nanoTime) {
-        this.nanoTime = nanoTime;
+        this(Collections.singletonList(new MotorConfig("launcher", DcMotor.Direction.FORWARD)),
+                nanoTime);
+    }
+
+    public LauncherSubsystem(List<MotorConfig> motorConfigs) {
+        this(motorConfigs, System::nanoTime);
+    }
+
+    public LauncherSubsystem(List<MotorConfig> motorConfigs, LongSupplier nanoTime) {
+        if (motorConfigs == null || motorConfigs.isEmpty()) {
+            throw new IllegalArgumentException("At least one launcher motor is required");
+        }
+        Set<String> names = new HashSet<>();
+        for (MotorConfig config : motorConfigs) {
+            Objects.requireNonNull(config, "Launcher motor configuration");
+            if (!names.add(config.name)) {
+                throw new IllegalArgumentException("Duplicate launcher motor: " + config.name);
+            }
+        }
+        this.motorConfigs = Collections.unmodifiableList(new ArrayList<>(motorConfigs));
+        this.nanoTime = Objects.requireNonNull(nanoTime);
     }
 
     public void init(HardwareMap hardwareMap) {
-        launcher = hardwareMap.get(DcMotorEx.class, "launcher");
-        windmillServo = hardwareMap.get(CRServo.class, "windmillServo");
-
-        launcher.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        launcher.setPIDFCoefficients(
-                DcMotor.RunMode.RUN_USING_ENCODER,
-                new PIDFCoefficients(40, 0, 0, 12.5));
-
-        windmillServo.setPower(0);
-        windmillServo.setDirection(DcMotorSimple.Direction.FORWARD);
+        if (!motors.isEmpty()) {
+            throw new IllegalStateException("LauncherSubsystem has already been initialized");
+        }
+        List<DcMotorEx> configured = new ArrayList<>();
+        for (MotorConfig config : motorConfigs) {
+            configured.add(Objects.requireNonNull(hardwareMap.get(DcMotorEx.class, config.name),
+                    "Missing launcher motor: " + config.name));
+        }
+        for (int index = 0; index < configured.size(); index++) {
+            DcMotorEx motor = configured.get(index);
+            motor.setDirection(motorConfigs.get(index).direction);
+            motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            motor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER,
+                    new PIDFCoefficients(40, 0, 0, 12.5));
+            motor.setVelocity(0);
+        }
+        motors.addAll(configured);
     }
 
     /**
-     * Updates launcher and windmill output and reports whether the windmill is running.
+     * Commands every motor in encoder ticks/second and reports combined feed readiness.
      */
     public boolean update(boolean launchRequested) {
         boolean enabled = launchRequested && targetVelocity > 0;
-        if (enabled) {
-            launcher.setVelocity(targetVelocity);
-        } else {
-            launcher.setVelocity(0);
+        requireInitialized();
+        for (DcMotorEx motor : motors) {
+            motor.setVelocity(enabled ? targetVelocity : 0);
         }
 
         if (!enabled) {
             resetReadiness();
         } else {
-            double velocity = launcher.getVelocity();
+            double velocity;
+            try {
+                velocity = getVelocity();
+            } catch (IllegalStateException exception) {
+                resetReadiness();
+                for (DcMotorEx motor : motors) {
+                    motor.setVelocity(0);
+                }
+                throw exception;
+            }
             if (ready && velocity <= getFeedDropoutThreshold()) {
                 ready = false;
                 timingReadiness = false;
@@ -90,7 +142,6 @@ public class LauncherSubsystem implements TelemetrySource {
             status = ready ? Status.READY
                     : hasBeenReady ? Status.BELOW_TARGET : Status.SPINNING_UP;
         }
-        windmillServo.setPower(ready ? 1 : 0);
         return ready;
     }
 
@@ -102,9 +153,6 @@ public class LauncherSubsystem implements TelemetrySource {
         if (this.targetVelocity != targetVelocity) {
             this.targetVelocity = targetVelocity;
             resetReadiness();
-            if (windmillServo != null) {
-                windmillServo.setPower(0);
-            }
         }
     }
 
@@ -135,8 +183,25 @@ public class LauncherSubsystem implements TelemetrySource {
         status = Status.OFF;
     }
 
+    private void requireInitialized() {
+        if (motors.isEmpty()) {
+            throw new IllegalStateException("LauncherSubsystem must be initialized before use");
+        }
+    }
+
+    /** The slowest configured motor determines combined readiness. */
     public double getVelocity() {
-        return launcher.getVelocity();
+        requireInitialized();
+        double minimum = Double.POSITIVE_INFINITY;
+        for (int index = 0; index < motors.size(); index++) {
+            double velocity = motors.get(index).getVelocity();
+            if (!Double.isFinite(velocity)) {
+                throw new IllegalStateException("Invalid launcher velocity: "
+                        + motorConfigs.get(index).name);
+            }
+            minimum = Math.min(minimum, velocity);
+        }
+        return minimum;
     }
 
     @Override
@@ -146,6 +211,10 @@ public class LauncherSubsystem implements TelemetrySource {
         output.status("Launcher", status.name().replace('_', ' '), level);
         output.number("Launcher target", targetVelocity, "ticks/s");
         output.number("Launcher actual", getVelocity(), "ticks/s");
+        for (int index = 0; index < motors.size(); index++) {
+            output.number("Launcher " + motorConfigs.get(index).name,
+                    motors.get(index).getVelocity(), "ticks/s");
+        }
         if (targetVelocity == 0) {
             output.value("Launcher feed", "Disabled");
         } else {

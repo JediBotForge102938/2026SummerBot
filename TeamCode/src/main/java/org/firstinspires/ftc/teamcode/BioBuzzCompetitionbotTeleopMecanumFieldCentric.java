@@ -24,46 +24,90 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
 
+import org.firstinspires.ftc.teamcode.control.DriveModePreferences;
+import org.firstinspires.ftc.teamcode.control.HiveTrackingController;
+import org.firstinspires.ftc.teamcode.control.MechanismCoordinator;
+import org.firstinspires.ftc.teamcode.control.TeleopController;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.LauncherFeeder;
 import org.firstinspires.ftc.teamcode.subsystems.LauncherSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
+import org.firstinspires.ftc.teamcode.telemetry.DriverStationTelemetry;
+import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
+import org.firstinspires.ftc.teamcode.telemetry.TelemetryPresenter;
+
+import java.util.Arrays;
 
 @TeleOp(name = "Mec BioBuzz CompetitionBot Field Centric Teleop", group = "CompetitionBot")
 public class BioBuzzCompetitionbotTeleopMecanumFieldCentric extends OpMode {
     private final DriveSubsystem drive = new DriveSubsystem();
-    private final IntakeSubsystem intake = new IntakeSubsystem();
-    private final LauncherSubsystem launcher = new LauncherSubsystem();
+    private final IntakeSubsystem intake = new IntakeSubsystem(false);
+    private final LauncherSubsystem launcher = new LauncherSubsystem(Arrays.asList(
+            new LauncherSubsystem.MotorConfig("left_launcher", DcMotor.Direction.REVERSE),
+            new LauncherSubsystem.MotorConfig("right_launcher", DcMotor.Direction.FORWARD)));
+    private boolean launcherInitialized;
+    private boolean driveInitialized;
+    private boolean intakeInitialized;
+    private final VisionSubsystem vision = new VisionSubsystem();
+    private TeleopController controller;
+    private TelemetryPresenter display;
 
     @Override
     public void init() {
         drive.init(hardwareMap);
+        driveInitialized = true;
         intake.init(hardwareMap);
+        intakeInitialized = true;
         launcher.init(hardwareMap);
+        launcherInitialized = true;
+        vision.init(hardwareMap);
+        DriveModePreferences preferences = new DriveModePreferences(hardwareMap.appContext);
+        HiveTrackingController tracking = new HiveTrackingController(vision, preferences);
+        controller = new TeleopController(drive,
+                new MechanismCoordinator(intake, launcher, LauncherFeeder.DISABLED),
+                preferences, tracking);
+        display = new TelemetryPresenter(new DriverStationTelemetry(telemetry, hardwareMap.appContext),
+                tracking, launcher, controller, intake, drive,
+                output -> output.status("Competition gate", "DISABLED: positions not configured",
+                        RobotTelemetry.Level.WARNING));
+        controller.updateInit(gamepad1);
+        display.publish();
+    }
 
-        telemetry.addData("Status", "Initialized");
-        telemetry.addLine("Press A to reset field heading");
+    @Override
+    public void init_loop() {
+        controller.updateInit(gamepad1);
+        display.publish();
     }
 
     @Override
     public void loop() {
-        if (gamepad1.a) {
-            drive.resetHeading();
-        }
+        controller.update(gamepad1);
+        display.publish();
+    }
 
-        drive.driveFieldRelative(-gamepad1.left_stick_y,
-                gamepad1.left_stick_x, gamepad1.right_stick_x);
-        double intakePower = gamepad1.right_trigger - gamepad1.left_trigger;
-        if (launcher.update(gamepad1.right_bumper)) {
-            intakePower += 0.5;
+    @Override
+    public void stop() {
+        gamepad1.stopRumble();
+        if (controller != null) {
+            controller.stop();
+        } else {
+            if (launcherInitialized) {
+                launcher.update(false);
+            }
+            if (intakeInitialized) {
+                intake.setPower(0);
+            }
+            if (driveInitialized) {
+                drive.driveRobotRelative(0, 0, 0);
+            }
         }
-        intake.setPower(intakePower);
-
-        telemetry.addData("Motors", "FL (%.2f), FR (%.2f), BL (%.2f), BR (%.2f)",
-                drive.getLeftFrontPower(), drive.getRightFrontPower(),
-                drive.getLeftBackPower(), drive.getRightBackPower());
-        telemetry.addData("Heading", "%.1f degrees", drive.getHeadingDegrees());
-        telemetry.addData("Triggers", "left (%.2f), right (%.2f)",
-                gamepad1.left_trigger, gamepad1.right_trigger);
+        vision.stop();
+        if (display != null) {
+            display.publish();
+        }
     }
 }

@@ -33,6 +33,7 @@ import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.LauncherSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.WindmillSubsystem;
 import org.firstinspires.ftc.teamcode.telemetry.DriverStationTelemetry;
 import org.firstinspires.ftc.teamcode.telemetry.TelemetryPresenter;
 
@@ -41,6 +42,7 @@ public class BioBuzzStarterbotTeleopMecanum extends OpMode {
     private final DriveSubsystem drive = new DriveSubsystem();
     private final IntakeSubsystem intake = new IntakeSubsystem(true);
     private final LauncherSubsystem launcher = new LauncherSubsystem();
+    private final WindmillSubsystem windmill = new WindmillSubsystem();
     private final VisionSubsystem vision = new VisionSubsystem();
     private TeleopController controller;
     private TelemetryPresenter display;
@@ -50,10 +52,11 @@ public class BioBuzzStarterbotTeleopMecanum extends OpMode {
         drive.init(hardwareMap);
         intake.init(hardwareMap);
         launcher.init(hardwareMap);
+        windmill.init(hardwareMap);
         vision.init(hardwareMap);
         DriveModePreferences preferences = new DriveModePreferences(hardwareMap.appContext);
         HiveTrackingController tracking = new HiveTrackingController(vision, preferences);
-        controller = new TeleopController(drive, new MechanismCoordinator(intake, launcher),
+        controller = new TeleopController(drive, new MechanismCoordinator(intake, launcher, windmill),
                 preferences, tracking);
         display = new TelemetryPresenter(new DriverStationTelemetry(telemetry, hardwareMap.appContext),
                 tracking, launcher, controller, intake, drive);
