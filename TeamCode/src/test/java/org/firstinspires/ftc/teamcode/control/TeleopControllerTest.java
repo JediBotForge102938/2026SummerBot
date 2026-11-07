@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 
 import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.LauncherSubsystem;
 import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
 import org.junit.Before;
@@ -39,6 +40,31 @@ public class TeleopControllerTest {
         controller = new TeleopController(drive, mechanisms, preferences, tracking);
         controller.update(gamepad);
         clearInvocations(drive, mechanisms, preferences);
+    }
+
+    @Test
+    public void lockedConfigurationSetsModeAndAllianceAndSuppressesHeldInitInputs() {
+        ConfigurationSubsystem configuration = mock(ConfigurationSubsystem.class);
+        when(configuration.isLocked()).thenReturn(true);
+        when(configuration.isFieldCentric()).thenReturn(true);
+        when(configuration.getAlliance()).thenReturn(Alliance.RED);
+        gamepad.dpad_up = true;
+        gamepad.dpad_left = true;
+        controller.configure(configuration, gamepad);
+        verify(tracking).setAlliance(Alliance.RED);
+        clearInvocations(tracking, gamepad);
+        controller.update(gamepad);
+        assertTrue(controller.isFieldCentric());
+        verify(drive).driveFieldRelative(-0.0, 0, 0, 1);
+        verify(tracking, never()).selectAlliance(anyBoolean(), anyBoolean());
+        verify(gamepad, never()).setLedColor(anyDouble(), anyDouble(), anyDouble(), anyInt());
+        verifyNoInteractions(preferences);
+        gamepad.dpad_up = false;
+        controller.update(gamepad);
+        gamepad.dpad_up = true;
+        controller.update(gamepad);
+        verify(preferences).saveLauncherTargetVelocity(
+                LauncherSubsystem.DEFAULT_TARGET_VELOCITY + LauncherSubsystem.TARGET_VELOCITY_STEP);
     }
 
     @Test

@@ -7,14 +7,18 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
+import com.qualcomm.robotcore.hardware.Gamepad;
 
+import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.AngularVelocity;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
+import org.firstinspires.ftc.teamcode.control.DriveModePreferences;
 
 public class DriveSubsystemTest {
     private HardwareMap hardware;
@@ -41,9 +45,99 @@ public class DriveSubsystemTest {
     }
 
     @Test
+    public void allFourWallStartsStrafeTowardOpposingAllianceAndStayFieldFixedAfterTurning() {
+        drive.init(hardware);
+        for (boolean blue : new boolean[] {false, true}) {
+            for (boolean scoring : new boolean[] {false, true}) {
+                ConfigurationSubsystem configuration = new ConfigurationSubsystem();
+                Gamepad gamepad = mock(Gamepad.class);
+                DriveModePreferences preferences = mock(DriveModePreferences.class);
+                when(preferences.getConfigurationRedAlliance()).thenReturn(true);
+                when(preferences.getConfigurationFieldCentric()).thenReturn(true);
+                configuration.init(mock(Telemetry.class), gamepad, preferences);
+                if (blue) {
+                    gamepad.dpad_right = true;
+                    configuration.updateInit(gamepad);
+                    gamepad.dpad_right = false;
+                    configuration.updateInit(gamepad);
+                }
+                if (scoring) {
+                    gamepad.dpad_up = true;
+                    configuration.updateInit(gamepad);
+                    gamepad.dpad_up = false;
+                    configuration.updateInit(gamepad);
+                    gamepad.dpad_right = true;
+                    configuration.updateInit(gamepad);
+                }
+                configuration.lock();
+                assertEquals(scoring ? 270 : 90,
+                        configuration.getStartingHeadingDegrees(), 0);
+                assertEquals(blue ? 180 : 0,
+                        configuration.getFieldForwardHeadingDegrees(), 0);
+                drive.resetHeading(configuration.getStartingHeadingDegrees(),
+                        configuration.getFieldForwardHeadingDegrees());
+                when(imu.getRobotYawPitchRollAngles()).thenReturn(
+                        new YawPitchRollAngles(AngleUnit.DEGREES, 0, 0, 0, 0));
+                drive.driveFieldRelative(1, 0, 0);
+                double strafeSign = scoring != blue ? 1 : -1;
+                assertEquals(strafeSign, drive.getLeftFrontPower(), 1e-9);
+                assertEquals(-strafeSign, drive.getRightFrontPower(), 1e-9);
+                assertEquals(-strafeSign, drive.getLeftBackPower(), 1e-9);
+                assertEquals(strafeSign, drive.getRightBackPower(), 1e-9);
+
+                when(imu.getRobotYawPitchRollAngles()).thenReturn(
+                        new YawPitchRollAngles(AngleUnit.DEGREES, 90, 0, 0, 0));
+                drive.driveFieldRelative(1, 0, 0);
+                assertEquals(strafeSign, drive.getLeftFrontPower(), 1e-9);
+                assertEquals(strafeSign, drive.getRightFrontPower(), 1e-9);
+                assertEquals(strafeSign, drive.getLeftBackPower(), 1e-9);
+                assertEquals(strafeSign, drive.getRightBackPower(), 1e-9);
+
+                drive.driveRobotRelative(1, 0, 0);
+                assertEquals(1, drive.getLeftFrontPower(), 1e-9);
+                assertEquals(1, drive.getRightFrontPower(), 1e-9);
+                assertEquals(1, drive.getLeftBackPower(), 1e-9);
+                assertEquals(1, drive.getRightBackPower(), 1e-9);
+            }
+        }
+    }
+
+    @Test
+    public void configuredHeadingOffsetFeedsFieldRelativeDriveButNotYawRate() {
+        drive.init(hardware);
+        when(imu.getRobotYawPitchRollAngles()).thenReturn(
+                new YawPitchRollAngles(AngleUnit.DEGREES, 0, 0, 0, 0));
+        drive.resetHeading(180);
+        assertEquals(180, drive.getHeadingDegrees(), 1e-9);
+        drive.driveFieldRelative(1, 0, 0);
+        assertEquals(-1, drive.getLeftFrontPower(), 1e-9);
+        assertEquals(-1, drive.getRightFrontPower(), 1e-9);
+        assertEquals(-1, drive.getLeftBackPower(), 1e-9);
+        assertEquals(-1, drive.getRightBackPower(), 1e-9);
+        when(imu.getRobotAngularVelocity(AngleUnit.DEGREES)).thenReturn(
+                new AngularVelocity(AngleUnit.DEGREES, 0, 0, 12, 0));
+        assertEquals(12, drive.getYawRateDegreesPerSecond(), 0);
+        drive.resetHeading();
+        assertEquals(0, drive.getHeadingDegrees(), 0);
+        verify(imu, times(2)).resetYaw();
+        assertThrows(IllegalArgumentException.class, () -> drive.resetHeading(Double.NaN));
+        assertThrows(IllegalArgumentException.class, () -> drive.resetHeading(90, Double.NaN));
+        verify(imu, times(2)).resetYaw();
+    }
+
+    @Test
     public void initializationFailureIsNotSilentlyIgnored() {
         when(imu.initialize(any(IMU.Parameters.class))).thenReturn(false);
         assertThrows(IllegalStateException.class, () -> drive.init(hardware));
+    }
+
+    @Test
+    public void trackingReadsYawRateInDegreesWithoutResettingHeading() {
+        drive.init(hardware);
+        when(imu.getRobotAngularVelocity(AngleUnit.DEGREES)).thenReturn(
+                new AngularVelocity(AngleUnit.DEGREES, 1, 2, -45, 0));
+        assertEquals(-45, drive.getYawRateDegreesPerSecond(), 0);
+        verify(imu, never()).resetYaw();
     }
 
     @Test

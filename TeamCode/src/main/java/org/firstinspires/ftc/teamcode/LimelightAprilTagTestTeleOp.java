@@ -12,8 +12,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@TeleOp(name = "BioBuzz AprilTag Test", group = "Vision")
-public class BioBuzzAprilTagTest extends OpMode {
+@TeleOp(name = "Limelight AprilTag Test", group = "2 - (Tests)")
+public class LimelightAprilTagTestTeleOp extends OpMode {
     private static final String LIMELIGHT_NAME = "limelight";
     // This slot must be configured as an AprilTag pipeline in the Limelight web UI.
     private static final int LIMELIGHT_PIPELINE = 0;

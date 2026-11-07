@@ -30,9 +30,100 @@ repositories {
     mavenCentral()
 }
 
-tasks.register('pushRobotConfigs', Exec) {
-    workingDir rootDir
-    commandLine 'powershell.exe',
-            '-ExecutionPolicy', 'Bypass',
-            '-File', file('robot-configs/scripts/push-configs.ps1').absolutePath
+abstract class PushRobotConfigs extends DefaultTask {
+    @InputDirectory
+    abstract DirectoryProperty getConfigDirectory()
+
+    @InputFile
+    abstract RegularFileProperty getAdbExecutable()
+
+    @Input
+    @Optional
+    abstract Property<String> getDeviceSerial()
+
+    @Inject
+    abstract ExecOperations getExecOperations()
+
+    @TaskAction
+    void pushConfigs() {
+        def configs = configDirectory.get().asFileTree.matching {
+            include '**/*.xml'
+        }.files.sort { it.absolutePath }
+        if (configs.isEmpty()) {
+            throw new GradleException("No XML configuration files found in ${configDirectory.get()}")
+        }
+        def duplicateNames = configs.groupBy { it.name.toLowerCase(Locale.ROOT) }
+                .findAll { name, files -> files.size() > 1 }.keySet()
+        if (!duplicateNames.isEmpty()) {
+            throw new GradleException("Configuration filenames must be unique: ${duplicateNames.join(', ')}")
+        }
+        def profiles = configDirectory.get().asFileTree.matching {
+            include '**/*.profile.json'
+        }.files.sort { it.absolutePath }
+        def duplicateProfiles = profiles.groupBy { it.name.toLowerCase(Locale.ROOT) }
+                .findAll { name, files -> files.size() > 1 }.keySet()
+        if (!duplicateProfiles.isEmpty()) {
+            throw new GradleException("Profile filenames must be unique: ${duplicateProfiles.join(', ')}")
+        }
+        profiles.each { profile ->
+            def hardwareName = profile.name.substring(0, profile.name.length() - '.profile.json'.length()) + '.xml'
+            if (!configs.any { it.name == hardwareName }) {
+                throw new GradleException("Profile ${profile.name} has no matching ${hardwareName}")
+            }
+            try {
+                new groovy.json.JsonSlurper().parse(profile)
+            } catch (groovy.json.JsonException exception) {
+                throw new GradleException("Invalid JSON in ${profile.name}: ${exception.message}", exception)
+            }
+        }
+
+        def adb = adbExecutable.get().asFile.absolutePath
+        def deviceOutput = new ByteArrayOutputStream()
+        execOperations.exec {
+            commandLine adb, 'devices'
+            standardOutput = deviceOutput
+        }
+        def devices = deviceOutput.toString('UTF-8').readLines().collect { it.trim().split(/\s+/) }
+                .findAll { it.size() == 2 && it[1] == 'device' }.collect { it[0] }
+        def serial = deviceSerial.getOrElse('').trim()
+        if (serial.isEmpty()) {
+            if (devices.isEmpty()) {
+                throw new GradleException('No authorized ADB device found. Connect and authorize the Control Hub.')
+            }
+            if (devices.size() != 1) {
+                throw new GradleException('Multiple ADB devices found. Set -ProbotConfigDeviceSerial=<serial> or ANDROID_SERIAL.')
+            }
+            serial = devices[0]
+        } else if (!devices.contains(serial)) {
+            throw new GradleException("ADB device '${serial}' is not connected and authorized.")
+        }
+
+        execOperations.exec {
+            commandLine adb, '-s', serial, 'shell', 'mkdir', '-p',
+                    '/sdcard/FIRST/robot-profiles'
+        }
+        configs.each { config ->
+            def destination = "/sdcard/FIRST/${config.name}"
+            logger.lifecycle("Pushing ${config.name} to ${serial}:${destination}")
+            execOperations.exec {
+                commandLine adb, '-s', serial, 'push', config.absolutePath, destination
+            }
+        }
+        profiles.each { profile ->
+            def destination = "/sdcard/FIRST/robot-profiles/${profile.name}"
+            logger.lifecycle("Pushing ${profile.name} to ${serial}:${destination}")
+            execOperations.exec {
+                commandLine adb, '-s', serial, 'push', profile.absolutePath, destination
+            }
+        }
+        logger.lifecycle("Pushed ${configs.size()} configuration file(s) and ${profiles.size()} sensor profile(s). Select the desired profile in Driver Station -> Configure Robot.")
+    }
+}
+
+tasks.register('pushRobotConfigs', PushRobotConfigs) {
+    group = 'deployment'
+    description = 'Uploads robot configuration XML and paired sensor profiles to the connected Control Hub.'
+    configDirectory.set(layout.projectDirectory.dir('robot-configs'))
+    deviceSerial.set(providers.gradleProperty('robotConfigDeviceSerial')
+            .orElse(providers.environmentVariable('ANDROID_SERIAL')))
 }

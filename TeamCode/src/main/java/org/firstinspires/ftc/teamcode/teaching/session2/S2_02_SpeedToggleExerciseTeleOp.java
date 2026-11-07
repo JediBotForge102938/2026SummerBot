@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
-@TeleOp(name = "[S2-02] Speed toggle - Exercise", group = "Teaching S2")
+@TeleOp(name = "[S2-02] Speed toggle - Exercise", group = "3 - (Lessons)")
 public class S2_02_SpeedToggleExerciseTeleOp extends OpMode {
     private static final double LESSON_SPEED = 0.5;
     private DcMotor leftFront, rightFront, leftBack, rightBack;

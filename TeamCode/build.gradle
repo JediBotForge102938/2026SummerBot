@@ -24,6 +24,10 @@ android {
     }
 }
 
+rootProject.tasks.named('pushRobotConfigs') {
+    adbExecutable.set(androidComponents.sdkComponents.adb)
+}
+
 dependencies {
     implementation project(':FtcRobotController')
     testImplementation 'junit:junit:4.13.2'

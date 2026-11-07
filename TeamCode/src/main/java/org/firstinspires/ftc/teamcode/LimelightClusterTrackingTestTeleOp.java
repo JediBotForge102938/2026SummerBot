@@ -5,15 +5,17 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.control.HiveTrackingController;
+import org.firstinspires.ftc.teamcode.control.ImuAimController;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
 
-@TeleOp(name = "BioBuzz Cluster Tracking", group = "Vision")
-public class BioBuzzClusterTracking extends OpMode {
+@TeleOp(name = "Limelight Cluster Tracking Test", group = "2 - (Tests)")
+public class LimelightClusterTrackingTestTeleOp extends OpMode {
     private static final double FOLLOW_BACKWARD_POWER = -0.25;
 
     private final DriveSubsystem drive = new DriveSubsystem();
     private final VisionSubsystem vision = new VisionSubsystem();
+    private final ImuAimController aim = new ImuAimController(drive::getYawRateDegreesPerSecond);
     private BioBuzzLimelightClusterAdapter.Alliance selectedAlliance =
             BioBuzzLimelightClusterAdapter.Alliance.BLUE;
     private boolean driveInitialized;
@@ -33,6 +35,7 @@ public class BioBuzzClusterTracking extends OpMode {
 
     @Override
     public void loop() {
+        aim.sample();
         if (gamepad1.optionsWasPressed()) {
             selectedAlliance = selectedAlliance == BioBuzzLimelightClusterAdapter.Alliance.BLUE
                     ? BioBuzzLimelightClusterAdapter.Alliance.RED
@@ -66,7 +69,10 @@ public class BioBuzzClusterTracking extends OpMode {
             double horizontalAngleDegrees = Math.toDegrees(Math.atan2(targetX, targetZ));
             if (gamepad1.a || gamepad1.b) {
                 // This rear-facing camera needs the opposite chassis turn from a front-facing camera.
-                rotate = HiveTrackingController.getTurnPower(horizontalAngleDegrees);
+                rotate = aim.turn(horizontalAngleDegrees, snapshot.observationAgeMs);
+                telemetry.addData("IMU corrected error", "%.1f deg", aim.getCorrectedAngle());
+                telemetry.addData("Motion compensation", aim.isCompensated()
+                        ? "IMU rotation" : "Warming up (vision + rate damping)");
             }
             if (gamepad1.b) {
                 forward = FOLLOW_BACKWARD_POWER;
@@ -97,6 +103,7 @@ public class BioBuzzClusterTracking extends OpMode {
 
     @Override
     public void stop() {
+        aim.reset();
         if (driveInitialized) {
             drive.driveRobotRelative(0.0, 0.0, 0.0);
         }

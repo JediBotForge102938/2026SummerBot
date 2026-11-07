@@ -24,63 +24,71 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.teamcode.control.DriveModePreferences;
 import org.firstinspires.ftc.teamcode.control.HiveTrackingController;
 import org.firstinspires.ftc.teamcode.control.MechanismCoordinator;
 import org.firstinspires.ftc.teamcode.control.TeleopController;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
-import org.firstinspires.ftc.teamcode.subsystems.LauncherFeeder;
 import org.firstinspires.ftc.teamcode.subsystems.LauncherSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
-import org.firstinspires.ftc.teamcode.telemetry.DriverStationTelemetry;
-import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
-import org.firstinspires.ftc.teamcode.telemetry.TelemetryPresenter;
+import org.firstinspires.ftc.teamcode.subsystems.WindmillSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
+import org.firstinspires.ftc.teamcode.telemetry.StarterBotTelemetry;
 
-import java.util.Arrays;
-
-@TeleOp(name = "Mec BioBuzz CompetitionBot Field Centric Teleop", group = "CompetitionBot")
-public class BioBuzzCompetitionbotTeleopMecanumFieldCentric extends OpMode {
+@TeleOp(name = "StarterBot")
+public class StarterBotTeleOp extends OpMode {
     private final DriveSubsystem drive = new DriveSubsystem();
-    private final IntakeSubsystem intake = new IntakeSubsystem(false);
-    private final LauncherSubsystem launcher = new LauncherSubsystem(Arrays.asList(
-            new LauncherSubsystem.MotorConfig("left_launcher", DcMotor.Direction.REVERSE),
-            new LauncherSubsystem.MotorConfig("right_launcher", DcMotor.Direction.FORWARD)));
-    private boolean launcherInitialized;
-    private boolean driveInitialized;
-    private boolean intakeInitialized;
+    private final ConfigurationSubsystem configuration = new ConfigurationSubsystem();
+    private final IntakeSubsystem intake = new IntakeSubsystem(true);
+    private final LauncherSubsystem launcher = new LauncherSubsystem();
+    private final WindmillSubsystem windmill = new WindmillSubsystem();
     private final VisionSubsystem vision = new VisionSubsystem();
     private TeleopController controller;
-    private TelemetryPresenter display;
+    private StarterBotTelemetry display;
 
     @Override
     public void init() {
-        drive.init(hardwareMap);
-        driveInitialized = true;
+        RobotProfile profile = RobotProfile.loadActive("starterbot");
+        drive.init(hardwareMap, profile);
         intake.init(hardwareMap);
-        intakeInitialized = true;
         launcher.init(hardwareMap);
-        launcherInitialized = true;
-        vision.init(hardwareMap);
+        windmill.init(hardwareMap);
+        vision.init(hardwareMap, profile);
         DriveModePreferences preferences = new DriveModePreferences(hardwareMap.appContext);
-        HiveTrackingController tracking = new HiveTrackingController(vision, preferences);
-        controller = new TeleopController(drive,
-                new MechanismCoordinator(intake, launcher, LauncherFeeder.DISABLED),
+        HiveTrackingController tracking = new HiveTrackingController(
+                vision, preferences, drive::getYawRateDegreesPerSecond);
+        controller = new TeleopController(drive, new MechanismCoordinator(intake, launcher, windmill),
                 preferences, tracking);
-        display = new TelemetryPresenter(new DriverStationTelemetry(telemetry, hardwareMap.appContext),
-                tracking, launcher, controller, intake, drive,
-                output -> output.status("Competition gate", "DISABLED: positions not configured",
-                        RobotTelemetry.Level.WARNING));
-        controller.updateInit(gamepad1);
-        display.publish();
+        display = new StarterBotTelemetry(telemetry, configuration, controller, tracking, launcher);
+        configuration.init(telemetry, gamepad1, preferences);
+        configuration.setRobotProfileName(profile.name);
+        publishConfiguration();
     }
 
     @Override
     public void init_loop() {
-        controller.updateInit(gamepad1);
+        configuration.updateInit(gamepad1);
+        publishConfiguration();
+    }
+
+    @Override
+    public void start() {
+        if (!configuration.isLocked()) {
+            configuration.lock();
+            drive.resetHeading(configuration.getStartingHeadingDegrees(),
+                    configuration.getFieldForwardHeadingDegrees());
+            controller.configure(configuration, gamepad1);
+        }
         display.publish();
+    }
+
+    private void publishConfiguration() {
+        telemetry.clearAll();
+        configuration.publish();
+        telemetry.update();
     }
 
     @Override
@@ -94,16 +102,6 @@ public class BioBuzzCompetitionbotTeleopMecanumFieldCentric extends OpMode {
         gamepad1.stopRumble();
         if (controller != null) {
             controller.stop();
-        } else {
-            if (launcherInitialized) {
-                launcher.update(false);
-            }
-            if (intakeInitialized) {
-                intake.setPower(0);
-            }
-            if (driveInitialized) {
-                drive.driveRobotRelative(0, 0, 0);
-            }
         }
         vision.stop();
         if (display != null) {

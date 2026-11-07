@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 
 import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.LauncherSubsystem;
 import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
 import org.firstinspires.ftc.teamcode.telemetry.TelemetrySource;
@@ -15,6 +16,7 @@ public class TeleopController implements TelemetrySource {
     private final DriveModePreferences preferences;
     private final HiveTrackingController tracking;
     private boolean fieldCentric;
+    private boolean configurationManaged;
     private boolean chordArmed;
     private boolean chordConsumed;
     private boolean optionsWasDown;
@@ -40,7 +42,9 @@ public class TeleopController implements TelemetrySource {
     }
 
     public void update(Gamepad gamepad) {
-        updateInit(gamepad);
+        if (!configurationManaged) {
+            updateInit(gamepad);
+        }
         precisionDriving = gamepad.left_bumper;
         aiming = gamepad.a;
         leftTrigger = gamepad.left_trigger;
@@ -94,8 +98,26 @@ public class TeleopController implements TelemetrySource {
         return fieldCentric;
     }
 
+    public void configure(ConfigurationSubsystem configuration, Gamepad gamepad) {
+        if (!configuration.isLocked()) {
+            throw new IllegalStateException("Lock configuration before applying it");
+        }
+        fieldCentric = configuration.isFieldCentric();
+        tracking.setAlliance(configuration.getAlliance());
+        configurationManaged = true;
+        dpadUpWasDown = gamepad.dpad_up;
+        dpadDownWasDown = gamepad.dpad_down;
+        chordArmed = false;
+        chordConsumed = false;
+        optionsWasDown = false;
+        resetPending = false;
+    }
+
     /** Allows alliance selection during INIT without driving or spinning mechanisms. */
     public void updateInit(Gamepad gamepad) {
+        if (configurationManaged) {
+            return;
+        }
         tracking.selectAlliance(gamepad.dpad_left, gamepad.dpad_right);
         Alliance selectedAlliance = tracking.getAlliance();
         if (selectedAlliance != controllerLedAlliance) {

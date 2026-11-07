@@ -9,6 +9,94 @@ This GitHub repository contains the source code that is used to build an Android
 
 For workstation setup, simulator instructions, deployment procedures, and team lessons, see the [JediBotForge Software Handbook](teaching/index.html).
 
+### INIT starting selection test
+
+**StarterBot**, **CompetitionBot**, and **Configuration Test** share `ConfigurationSubsystem`.
+They load a sensor profile matched to the active FTC hardware configuration;
+see [robot sensor profiles](robot-configs/README.md#sensor-profiles).
+CompetitionBot currently uses StarterBot's sensor settings; update them when its
+mounting measurements are known.
+Both driving OpModes show only the configuration table during INIT. At START, each locks the
+menu, applies the drive mode to `TeleopController`, the alliance to hive tracking
+(and therefore vision target selection), and the inward-facing heading offset to
+`DriveSubsystem`. Scoring and Audience remain named presets rather than measured
+positions. No OTOS localization is configured.
+Alliance, drive mode, and starting spot are remembered across runs and shared
+between StarterBot, CompetitionBot, and Configuration Test on the Robot Controller.
+INIT edits save immediately, even if stopped before START; the running drive-mode
+toggle is also remembered. Without saved values, defaults are Red / Field-centric /
+Audience. Saved legacy drive-mode/alliance preferences are honored.
+During driving, the existing drive-mode toggle, manual heading reset, launcher
+speed adjustment, and mechanism controls remain available; D-pad Left/Right no
+longer changes the locked alliance. Holding an INIT menu arrow across
+START does not change launcher speed until it is released and pressed again.
+After START, both bots use the same compact telemetry and keep the Configuration table visible (including the
+current drive mode), adds a Hive Tracking table with status, target, and range /
+heading error when a target exists, and adds a Launcher table with separate status
+and actual / target ticks/s rows. Blank lines separate the three sections.
+Instructions and detailed debug rows are omitted.
+The detected hive target name turns green. Launcher status is yellow while
+spinning up or below target, green when READY, and uncolored when OFF.
+Hive Tracking status is green **LOCKED IN** for a selected scorable target,
+red **NOT SCORABLE** for valid vision without an eligible target, yellow
+**SEARCHING** for missing/invalid/stale vision, and uncolored **MANUAL** when
+aiming is inactive. These labels do not change target selection or drive behavior.
+CompetitionBot retains its reversed left / forward right launcher motors and
+disabled feeder gate. Its Launcher table explicitly shows the disabled gate;
+actual speed represents the slowest launcher motor, which determines readiness.
+
+Select **Configuration Test** under **2 - (Tests)**. During INIT,
+use gamepad 1 D-pad Up/Down to select the Alliance, Drive mode, or Starting
+spot row, and Left/Right to change its value. Each press changes one selection;
+opposing arrows cancel each other. The previous selections are restored.
+The compact HTML-styled **Configuration** display shows the three selections in
+aligned key/value columns, with an arrow marking the selected row and the alliance
+name colored red or blue. Gamepad 1's light matches the selected
+alliance (red or blue) on controllers that support LED control. Starting presets
+are Red/Blue **Scoring** or **Audience**; no field coordinates are assigned.
+
+Place the robot at the selected start, facing straight inward toward its hive:
+**Scoring** is against the rear/scoring wall (the red triangle / blue circle
+examples in Figure 11-1); **Audience** is against the audience wall, facing the
+opposite direction. See the [BIOBUZZ manual](https://ftc-resources.firstinspires.org/ftc/game/manual?season=biobuzz),
+Figure 9-2 / section 9.5 for alliance orientation and G304 / Figure 11-1 for legal
+starts. These presets assume a square-to-wall orientation, not arbitrary aiming angles.
+
+**Driver Station START** locks the selections and resets IMU yaw once. Absolute
+field zero points from Red toward Blue; positive rotation is counterclockwise.
+Scoring starts at 270 degrees and Audience at 90 degrees for either alliance.
+Joystick-forward uses a separate alliance-relative reference: **toward the
+opposing alliance wall** (0 degrees for Red, 180 degrees for Blue). Thus forward
+input initially strafes at these starts rather than driving toward the robot's
+nose, and stays field-fixed as the robot turns. Configuration Test displays the
+live absolute field heading in [0, 360) degrees. A manual heading reset during
+driving replaces the preset references with the robot's current facing as forward.
+
+Configuration Test remains an **IMU-only, no-driving test**: the drive-mode choice is displayed but
+does not command motors or configure another OpMode. It requires the configured
+`imu` and uses the same hub mounting as the drive subsystem (logo RIGHT, USB UP).
+OTOS and vision are not required. Choices are saved across runs, but field
+heading is not valid until START establishes the reference.
+
+### IMU-assisted hive aiming
+
+The competition, starter, and BioBuzz Cluster Tracking TeleOps use the drive IMU's
+measured yaw rate to compensate cluster bearings for rotation during camera latency.
+The estimated image age includes Limelight capture and pipeline delays plus result
+staleness (which already includes JSON parsing); network transport delay is not
+measured. A short yaw-rate history is integrated over that interval, so resetting field-centric heading does not
+invalidate aiming. During startup or after a loop gap over 100 ms, telemetry reports
+warmup and aiming uses vision plus rate damping until history covers the image age.
+Turn-rate damping reduces the rotation request while turning toward the target.
+
+Vision still determines identity and scorability. Missing, invalid, contradictory,
+or older-than-250-ms observations stop aiming rather than continue blind; the age
+limit now includes processing latency. This stage compensates rotation only, not
+translation or motion of the hive itself. Verify turn direction and braking on the
+robot before full-speed use. OTOS-based position prediction remains a separate stage
+requiring calibrated sensor and rear-camera mounting offsets; OTOS is not required
+by these TeleOps.
+
 ## Requirements
 To use this Android Studio project, you will need Android Studio Narwhal 3 Feature Drop or later.
 

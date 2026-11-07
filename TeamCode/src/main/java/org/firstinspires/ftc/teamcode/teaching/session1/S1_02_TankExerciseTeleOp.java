@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 
-@TeleOp(name = "[S1-02] Tank - Exercise", group = "Teaching S1")
+@TeleOp(name = "[S1-02] Tank - Exercise", group = "3 - (Lessons)")
 public class S1_02_TankExerciseTeleOp extends OpMode {
     private static final double LESSON_SPEED = 0.5;
     private DcMotor leftFrontDrive;

@@ -8,8 +8,8 @@ import com.qualcomm.robotcore.hardware.IMU;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 
-@TeleOp(name = "[S3-01] IMU Sensor Check", group = "Teaching S3")
-public class S3_01_IMUSensorTeleOp extends OpMode {
+@TeleOp(name = "[S3-01] IMU Sensor Check", group = "3 - (Lessons)")
+public class S3_01_IMUSensorCheckTeleOp extends OpMode {
     private IMU imu;
 
     @Override

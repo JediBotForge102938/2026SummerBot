@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "robot": "starterbot",
+  "imu": { "name": "imu", "logoFacing": "RIGHT", "usbFacing": "UP" },
+  "limelight": { "name": "limelight", "pipeline": 0, "aimDirection": "launcher" },
+  "otos": {
+    "name": "otos",
+    "rawAxes": "forward-negative-x-right-positive-y-clockwise-negative",
+    "opticalCenterFromBackCm": 19.0,
+    "opticalCenterFromLeftCm": 7.5,
+    "linearScalar": 1.0,
+    "angularScalar": 1.0
+  }
+}

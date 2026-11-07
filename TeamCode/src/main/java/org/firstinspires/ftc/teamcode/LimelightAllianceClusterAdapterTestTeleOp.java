@@ -10,8 +10,8 @@ import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
 import java.util.ArrayList;
 import java.util.List;
 
-@TeleOp(name = "BioBuzz Alliance Cluster Adapter Test", group = "Vision")
-public class BioBuzzAllianceClusterAdapterTest extends OpMode {
+@TeleOp(name = "Limelight Alliance Cluster Adapter Test", group = "2 - (Tests)")
+public class LimelightAllianceClusterAdapterTestTeleOp extends OpMode {
     private final VisionSubsystem vision = new VisionSubsystem();
     private BioBuzzLimelightClusterAdapter.Alliance selectedAlliance =
             BioBuzzLimelightClusterAdapter.Alliance.BLUE;

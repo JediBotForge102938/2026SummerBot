@@ -47,7 +47,23 @@ public class HiveTrackingControllerTest {
         vision = new VisionSubsystem();
         vision.init(hardware);
         preferences = mock(DriveModePreferences.class);
-        tracking = new HiveTrackingController(vision, preferences);
+        tracking = new HiveTrackingController(vision, preferences, () -> 0);
+    }
+
+    @Test
+    public void configuredAllianceFeedsVisionWithoutSavingPreferencesOrShowingSelectionControls() {
+        addCluster(30, 10, 100, -10, false);
+        addCluster(42, -10, 100, -10, false);
+        clearInvocations(preferences);
+        tracking.setAlliance(Alliance.RED);
+        assertEquals(Alliance.RED, tracking.getAlliance());
+        assertTrue(tracking.update(true) > 0);
+        RobotTelemetry output = mock(RobotTelemetry.class);
+        tracking.publishTelemetry(output);
+        verify(output).value("Hive target", "RED SCORING");
+        verify(output, never()).line("D-pad left: RED | right: BLUE (saved automatically)");
+        verifyNoInteractions(preferences);
+        assertThrows(IllegalArgumentException.class, () -> tracking.setAlliance(null));
     }
 
     @Test
@@ -61,7 +77,7 @@ public class HiveTrackingControllerTest {
         RobotTelemetry output = mock(RobotTelemetry.class);
         tracking.publishTelemetry(output);
         verify(output).value("Hive target", "BLUE SCORING");
-        verify(output).status("Hive tracking", "TRACKING SCORABLE HIVE", RobotTelemetry.Level.SUCCESS);
+        verify(output).status("Hive tracking", "LOCKED IN", RobotTelemetry.Level.SUCCESS);
     }
 
     @Test
@@ -212,7 +228,7 @@ public class HiveTrackingControllerTest {
         RobotTelemetry output = mock(RobotTelemetry.class);
         tracking.publishTelemetry(output);
         verify(output, never()).value(eq("Hive target"), any());
-        verify(output).status("Hive tracking", "NO FRESH VALID VISION", RobotTelemetry.Level.WARNING);
+        verify(output).status("Hive tracking", "SEARCHING", RobotTelemetry.Level.WARNING);
     }
 
     @Test
@@ -251,7 +267,7 @@ public class HiveTrackingControllerTest {
         addCluster(30, -40, 100, -10, false);
         addCluster(38, 40, 100, -10, false);
         when(preferences.isRedAlliance()).thenReturn(true);
-        tracking = new HiveTrackingController(vision, preferences);
+        tracking = new HiveTrackingController(vision, preferences, () -> 0);
         assertTrue(tracking.update(true) < 0);
         doThrow(new IllegalStateException("Cannot save")).when(preferences).saveRedAlliance(false);
         assertThrows(IllegalStateException.class, () -> tracking.selectAlliance(false, true));
@@ -283,7 +299,7 @@ public class HiveTrackingControllerTest {
         assertEquals(0, tracking.update(true), 0);
         RobotTelemetry output = mock(RobotTelemetry.class);
         tracking.publishTelemetry(output);
-        verify(output).status("Hive tracking", "NO SCORABLE HIVE", RobotTelemetry.Level.WARNING);
+        verify(output).status("Hive tracking", "NOT SCORABLE", RobotTelemetry.Level.ERROR);
         verify(output, never()).value(eq("Hive target"), any());
     }
 
@@ -315,6 +331,45 @@ public class HiveTrackingControllerTest {
         assertEquals(-0.60, HiveTrackingController.getTurnPower(-80), 0);
         assertThrows(IllegalArgumentException.class,
                 () -> HiveTrackingController.getTurnPower(Double.NaN));
+    }
+
+    @Test
+    public void visionAgeIncludesProcessingLatencyButDoesNotDoubleCountParsing() {
+        when(result.getStaleness()).thenReturn(50L);
+        when(result.getCaptureLatency()).thenReturn(10.0);
+        when(result.getTargetingLatency()).thenReturn(20.0);
+        when(result.getParseLatency()).thenReturn(5.0);
+        assertEquals(80, vision.update(Alliance.BLUE).observationAgeMs, 0);
+        when(result.getStaleness()).thenReturn(220L);
+        assertTrue(vision.update(Alliance.BLUE).hasValidResult);
+        when(result.getStaleness()).thenReturn(221L);
+        assertFalse(vision.update(Alliance.BLUE).hasValidResult);
+        when(result.getCaptureLatency()).thenReturn(Double.NaN);
+        assertFalse(vision.update(Alliance.BLUE).hasValidResult);
+        when(result.getCaptureLatency()).thenReturn(-1.0);
+        assertFalse(vision.update(Alliance.BLUE).hasValidResult);
+        when(result.getCaptureLatency()).thenReturn(0.0);
+        when(result.getTargetingLatency()).thenReturn(-1.0);
+        assertFalse(vision.update(Alliance.BLUE).hasValidResult);
+    }
+
+    @Test
+    public void motionCompensatedTrackingStillStopsImmediatelyWhenVisionIsLost() {
+        long[] time = {0};
+        ImuAimController aim = new ImuAimController(() -> -20, () -> time[0]);
+        tracking = new HiveTrackingController(vision, preferences, aim);
+        tracking.update(false);
+        time[0] = 50_000_000;
+        when(result.getStaleness()).thenReturn(50L);
+        addCluster(38, 40, 100, -10, false);
+        assertTrue(tracking.update(true) > 0);
+        RobotTelemetry output = mock(RobotTelemetry.class);
+        tracking.publishTelemetry(output);
+        verify(output).status("Hive motion compensation", "IMU ROTATION", RobotTelemetry.Level.INFO);
+        when(result.isValid()).thenReturn(false);
+        time[0] = 60_000_000;
+        assertEquals(0, tracking.update(true), 0);
+        assertFalse(tracking.hasTarget());
     }
 
     private void addCluster(int firstId, double x, double z, double roll, boolean descending) {

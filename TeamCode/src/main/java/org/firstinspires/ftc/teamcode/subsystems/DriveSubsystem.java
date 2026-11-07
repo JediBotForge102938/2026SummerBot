@@ -15,6 +15,8 @@ public class DriveSubsystem implements TelemetrySource {
     private DcMotor leftBackDrive;
     private DcMotor rightBackDrive;
     private IMU imu;
+    private double headingOffsetDegrees;
+    private double fieldForwardHeadingDegrees;
 
     private double leftFrontPower;
     private double rightFrontPower;
@@ -22,6 +24,19 @@ public class DriveSubsystem implements TelemetrySource {
     private double rightBackPower;
 
     public void init(HardwareMap hardwareMap) {
+        init(hardwareMap, "imu", RevHubOrientationOnRobot.LogoFacingDirection.RIGHT,
+                RevHubOrientationOnRobot.UsbFacingDirection.UP);
+    }
+
+    public void init(HardwareMap hardwareMap, RobotProfile profile) {
+        init(hardwareMap, profile.imuName, profile.imuLogo, profile.imuUsb);
+    }
+
+    private void init(HardwareMap hardwareMap, String imuName,
+            RevHubOrientationOnRobot.LogoFacingDirection logo,
+            RevHubOrientationOnRobot.UsbFacingDirection usb) {
+        headingOffsetDegrees = 0;
+        fieldForwardHeadingDegrees = 0;
         leftFrontDrive = hardwareMap.get(DcMotor.class, "left_front_drive");
         rightFrontDrive = hardwareMap.get(DcMotor.class, "right_front_drive");
         leftBackDrive = hardwareMap.get(DcMotor.class, "left_back_drive");
@@ -37,17 +52,29 @@ public class DriveSubsystem implements TelemetrySource {
         leftBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        imu = hardwareMap.get(IMU.class, "imu");
+        imu = hardwareMap.get(IMU.class, imuName);
         RevHubOrientationOnRobot orientationOnRobot = new RevHubOrientationOnRobot(
-                RevHubOrientationOnRobot.LogoFacingDirection.RIGHT,
-                RevHubOrientationOnRobot.UsbFacingDirection.UP);
+                logo, usb);
         if (!imu.initialize(new IMU.Parameters(orientationOnRobot))) {
             throw new IllegalStateException("Unable to initialize the configured drive IMU");
         }
     }
 
     public void resetHeading() {
+        resetHeading(0);
+    }
+
+    public void resetHeading(double fieldHeadingDegrees) {
+        resetHeading(fieldHeadingDegrees, 0);
+    }
+
+    public void resetHeading(double fieldHeadingDegrees, double fieldForwardDegrees) {
+        if (!Double.isFinite(fieldHeadingDegrees) || !Double.isFinite(fieldForwardDegrees)) {
+            throw new IllegalArgumentException("Field and forward headings must be finite");
+        }
         imu.resetYaw();
+        headingOffsetDegrees = fieldHeadingDegrees;
+        fieldForwardHeadingDegrees = fieldForwardDegrees;
     }
 
     public void driveFieldRelative(double forward, double strafe, double rotate) {
@@ -62,7 +89,7 @@ public class DriveSubsystem implements TelemetrySource {
             boolean prioritizeRotation) {
         double theta = Math.atan2(forward, strafe);
         double radius = Math.hypot(strafe, forward);
-        double heading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+        double heading = Math.toRadians(getHeadingDegrees() - fieldForwardHeadingDegrees);
 
         theta = AngleUnit.normalizeRadians(theta - heading);
 
@@ -101,7 +128,12 @@ public class DriveSubsystem implements TelemetrySource {
     }
 
     public double getHeadingDegrees() {
-        return imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
+        return imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES)
+                + headingOffsetDegrees;
+    }
+
+    public double getYawRateDegreesPerSecond() {
+        return imu.getRobotAngularVelocity(AngleUnit.DEGREES).zRotationRate;
     }
 
     @Override

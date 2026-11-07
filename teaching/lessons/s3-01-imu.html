@@ -58,7 +58,7 @@
 
         <h2 id="read">Use the sensor-check OpMode</h2>
         <ol>
-          <li>Open <code>S3_01_IMUSensorTeleOp.java</code> under <code>TeamCode/src/main/java/org/firstinspires/ftc/teamcode/teaching/session3/</code>. In Android Studio, use <strong>Shift+Shift</strong> and search for the filename.</li>
+          <li>Open <code>S3_01_IMUSensorCheckTeleOp.java</code> under <code>TeamCode/src/main/java/org/firstinspires/ftc/teamcode/teaching/session3/</code>. In Android Studio, use <strong>Shift+Shift</strong> and search for the filename.</li>
           <li>Open <code>robot-configs/biobuzz-starterbot.xml</code> and find the Control Hub IMU entry. It must name the device <code>imu</code> and specify I2C <code>port="0"</code> and <code>bus="0"</code>.</li>
           <li>In <code>init()</code>, find <code>hardwareMap.get(IMU.class, "imu")</code>. The name <code>imu</code> must match the active robot configuration.</li>
           <li>Read the next few lines: this code declares the Hub logo <code>UP</code> and its USB ports <code>BACKWARD</code>, then initializes the IMU with that mounting orientation.</li>

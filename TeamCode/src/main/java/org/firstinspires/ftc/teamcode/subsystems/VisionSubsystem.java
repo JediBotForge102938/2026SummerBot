@@ -33,12 +33,16 @@ public class VisionSubsystem {
     public static final class DetectionSnapshot {
         /** True only for a valid result no older than MAX_RESULT_AGE_MS. */
         public final boolean hasValidResult;
+        /** Estimated capture-to-now age; excludes unmeasured network transport delay. */
+        public final double observationAgeMs;
         public final List<BioBuzzLimelightClusterAdapter.ClusterDetection> clusters;
 
         private DetectionSnapshot(
                 boolean hasValidResult,
+                double observationAgeMs,
                 List<BioBuzzLimelightClusterAdapter.ClusterDetection> clusters) {
             this.hasValidResult = hasValidResult;
+            this.observationAgeMs = observationAgeMs;
             this.clusters = Collections.unmodifiableList(new ArrayList<>(clusters));
         }
     }
@@ -47,16 +51,36 @@ public class VisionSubsystem {
             new BioBuzzLimelightClusterAdapter();
     private Limelight3A limelight;
     private boolean started;
+    private String cameraName = LIMELIGHT_NAME;
+    private int pipeline = LIMELIGHT_PIPELINE;
 
     public void init(HardwareMap hardwareMap) {
+        init(hardwareMap, LIMELIGHT_NAME, LIMELIGHT_PIPELINE);
+    }
+
+    public void init(HardwareMap hardwareMap, RobotProfile profile) {
+        init(hardwareMap, profile.limelightName, profile.limelightPipeline);
+    }
+
+    private void init(HardwareMap hardwareMap, String name, int pipeline) {
         if (limelight != null) {
             throw new IllegalStateException("VisionSubsystem has already been initialized");
         }
 
-        limelight = hardwareMap.get(Limelight3A.class, LIMELIGHT_NAME);
-        limelight.pipelineSwitch(LIMELIGHT_PIPELINE);
+        cameraName = name;
+        this.pipeline = pipeline;
+        limelight = hardwareMap.get(Limelight3A.class, name);
+        limelight.pipelineSwitch(pipeline);
         limelight.start();
         started = true;
+    }
+
+    public String getCameraName() {
+        return cameraName;
+    }
+
+    public int getPipeline() {
+        return pipeline;
     }
 
     public DetectionSnapshot update(BioBuzzLimelightClusterAdapter.Alliance alliance) {
@@ -69,13 +93,21 @@ public class VisionSubsystem {
 
         LLResult result = limelight.getLatestResult();
         if (result == null || !result.isValid()) {
-            return new DetectionSnapshot(false, Collections.emptyList());
+            return new DetectionSnapshot(false, 0, Collections.emptyList());
         }
         long ageMs = result.getStaleness();
         if (ageMs < 0 || ageMs > MAX_RESULT_AGE_MS) {
-            return new DetectionSnapshot(false, Collections.emptyList());
+            return new DetectionSnapshot(false, 0, Collections.emptyList());
         }
-        return new DetectionSnapshot(true, clusterAdapter.detect(result, alliance));
+        double captureLatency = result.getCaptureLatency();
+        double targetingLatency = result.getTargetingLatency();
+        // SDK staleness starts before JSON parsing, so it already includes parse latency.
+        double observationAgeMs = ageMs + captureLatency + targetingLatency;
+        if (!Double.isFinite(observationAgeMs) || captureLatency < 0 || targetingLatency < 0
+                || observationAgeMs > MAX_RESULT_AGE_MS) {
+            return new DetectionSnapshot(false, 0, Collections.emptyList());
+        }
+        return new DetectionSnapshot(true, observationAgeMs, clusterAdapter.detect(result, alliance));
     }
 
     public void stop() {
