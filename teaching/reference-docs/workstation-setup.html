@@ -63,11 +63,13 @@ winget install --exact --id BellSoft.LibericaJDK.17.Full --accept-package-agreem
           <li>Connect a gamepad before launching the simulator.</li>
           <li>In Android Studio, open the run-configuration dropdown in the top toolbar and select <strong>Simulator</strong>.</li>
           <li>Click the green <strong>Run</strong> button in the toolbar to launch that configuration.</li>
-          <li>Choose <code>StarterBot</code> from the simulator Configuration dropdown.</li>
+          <li>Choose <code>starterbot-drive-only</code> from the simulator Configuration dropdown for teaching OpModes.</li>
           <li>Select a teaching OpMode, then press <strong>INIT</strong> and <strong>START</strong>.</li>
         </ol>
         <p>Press <strong>Start+A</strong> on a controller to assign it to gamepad 1, or <strong>Start+B</strong> to assign it to gamepad 2.</p>
+        <p>For a PlayStation-style controller, use <strong>Options+Cross</strong> for gamepad 1 or <strong>Options+Circle</strong> for gamepad 2. On Linux, the Simulator run configuration includes a mapping for the ZEROPLUS P4 wired gamepad.</p>
         <p>For the simulator's on-screen gamepad, edit <code>Simulator/src/main/java/local_simulator_config/Config.java</code>, set <code>USE_VIRTUAL_GAMEPAD</code> to <code>true</code>, and restart the simulator. The team default is <code>false</code>, which uses physical gamepads.</p>
+        <p>For <strong>Field Tracking Test</strong>, choose <strong>biobuzz-starterbot</strong>. It uses the bundled StarterBot profile. Place and orient the robot to match the selected starting pose before INIT; the menu does not move it. OTOS and IMU are simulated, while Limelight always reports no matches. Simulator readings are idealized and do not replace testing on the robot.</p>
         <p><a href="simulator.html">Open the simulator reference</a> for controller details and troubleshooting.</p>
 
         <h2 id="robot">Deploy to the Control Hub</h2>

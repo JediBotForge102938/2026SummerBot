@@ -81,6 +81,25 @@ sections 6, 8 and 11. Hive center and flower attachment locations are rough,
 not surveyed tag locations or safe approach poses; PARK is the loading zone.
 Field and placement tolerances mean even the starting pose is an estimate.
 
+The desktop simulator's **biobuzz-starterbot** uses the bundled
+StarterBot JSON profile and simulates OTOS translation and its mounting offset.
+Limelight is a no-target mock, so vision remains searching and cannot provide
+vision position or delta. Telemetry is plain text without Driver Station colors.
+Place and orient the simulated robot at the selected starting pose before INIT;
+the menu sets the estimator's assumed pose but does not reposition the simulator.
+The simulator ignores OTOS calibration scalars, supports only zero OTOS hardware
+offset, and does not support setting the OTOS position. Its idealized sensors and
+field are not a substitute for robot tests.
+The **biobuzz-competitionbot** entry uses its own XML and placeholder sensor
+profile. Its chassis is an approximation, its mechanisms have no detailed
+visualization, and its Limelight is also a no-target mock. The drive-only and
+exercise entries do not have BioBuzz sensor profiles.
+The BioBuzz simulator models the physical robot's reversed lateral response by
+swapping front/back wheel slots on each side. This preserves forward and turn
+responses, but an individual drive-motor command or encoder corresponds to the
+opposite end of the simulated chassis. It does not assert how the physical
+robot is wired; the teaching configurations retain their original wheel mapping.
+
 ## Profiles
 
 | File | Purpose |
@@ -246,10 +265,10 @@ only after the launcher holds above its target threshold for 200 ms; a zero
 target disables launcher feeding. Start and Options are SDK aliases, so the
 drive-mode toggle uses Share + Options on PlayStation or Back + Start on Xbox.
 
-The simulator packages `biobuzz-starterbot.xml` for its BioBuzz robot and
-`starterbot-drive-only.xml` for its basic StarterBot. The S2-04 exercise
-simulator reads the lesson configuration to demonstrate incorrect port
-assignments.
+Simulator dropdown entries correspond to the four XML files in this repository.
+They are explicitly implemented simulated robots, not a dynamically discovered
+list of XML files; new configurations require a simulator implementation.
+The S2-04 exercise demonstrates incorrect port assignments.
 
 ## Uploading configurations
 

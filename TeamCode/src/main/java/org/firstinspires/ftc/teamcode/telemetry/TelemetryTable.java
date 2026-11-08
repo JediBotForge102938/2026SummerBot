@@ -9,7 +9,7 @@ public final class TelemetryTable {
     private TelemetryTable() { }
 
     public static void heading(Telemetry telemetry, String title) {
-        telemetry.addLine("<b>" + escape(title) + "</b>");
+        telemetry.addLine(TelemetryMarkup.render("<b>" + escape(title) + "</b>"));
     }
 
     public static void row(Telemetry telemetry, String label, String value,
@@ -46,7 +46,7 @@ public final class TelemetryTable {
         if (color != null) {
             text = "<font color='" + color + "'>" + text + "</font>";
         }
-        telemetry.addLine("<tt>" + marker + key + text + "</tt>");
+        telemetry.addLine(TelemetryMarkup.render("<tt>" + marker + key + text + "</tt>"));
     }
 
     public static void row(Telemetry telemetry, String label, String value) {

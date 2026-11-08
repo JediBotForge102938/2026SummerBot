@@ -1,6 +1,7 @@
 package virtual_robot.robots.classes;
 
 import local_simulator_config.RobotHardwareConfig;
+import org.firstinspires.ftc.teamcode.subsystems.ActiveRobotProfileSource;
 import virtual_robot.controller.BotConfig;
 
 import java.util.HashSet;
@@ -9,7 +10,7 @@ import java.util.Set;
 
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
-@BotConfig(name = "Stryker: S2-04 Configuration Exercise", filename = "s2_04_configuration_exercise")
+@BotConfig(name = "s2_04_configuration_exercise", filename = "s2_04_configuration_exercise")
 public class StarterBotConfigurationExerciseSim extends MecanumPhysicsBase {
     private static final String ROBOT_CONFIG_RESOURCE =
             "/robot-configs/lessons/s2_04_configuration_exercise.xml";
@@ -17,6 +18,7 @@ public class StarterBotConfigurationExerciseSim extends MecanumPhysicsBase {
     @Override
     protected void createHardwareMap() {
         super.createHardwareMap();
+        ActiveRobotProfileSource.select(null);
 
         hardwareMap.setActive(true);
         List<RobotHardwareConfig.Motor> configuredMotors =

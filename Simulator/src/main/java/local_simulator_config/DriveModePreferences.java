@@ -14,6 +14,7 @@ public class DriveModePreferences {
     private static final String FIELD_CENTRIC = "field_centric";
     private static final String LAUNCHER_TARGET_VELOCITY = "launcher_target_velocity";
     private static final String RED_ALLIANCE = "red_alliance";
+    private static final String SCORING_START = "scoring_start";
     private final Preferences preferences =
             Preferences.userRoot().node("biobuzz/starterbot/teleop");
 
@@ -22,6 +23,25 @@ public class DriveModePreferences {
 
     public boolean isFieldCentric() {
         return preferences.getBoolean(FIELD_CENTRIC, false);
+    }
+
+    public boolean getConfigurationFieldCentric() {
+        return preferences.getBoolean(FIELD_CENTRIC, true);
+    }
+
+    public boolean getConfigurationRedAlliance() {
+        return preferences.getBoolean(RED_ALLIANCE, true);
+    }
+
+    public boolean isScoringStart() {
+        return preferences.getBoolean(SCORING_START, false);
+    }
+
+    public void saveConfiguration(boolean redAlliance, boolean fieldCentric, boolean scoringStart) {
+        preferences.putBoolean(RED_ALLIANCE, redAlliance);
+        preferences.putBoolean(FIELD_CENTRIC, fieldCentric);
+        preferences.putBoolean(SCORING_START, scoringStart);
+        flush();
     }
 
     public void saveFieldCentric(boolean fieldCentric) {

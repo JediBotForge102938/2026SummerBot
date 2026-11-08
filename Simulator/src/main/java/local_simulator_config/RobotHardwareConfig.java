@@ -25,6 +25,7 @@ public final class RobotHardwareConfig {
 
     public enum DeviceType {
         MOTOR,
+        CR_SERVO,
         SERVO
     }
 
@@ -32,6 +33,33 @@ public final class RobotHardwareConfig {
     }
 
     public record Motor(String name, int port) {
+    }
+
+    public static String driveWheelSlot(String configuredName) {
+        String name = configuredName.toLowerCase(java.util.Locale.ROOT).replace('-', '_').replace(' ', '_');
+        if (name.contains("left_front") || name.contains("front_left")) return "front_left_motor";
+        if (name.contains("right_front") || name.contains("front_right")) return "front_right_motor";
+        if (name.contains("left_back") || name.contains("back_left")) return "back_left_motor";
+        if (name.contains("right_back") || name.contains("back_right")) return "back_right_motor";
+        return null;
+    }
+
+    /**
+     * The shared BioBuzz mixer compensates for the assembled robot's reversed lateral
+     * response. Swap same-side front/back simulator slots to reproduce that response;
+     * straight drive and turning are unchanged. This is a kinematic approximation,
+     * not a claim about the physical wiring.
+     */
+    public static String bioBuzzDriveWheelSlot(String configuredName) {
+        String wheel = driveWheelSlot(configuredName);
+        if (wheel == null) return null;
+        return switch (wheel) {
+            case "front_left_motor" -> "back_left_motor";
+            case "back_left_motor" -> "front_left_motor";
+            case "front_right_motor" -> "back_right_motor";
+            case "back_right_motor" -> "front_right_motor";
+            default -> throw new IllegalStateException("Unknown simulated wheel: " + wheel);
+        };
     }
 
     public static List<Motor> loadMotors(String resourcePath) {
@@ -71,6 +99,8 @@ public final class RobotHardwareConfig {
                 DeviceType type;
                 if (tagName.contains("motor")) {
                     type = DeviceType.MOTOR;
+                } else if (tagName.contains("continuousrotationservo")) {
+                    type = DeviceType.CR_SERVO;
                 } else if (tagName.contains("servo")) {
                     type = DeviceType.SERVO;
                 } else {

@@ -3,6 +3,7 @@ package virtual_robot.robots.classes;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import local_simulator_config.RobotHardwareConfig;
+import org.firstinspires.ftc.teamcode.subsystems.ActiveRobotProfileSource;
 import virtual_robot.controller.BotConfig;
 import virtual_robot.controller.VirtualField;
 
@@ -11,7 +12,7 @@ import java.util.HashSet;
 import java.util.Set;
 import org.dyn4j.geometry.Transform;
 
-@BotConfig(name = "Stryker: StarterBot", filename = "starterbot")
+@BotConfig(name = "starterbot-drive-only", filename = "starterbot")
 public class StarterBotMecanumSim extends MecanumPhysicsBase {
     private static final String ROBOT_CONFIG_RESOURCE = "/robot-configs/starterbot-drive-only.xml";
     private static final int STARTING_COLUMN = 3;
@@ -20,6 +21,7 @@ public class StarterBotMecanumSim extends MecanumPhysicsBase {
     @Override
     protected void createHardwareMap() {
         super.createHardwareMap();
+        ActiveRobotProfileSource.select(null);
 
         hardwareMap.setActive(true);
         List<RobotHardwareConfig.Motor> configuredMotors =

@@ -14,6 +14,21 @@ application {
     applicationDefaultJvmArgs = ['--add-modules=javafx.controls,javafx.fxml']
 }
 
+tasks.named('run', JavaExec) {
+    if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('linux')) {
+        def controllerMapping = '03000000120c0000182e000011010000,ZEROPLUS P4 Wired Gamepad,' +
+                'a:b1,b:b2,back:b8,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,' +
+                'guide:b12,leftshoulder:b4,leftstick:b10,lefttrigger:a3,leftx:a0,lefty:a1,' +
+                'rightshoulder:b5,rightstick:b11,righttrigger:a4,rightx:a2,righty:a5,' +
+                'start:b9,x:b0,y:b3,platform:Linux,'
+        doFirst {
+            def existing = environment['SDL_GAMECONTROLLERCONFIG']
+            environment 'SDL_GAMECONTROLLERCONFIG',
+                    existing ? "${controllerMapping}\n${existing}" : controllerMapping
+        }
+    }
+}
+
 sourceSets {
     main {
         java {
@@ -25,6 +40,8 @@ sourceSets {
             ]
             exclude 'virtual_robot/config/Config.java'
             exclude 'org/firstinspires/ftc/teamcode/control/DriveModePreferences.java'
+            exclude 'org/firstinspires/ftc/teamcode/subsystems/ActiveRobotProfileSource.java'
+            exclude 'org/firstinspires/ftc/teamcode/telemetry/TelemetryMarkup.java'
         }
         resources {
             srcDirs = [
@@ -42,7 +59,8 @@ tasks.named('processResources') {
         into 'robot-configs'
     }
     from('../robot-configs') {
-        include 'biobuzz-starterbot.xml'
+        include 'biobuzz-starterbot.xml', 'biobuzz-starterbot.profile.json',
+                'biobuzz-competitionbot.xml', 'biobuzz-competitionbot.profile.json'
         into 'robot-configs'
     }
     from('../robot-configs') {
@@ -53,4 +71,7 @@ tasks.named('processResources') {
 
 dependencies {
     implementation fileTree(dir: '../third_party/virtual_robot/lib', include: ['*.jar'])
+    implementation 'com.google.code.gson:gson:2.10.1'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.mockito:mockito-core:4.11.0'
 }

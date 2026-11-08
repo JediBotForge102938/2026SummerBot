@@ -3,13 +3,19 @@ package virtual_robot.robots.classes;
 import com.qualcomm.robotcore.hardware.CRServoImpl;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorExImpl;
+import com.qualcomm.robotcore.hardware.DcMotorControllerImpl;
 import com.qualcomm.robotcore.hardware.configuration.MotorType;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.hardware.sparkfun.SparkFunOTOSInternal;
 import javafx.fxml.FXML;
 import javafx.scene.Group;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.transform.Rotate;
 import local_simulator_config.RobotHardwareConfig;
+import local_simulator_config.StarterBotOTOS;
+import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
+import org.firstinspires.ftc.teamcode.subsystems.ActiveRobotProfileSource;
 import org.dyn4j.geometry.Transform;
 import virtual_robot.controller.BotConfig;
 import virtual_robot.controller.VirtualField;
@@ -18,7 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-@BotConfig(name = "BioBuzz: StarterBot Mecanum", filename = "biobuzz_starterbot")
+@BotConfig(name = "biobuzz-starterbot", filename = "biobuzz_starterbot")
 public class BioBuzzStarterBotSim extends MecanumPhysicsBase {
     private static final String ROBOT_CONFIG_RESOURCE = "/robot-configs/biobuzz-starterbot.xml";
     private static final int STARTING_COLUMN = 3;
@@ -52,14 +58,19 @@ public class BioBuzzStarterBotSim extends MecanumPhysicsBase {
     @Override
     protected void createHardwareMap() {
         super.createHardwareMap();
+        ActiveRobotProfileSource.select("biobuzz-starterbot");
         hardwareMap.setActive(true);
+        hardwareMap.put("otos", new StarterBotOTOS(
+                hardwareMap.get(SparkFunOTOSInternal.class, "sensor_otos"),
+                RobotProfile.loadActive("starterbot")));
+        hardwareMap.put("limelight", new Limelight3A());
 
         List<RobotHardwareConfig.Device> devices =
                 RobotHardwareConfig.loadDevices(ROBOT_CONFIG_RESOURCE);
         Set<String> wheelSlots = new HashSet<>();
         for (RobotHardwareConfig.Device device : devices) {
             if (device.type() == RobotHardwareConfig.DeviceType.MOTOR) {
-                String wheelSlot = internalMotorName(device.name());
+                String wheelSlot = RobotHardwareConfig.bioBuzzDriveWheelSlot(device.name());
                 if (wheelSlot != null) {
                     if (!wheelSlots.add(wheelSlot)) {
                         throw new IllegalArgumentException(
@@ -68,7 +79,7 @@ public class BioBuzzStarterBotSim extends MecanumPhysicsBase {
                     hardwareMap.put(device.name(), hardwareMap.get(DcMotorEx.class, wheelSlot));
                 } else {
                     DcMotorExImpl mechanismMotor =
-                            new DcMotorExImpl(MotorType.Neverest40, motorController1, device.port());
+                            new DcMotorExImpl(MotorType.Neverest40, new DcMotorControllerImpl(), device.port());
                     hardwareMap.put(device.name(), mechanismMotor);
                     if (device.name().equals("intake")) {
                         intake = mechanismMotor;
@@ -76,7 +87,7 @@ public class BioBuzzStarterBotSim extends MecanumPhysicsBase {
                         launcher = mechanismMotor;
                     }
                 }
-            } else {
+            } else if (device.type() == RobotHardwareConfig.DeviceType.CR_SERVO) {
                 CRServoImpl mechanismServo = new CRServoImpl(360);
                 hardwareMap.put(device.name(), mechanismServo);
                 if (device.name().equals("left_intake_servo")) {
@@ -86,6 +97,8 @@ public class BioBuzzStarterBotSim extends MecanumPhysicsBase {
                 } else if (device.name().equals("windmillServo")) {
                     windmillServo = mechanismServo;
                 }
+            } else {
+                throw new IllegalArgumentException("Unsupported StarterBot servo: " + device.name());
             }
         }
         if (wheelSlots.size() != 4) {
@@ -156,20 +169,4 @@ public class BioBuzzStarterBotSim extends MecanumPhysicsBase {
         updateDisplay();
     }
 
-    private static String internalMotorName(String configuredName) {
-        String name = configuredName.toLowerCase().replace('-', '_').replace(' ', '_');
-        if (name.contains("left_front") || name.contains("front_left")) {
-            return "front_left_motor";
-        }
-        if (name.contains("right_front") || name.contains("front_right")) {
-            return "front_right_motor";
-        }
-        if (name.contains("left_back") || name.contains("back_left")) {
-            return "back_left_motor";
-        }
-        if (name.contains("right_back") || name.contains("back_right")) {
-            return "back_right_motor";
-        }
-        return null;
-    }
 }

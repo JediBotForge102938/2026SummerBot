@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode.subsystems;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.qualcomm.ftccommon.configuration.RobotConfigFileManager;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 
 import java.io.File;
@@ -104,8 +103,7 @@ public final class RobotProfile {
     }
 
     public static RobotProfile loadActive(String requiredRobot) {
-        String active = new RobotConfigFileManager().getActiveConfig().getName();
-        return load(new File("/sdcard/FIRST/robot-profiles"), active, requiredRobot);
+        return ActiveRobotProfileSource.load(requiredRobot);
     }
 
     public static RobotProfile load(File directory, String active, String requiredRobot) {
@@ -114,12 +112,7 @@ public final class RobotProfile {
         }
         File path = new File(directory, active + ".profile.json");
         try (Reader reader = new FileReader(path)) {
-            RobotProfile profile = parse(active, reader);
-            if (requiredRobot != null && !requiredRobot.equals(profile.robot)) {
-                throw new IllegalArgumentException("Profile is for " + profile.robot
-                        + ", not " + requiredRobot);
-            }
-            return profile;
+            return read(active, reader, requiredRobot);
         } catch (FileNotFoundException exception) {
             throw new IllegalStateException("Missing profile for active configuration " + active
                     + ": " + path, exception);
@@ -127,6 +120,15 @@ public final class RobotProfile {
             throw new IllegalStateException("Invalid robot profile " + path + ": "
                     + exception.getMessage(), exception);
         }
+    }
+
+    static RobotProfile read(String name, Reader reader, String requiredRobot) {
+        RobotProfile profile = parse(name, reader);
+        if (requiredRobot != null && !requiredRobot.equals(profile.robot)) {
+            throw new IllegalArgumentException("Profile is for " + profile.robot
+                    + ", not " + requiredRobot);
+        }
+        return profile;
     }
 
     private static RobotProfile parse(String name, Reader reader) {
