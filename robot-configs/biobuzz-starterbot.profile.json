@@ -1,8 +1,13 @@
 {
   "schemaVersion": 1,
   "robot": "starterbot",
+  "chassis": { "lengthCm": 45.72, "widthCm": 45.72 },
   "imu": { "name": "imu", "logoFacing": "RIGHT", "usbFacing": "UP" },
-  "limelight": { "name": "limelight", "pipeline": 0, "aimDirection": "launcher" },
+  "limelight": {
+    "name": "limelight", "pipeline": 0, "aimDirection": "launcher",
+    "lensFromBackCm": 9.5, "lensFromLeftCm": 22.86, "lensHeightCm": 31.8,
+    "yawDegrees": 180, "pitchUpDegrees": 37, "rollDegrees": 0
+  },
   "otos": {
     "name": "otos",
     "rawAxes": "forward-negative-x-right-positive-y-clockwise-negative",

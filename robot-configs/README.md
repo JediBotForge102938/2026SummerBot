@@ -34,13 +34,52 @@ are placeholders, not CompetitionBot measurements; update and upload the
 profile when its mounting details are known. Inspect the active configuration
 name shown on the configuration screen before driving.
 
+The profiles also store chassis length and width, and the Limelight lens
+position and orientation: 9.5 cm from the back, centered left-to-right,
+31.8 cm above the floor, facing rearward and tilted 37 degrees upward with
+zero roll for StarterBot. Yaw is measured counterclockwise from robot forward;
+pitch is positive upward; roll is clockwise looking in the camera's forward
+direction. The field-tracking test uses these values for a provisional diagnostic
+position, but Limelight observations are not fused into the field pose.
+
 The current vision algorithm assumes the camera faces the launcher, and the
 field-navigation experiment assumes raw OTOS forward = negative X, right =
 positive Y, and clockwise = negative heading. The profile enforces those
 assumptions; other mounting orientations are not supported yet. Limelight
-position/full rotation and general OTOS orientation transforms have not been
-measured or implemented and must not be added as arbitrary JSON fields.
+mounting measurements are stored but not used to transform observations, and
+general OTOS orientation transforms are not implemented.
 Validate IMU, tracking, and drive directions at low speed on the physical robot.
+
+## Field tracking test
+
+Select **Field Tracking Test** in **2 - (Tests)**. Before INIT, place the
+robot against the audience or scoring wall, centered in line with its alliance's
+hive and with its front facing the hive. Keep the robot flat and still during
+OTOS calibration. Select alliance, starting side and drive mode during INIT;
+these establish an approximate robot-center starting pose at START. The test
+permits manual stick driving at 25% power; hold Y to stop.
+
+Telemetry reports the estimated field position in inches and hub-IMU heading in
+degrees, raw OTOS heading, and each visible Limelight cell in a separate vision
+section. For cells classified as scorable, it also shows an approximate vision
+X/Y and the vision-minus-OTOS X/Y delta. The vision estimate uses the same IMU
+heading, the camera mounting profile and the approximate 2D cell center; it is
+not an independent heading estimate or a surveyed tipped-cell pose. Vision
+readings may be delayed while OTOS readings are current, so compare while stopped.
+The estimated pose combines OTOS displacement and hub-IMU heading with the
+profile's OTOS lever arm. A sensor warning or invalid reading invalidates the
+pose until reinitialization. Vision is observational only: scorable classification
+does not establish that a cell is fully tipped and stable, so no vision correction
+is applied. Test slowly and do not
+use this experimental estimate for autonomous navigation or collision avoidance.
+
+`FieldMap` uses field-center coordinates (+X toward blue, +Y away from the
+audience), approximate hive centers, flower wall attachment locations and
+garden/loading-zone bounds based on the
+[field setup guide](https://ftc-resources.firstinspires.org/ftc/archive/2027/field/eventfieldguide)
+sections 6, 8 and 11. Hive center and flower attachment locations are rough,
+not surveyed tag locations or safe approach poses; PARK is the loading zone.
+Field and placement tolerances mean even the starting pose is an estimate.
 
 ## Profiles
 

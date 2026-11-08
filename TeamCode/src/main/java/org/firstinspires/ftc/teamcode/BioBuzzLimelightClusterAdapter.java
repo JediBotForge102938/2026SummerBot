@@ -42,6 +42,8 @@ public final class BioBuzzLimelightClusterAdapter {
      */
     public static final class ClusterDetection {
         public final String name;
+        public final Alliance alliance;
+        public final boolean audienceSide;
         public final List<Integer> visibleTagIds;
         public final List<Integer> visibleTagIdsLeftToRight;
         public final int percentClusterFound;
@@ -49,11 +51,15 @@ public final class BioBuzzLimelightClusterAdapter {
 
         private ClusterDetection(
                 String name,
+                Alliance alliance,
+                boolean audienceSide,
                 List<Integer> visibleTagIds,
                 List<Integer> visibleTagIdsLeftToRight,
                 int percentClusterFound,
                 Pose3D poseCameraSpace) {
             this.name = name;
+            this.alliance = alliance;
+            this.audienceSide = audienceSide;
             this.visibleTagIds = Collections.unmodifiableList(new ArrayList<>(visibleTagIds));
             this.visibleTagIdsLeftToRight =
                     Collections.unmodifiableList(new ArrayList<>(visibleTagIdsLeftToRight));
@@ -115,6 +121,8 @@ public final class BioBuzzLimelightClusterAdapter {
                 int percentFound = Math.round(100.0f * visibleTagIds.size() / TAGS_PER_CLUSTER);
                 clusters.add(new ClusterDetection(
                         cluster.name,
+                        cluster.alliance,
+                        cluster.firstTagId == 34 || cluster.firstTagId == 38,
                         visibleTagIds,
                         visibleTagIdsLeftToRight,
                         percentFound,

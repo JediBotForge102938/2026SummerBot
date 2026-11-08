@@ -19,11 +19,19 @@ import java.util.Set;
 public final class RobotProfile {
     public final String name;
     public final String robot;
+    public final double chassisLengthCm;
+    public final double chassisWidthCm;
     public final String imuName;
     public final RevHubOrientationOnRobot.LogoFacingDirection imuLogo;
     public final RevHubOrientationOnRobot.UsbFacingDirection imuUsb;
     public final String limelightName;
     public final int limelightPipeline;
+    public final double limelightFromBackCm;
+    public final double limelightFromLeftCm;
+    public final double limelightHeightCm;
+    public final double limelightYawDegrees;
+    public final double limelightPitchUpDegrees;
+    public final double limelightRollDegrees;
     public final String otosName;
     public final double otosBackCm;
     public final double otosLeftCm;
@@ -32,11 +40,18 @@ public final class RobotProfile {
 
     private RobotProfile(String name, JsonObject root) {
         this.name = name;
-        requireKnownKeys(root, "schemaVersion", "robot", "imu", "limelight", "otos");
+        requireKnownKeys(root, "schemaVersion", "robot", "chassis", "imu", "limelight", "otos");
         if (integer(root, "schemaVersion") != 1) {
             throw new IllegalArgumentException("Unsupported profile schema version");
         }
         robot = text(root, "robot");
+        JsonObject chassis = object(root, "chassis");
+        requireKnownKeys(chassis, "lengthCm", "widthCm");
+        chassisLengthCm = number(chassis, "lengthCm");
+        chassisWidthCm = number(chassis, "widthCm");
+        if (chassisLengthCm <= 0 || chassisWidthCm <= 0) {
+            throw new IllegalArgumentException("Chassis dimensions must be positive");
+        }
         JsonObject imu = object(root, "imu");
         requireKnownKeys(imu, "name", "logoFacing", "usbFacing");
         imuName = text(imu, "name");
@@ -47,9 +62,19 @@ public final class RobotProfile {
             throw new IllegalArgumentException("IMU logo and USB directions must be perpendicular");
         }
         JsonObject limelight = object(root, "limelight");
-        requireKnownKeys(limelight, "name", "pipeline", "aimDirection");
+        requireKnownKeys(limelight, "name", "pipeline", "aimDirection", "lensFromBackCm",
+                "lensFromLeftCm", "lensHeightCm", "yawDegrees", "pitchUpDegrees", "rollDegrees");
         limelightName = text(limelight, "name");
         limelightPipeline = integer(limelight, "pipeline");
+        limelightFromBackCm = number(limelight, "lensFromBackCm");
+        limelightFromLeftCm = number(limelight, "lensFromLeftCm");
+        limelightHeightCm = number(limelight, "lensHeightCm");
+        limelightYawDegrees = number(limelight, "yawDegrees");
+        limelightPitchUpDegrees = number(limelight, "pitchUpDegrees");
+        limelightRollDegrees = number(limelight, "rollDegrees");
+        if (limelightHeightCm < 0) {
+            throw new IllegalArgumentException("Limelight height must not be negative");
+        }
         if (!"launcher".equals(text(limelight, "aimDirection"))) {
             throw new IllegalArgumentException("Only a Limelight facing the launcher is supported");
         }
@@ -68,8 +93,9 @@ public final class RobotProfile {
         otosLeftCm = number(otos, "opticalCenterFromLeftCm");
         otosLinearScalar = number(otos, "linearScalar");
         otosAngularScalar = number(otos, "angularScalar");
-        if (otosBackCm < 0 || otosBackCm > 45.72 || otosLeftCm < 0 || otosLeftCm > 45.72) {
-            throw new IllegalArgumentException("OTOS optical center must lie within the 18-inch robot");
+        if (otosBackCm < 0 || otosBackCm > chassisLengthCm
+                || otosLeftCm < 0 || otosLeftCm > chassisWidthCm) {
+            throw new IllegalArgumentException("OTOS optical center must lie within the chassis");
         }
         if (otosLinearScalar < 0.872 || otosLinearScalar > 1.127
                 || otosAngularScalar < 0.872 || otosAngularScalar > 1.127) {

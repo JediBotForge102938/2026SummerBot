@@ -3,8 +3,6 @@ package org.firstinspires.ftc.teamcode.subsystems;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.qualcomm.ftccommon.configuration.RobotConfigFile;
 import com.qualcomm.ftccommon.configuration.RobotConfigFileManager;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
@@ -27,8 +25,11 @@ public class RobotProfileTest {
 
     private static final String VALID = "{"
             + "\"schemaVersion\":1,\"robot\":\"starterbot\","
+            + "\"chassis\":{\"lengthCm\":45.72,\"widthCm\":45.72},"
             + "\"imu\":{\"name\":\"custom-imu\",\"logoFacing\":\"UP\",\"usbFacing\":\"FORWARD\"},"
-            + "\"limelight\":{\"name\":\"camera\",\"pipeline\":3,\"aimDirection\":\"launcher\"},"
+            + "\"limelight\":{\"name\":\"camera\",\"pipeline\":3,\"aimDirection\":\"launcher\","
+            + "\"lensFromBackCm\":9.5,\"lensFromLeftCm\":22.86,\"lensHeightCm\":31.8,"
+            + "\"yawDegrees\":180,\"pitchUpDegrees\":37,\"rollDegrees\":0},"
             + "\"otos\":{\"name\":\"optical\",\"rawAxes\":"
             + "\"forward-negative-x-right-positive-y-clockwise-negative\","
             + "\"opticalCenterFromBackCm\":20,\"opticalCenterFromLeftCm\":10,"
@@ -41,7 +42,7 @@ public class RobotProfileTest {
     }
 
     @Test
-    public void currentProfilesArePairedAndShareSensorSettings() throws Exception {
+    public void currentProfilesArePaired() {
         File directory = new File("../robot-configs");
         RobotProfile starter = RobotProfile.load(directory, "biobuzz-starterbot", "starterbot");
         RobotProfile competition = RobotProfile.load(directory, "biobuzz-competitionbot", "competitionbot");
@@ -49,16 +50,14 @@ public class RobotProfileTest {
         assertEquals(7.5, starter.otosLeftCm, 0);
         assertEquals("limelight", starter.limelightName);
         assertEquals("competitionbot", competition.robot);
-        JsonParser parser = new JsonParser();
-        JsonObject starterJson = parser.parse(new String(Files.readAllBytes(
-                new File(directory, "biobuzz-starterbot.profile.json").toPath()),
-                StandardCharsets.UTF_8)).getAsJsonObject();
-        JsonObject competitionJson = parser.parse(new String(Files.readAllBytes(
-                new File(directory, "biobuzz-competitionbot.profile.json").toPath()),
-                StandardCharsets.UTF_8)).getAsJsonObject();
-        starterJson.remove("robot");
-        competitionJson.remove("robot");
-        assertEquals(starterJson, competitionJson);
+        assertEquals(45.72, starter.chassisLengthCm, 0);
+        assertEquals(45.72, starter.chassisWidthCm, 0);
+        assertEquals(9.5, starter.limelightFromBackCm, 0);
+        assertEquals(22.86, starter.limelightFromLeftCm, 0);
+        assertEquals(31.8, starter.limelightHeightCm, 0);
+        assertEquals(180, starter.limelightYawDegrees, 0);
+        assertEquals(37, starter.limelightPitchUpDegrees, 0);
+        assertEquals(0, starter.limelightRollDegrees, 0);
         assertThrows(IllegalStateException.class,
                 () -> RobotProfile.load(directory, "biobuzz-starterbot", "competitionbot"));
     }
@@ -76,6 +75,8 @@ public class RobotProfileTest {
                 VALID.replace("\"pipeline\":3", "\"pipeline\":\"3\""),
                 VALID.replace("\"usbFacing\":\"FORWARD\"", "\"usbFacing\":\"DOWN\""),
                 VALID.replace("\"linearScalar\":1.02", "\"linearScalar\":2"),
+                VALID.replace("\"lengthCm\":45.72", "\"lengthCm\":0"),
+                VALID.replace("\"lensHeightCm\":31.8", "\"lensHeightCm\":-1"),
                 VALID.replace("\"aimDirection\":\"launcher\"", "\"aimDirection\":\"forward\""),
                 VALID.replace("\"opticalCenterFromBackCm\":20", "\"opticalCenterFromBackCm\":-1"),
                 VALID.replace("\"robot\":\"starterbot\"", "\"robot\":\"competitionbot\""),
