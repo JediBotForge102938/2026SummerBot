@@ -5,6 +5,7 @@
             <goBILDA5202SeriesMotor name="left_front_drive" port="0" />
             <goBILDA5202SeriesMotor name="left_back_drive" port="1" />
             <goBILDA5202SeriesMotor name="left_launcher" port="2" />
+            <goBILDA5202SeriesMotor name="launcher" port="3" />
             <SparkFunOTOS name="otos" port="0" bus="0" />
         </LynxModule>
         <LynxModule name="Control Hub" port="173">
