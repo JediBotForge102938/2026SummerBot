@@ -17,10 +17,15 @@ public final class TrackingSubsystem {
     private double sensorRight;
     private double initialX;
     private double initialY;
+    private double centerVx;
+    private double centerVy;
+    private double headingRateDegreesPerSecond;
+    private RobotProfile profile;
     private String status = "Not started";
     private boolean lost;
 
     public void init(HardwareMap hardware, RobotProfile profile) {
+        this.profile = profile;
         otos = hardware.get(SparkFunOTOS.class, profile.otosName);
         otos.setLinearUnit(DistanceUnit.INCH);
         otos.setAngularUnit(AngleUnit.DEGREES);
@@ -43,10 +48,17 @@ public final class TrackingSubsystem {
         otos.getPosVelAcc(position, velocity, acceleration);
         initialX = position.x;
         initialY = position.y;
+        centerVx = 0;
+        centerVy = 0;
+        headingRateDegreesPerSecond = 0;
         update(initial.headingDegrees);
     }
 
     public void update(double imuHeadingDegrees) {
+        update(imuHeadingDegrees, Double.NaN);
+    }
+
+    public void update(double imuHeadingDegrees, double imuRateDegreesPerSecond) {
         if (start == null) throw new IllegalStateException("Tracking not started");
         otos.getPosVelAcc(position, velocity, acceleration);
         SparkFunOTOS.Status sensorStatus = otos.getStatus();
@@ -54,7 +66,8 @@ public final class TrackingSubsystem {
                 || sensorStatus.warnTiltAngle || sensorStatus.warnOpticalTracking
                 || !Double.isFinite(position.x) || !Double.isFinite(position.y)
                 || !Double.isFinite(position.h) || !Double.isFinite(imuHeadingDegrees)
-                || !Double.isFinite(initialX) || !Double.isFinite(initialY)) {
+                || !Double.isFinite(initialX)
+                || !Double.isFinite(initialY)) {
             lost = true;
             pose = null;
             status = "Tracking lost; reinitialize at starting pose";
@@ -65,6 +78,8 @@ public final class TrackingSubsystem {
         double h = Math.toRadians(imuHeadingDegrees);
         double dx = position.x - initialX;
         double dy = position.y - initialY;
+        headingRateDegreesPerSecond = Double.isFinite(imuRateDegreesPerSecond)
+                ? imuRateDegreesPerSecond : velocity.h;
         double initialOffsetX = sensorForward * Math.cos(h0) + sensorRight * Math.sin(h0);
         double initialOffsetY = sensorForward * Math.sin(h0) - sensorRight * Math.cos(h0);
         double offsetX = sensorForward * Math.cos(h) + sensorRight * Math.sin(h);
@@ -73,12 +88,38 @@ public final class TrackingSubsystem {
                 + initialOffsetX - offsetX,
                 start.y - dx * Math.sin(h0) - dy * Math.cos(h0)
                 + initialOffsetY - offsetY, normalize(imuHeadingDegrees));
+        double omega = Math.toRadians(headingRateDegreesPerSecond);
+        centerVx = -velocity.x * Math.cos(h0) + velocity.y * Math.sin(h0)
+                - omega * (-sensorForward * Math.sin(h) + sensorRight * Math.cos(h));
+        centerVy = -velocity.x * Math.sin(h0) - velocity.y * Math.cos(h0)
+                - omega * (sensorForward * Math.cos(h) + sensorRight * Math.sin(h));
         status = "Estimated; OTOS + IMU";
     }
 
     public FieldMap.Pose getPose() { return pose; }
     public String getStatus() { return status; }
     public double getOtosHeading() { return position.h; }
+    public double getVelocityX() { return centerVx; }
+    public double getVelocityY() { return centerVy; }
+    public double getSpeedInchesPerSecond() { return Math.hypot(centerVx, centerVy); }
+    public double getHeadingRateDegreesPerSecond() { return headingRateDegreesPerSecond; }
+    public boolean hasValidPose() { return pose != null && !lost; }
+    public boolean hasValidMotion() {
+        return hasValidPose() && Double.isFinite(centerVx) && Double.isFinite(centerVy)
+                && Double.isFinite(headingRateDegreesPerSecond);
+    }
+
+    public boolean isStationary(double maxSpeed, double maxTurnRate) {
+        return hasValidMotion() && Double.isFinite(maxSpeed) && Double.isFinite(maxTurnRate)
+                && getSpeedInchesPerSecond() <= maxSpeed
+                && Math.abs(headingRateDegreesPerSecond) <= maxTurnRate;
+    }
+
+    /** Calibrates only the OTOS IMU and never resets tracking or field coordinates. */
+    public boolean calibrateImuIfStationary(double maxSpeed, double maxTurnRate) {
+        if (profile == null || !isStationary(maxSpeed, maxTurnRate)) return false;
+        return otos.calibrateImu();
+    }
 
     private static double normalize(double degrees) {
         return degrees - 360 * Math.floor((degrees + 180) / 360);

@@ -33,12 +33,37 @@ public class RobotProfileTest {
             + "\"otos\":{\"name\":\"optical\",\"rawAxes\":"
             + "\"forward-negative-x-right-positive-y-clockwise-negative\","
             + "\"opticalCenterFromBackCm\":20,\"opticalCenterFromLeftCm\":10,"
-            + "\"linearScalar\":1.02,\"angularScalar\":0.98}}";
+            + "\"linearScalar\":1.02,\"angularScalar\":0.98},"
+            + "\"navigation\":{\"geometryVerified\":false,\"pedroTuningVerified\":false,"
+            + "\"simulatorEnabled\":true,\"transitClearanceIn\":2,\"wallClearanceIn\":2,"
+            + "\"startWallPlacementToleranceIn\":1,"
+            + "\"flowerStandoffIn\":3,\"curveInsetIn\":6,\"transitPower\":0.5,\"finalApproachPower\":0.2,"
+            + "\"arrivalToleranceIn\":1,\"precisionDistanceIn\":10,"
+            + "\"headingToleranceDegrees\":3,"
+            + "\"stationarySpeedInPerSec\":0.75,"
+            + "\"stationaryTurnRateDegreesPerSec\":5,\"settleSeconds\":0.2,"
+            + "\"timeoutSeconds\":60,\"progressTimeoutSeconds\":4,"
+            + "\"progressThresholdIn\":0.1,\"translationalP\":0.08,"
+            + "\"translationalD\":0,\"headingP\":1,\"headingD\":0,"
+            + "\"driveP\":0.05,\"driveD\":0,\"forwardVelocity\":25,"
+            + "\"lateralVelocity\":20}}";
 
     private RobotProfile load(String json) throws Exception {
         File file = new File(folder.getRoot(), "my-bot.profile.json");
         Files.write(file.toPath(), json.getBytes(StandardCharsets.UTF_8));
         return RobotProfile.load(folder.getRoot(), "my-bot", "starterbot");
+    }
+
+    @Test public void legacyProfilesRemainUsableButCannotEnableLandmarkTravel() throws Exception {
+        com.google.gson.JsonObject legacy = new com.google.gson.Gson()
+                .fromJson(VALID, com.google.gson.JsonObject.class);
+        legacy.remove("navigation");
+        RobotProfile profile = load(legacy.toString());
+        assertEquals("starterbot", profile.robot);
+        assertNull(profile.navigation);
+        assertFalse(profile.isAutonomousReady());
+        assertThrows(IllegalStateException.class,
+                () -> new org.firstinspires.ftc.teamcode.control.LandmarkFieldMap(profile));
     }
 
     @Test
@@ -58,6 +83,12 @@ public class RobotProfileTest {
         assertEquals(180, starter.limelightYawDegrees, 0);
         assertEquals(37, starter.limelightPitchUpDegrees, 0);
         assertEquals(0, starter.limelightRollDegrees, 0);
+        assertFalse(starter.navigation.geometryVerified);
+        assertFalse(starter.navigation.pedroTuningVerified);
+        assertTrue(starter.navigation.simulatorEnabled);
+        assertEquals(0.5, starter.navigation.transitPower, 0);
+        assertEquals(0.2, starter.navigation.finalApproachPower, 0);
+        assertEquals(60, starter.navigation.timeoutSeconds, 0);
         assertThrows(IllegalStateException.class,
                 () -> RobotProfile.load(directory, "biobuzz-starterbot", "competitionbot"));
     }

@@ -13,6 +13,10 @@ public final class ActiveRobotProfileSource {
         selectedName = name;
     }
 
+    static boolean isSimulator() {
+        return true;
+    }
+
     static RobotProfile load(String requiredRobot) {
         String name = selectedName;
         if (name == null) {

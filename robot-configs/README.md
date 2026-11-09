@@ -57,7 +57,7 @@ robot against the audience or scoring wall, centered in line with its alliance's
 hive and with its front facing the hive. Keep the robot flat and still during
 OTOS calibration. Select alliance, starting side and drive mode during INIT;
 these establish an approximate robot-center starting pose at START. The test
-permits manual stick driving at 25% power; hold Y to stop.
+permits manual stick driving at 50% power; hold Y to stop.
 
 Telemetry reports the estimated field position in inches and hub-IMU heading in
 degrees, raw OTOS heading, and each visible Limelight cell in a separate vision
@@ -243,6 +243,58 @@ Press X / square to stop and recalibrate the IMU
 only while flat and stationary; calibration is refused if the sensor reports
 motion. Release the sticks and wait for the robot to stop before pressing X.
 Each action runs once per button press. STOP always zeros drive power.
+
+## Landmark travel test
+
+Select **Landmark Travel Test** in **2 - (Tests)**. INIT uses the existing
+alliance and audience/scoring start selector to seed the same OTOS + hub-IMU
+field estimate. After START, D-pad up/down selects among the twelve
+alliance-agnostic flower, garden, parking, and shooting-start destinations plus
+the separately saved home. Destinations describe robot poses separately from
+flower attachment points, hive objects, and field regions. Routes use the
+profile's chassis geometry, a conservative expanded frame keep-out, and
+heading-aligned straight retreat/final-approach segments, with fixed-heading
+clearance-checked corridor moves where a garden lies alongside another wall.
+Transit corners use quadratic Pedro Bezier curves only when the entire
+control-point hull clears the expanded keep-out; otherwise they retain the
+checked straight route. Transit paths are chained without stopping at curved
+corners; the robot settles before entering constrained wall corridors.
+Unsafe, invalid, or
+unsupported routes stop the drive and report why; route selection never changes
+an active target. No launcher, intake, or vision fusion is used.
+
+Press A once while idle to start; A during motion cancels. B cancels, Y stops
+and cancels with highest priority, and moving either stick beyond its deadband
+cancels navigation and resumes manual driving immediately at the profiled 50%
+transit limit, using the INIT field-/robot-centric selection. Final approaches
+are limited to 20%. X cancels and asks
+OTOS to recalibrate only while stationary; it does not reset field coordinates.
+Options / Start cancels, stops, and saves the current pose as home only when
+that pose is safe; it does not modify the twelve mapped destinations or reset
+OTOS. Release buttons before START so a held A cannot launch a route.
+
+CompetitionBot has `geometryVerified` set to true based on operator confirmation;
+StarterBot leaves it false. Both profiles leave `pedroTuningVerified` false,
+so physical autonomous travel is deliberately blocked while manual drive
+remains available. Before enabling the remaining flags, verify the physical chassis
+dimensions, field-frame/perimeter clearances, drive and heading signs, Pedro
+response, endpoint settling, and all routes on the actual robot at low speed.
+Legacy profiles without a `navigation` section still work in existing OpModes;
+Landmark Travel Test reports that the section is required rather than inventing
+navigation tuning. Deploy the updated paired profiles before using this test.
+The profile's 9-inch transit clearance, 2-inch wall clearance, 10-inch
+precision-slowdown radius, 1-inch/3-degree arrival tolerance, and speed/settle
+limits are conservative experimental values, not surveyed or physically
+verified measurements. `curveInsetIn` limits corner rounding (currently 6 inches);
+each proposed curve must still pass full-hull clearance certification.
+Arrival requires at most 1 inch and 3 degrees of error and measured center
+speed below 1.5 in/s / turn rate below 5 deg/s continuously for 0.2 seconds,
+then all drive outputs are zeroed. Tracking/motion loss or clearance violations
+stop immediately; routes also stop after 60 seconds total or 4 seconds without
+meaningful progress. `simulatorEnabled` permits simulator experiments only.
+TeamCode uses Pedro Pathing 2.1.2; the simulator compiles against its bundled
+2.1.12 library. Successful compilation does not establish that physical tuning
+is valid.
 
 ## StarterBot TeleOp controls
 

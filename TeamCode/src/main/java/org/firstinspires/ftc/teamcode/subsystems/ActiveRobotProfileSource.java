@@ -10,4 +10,8 @@ final class ActiveRobotProfileSource {
         String active = new RobotConfigFileManager().getActiveConfig().getName();
         return RobotProfile.load(new File("/sdcard/FIRST/robot-profiles"), active, requiredRobot);
     }
+
+    static boolean isSimulator() {
+        return false;
+    }
 }

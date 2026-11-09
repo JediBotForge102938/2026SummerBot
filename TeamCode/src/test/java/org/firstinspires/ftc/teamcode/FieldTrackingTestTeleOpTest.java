@@ -60,7 +60,7 @@ public class FieldTrackingTestTeleOpTest {
             op.start();
             op.gamepad1.left_stick_y = -1;
             op.loop();
-            verify(left, atLeastOnce()).setPower(0.25);
+            verify(left, atLeastOnce()).setPower(0.50);
             verify(op.telemetry, atLeastOnce()).addLine(contains("Searching; not fused"));
             LLResult result = mock(LLResult.class);
             when(result.isValid()).thenReturn(true);

@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.control;
 import android.content.Context;
 
 import org.firstinspires.ftc.teamcode.subsystems.LauncherSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
 
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -15,6 +16,9 @@ public class DriveModePreferences {
     private static final String LAUNCHER_TARGET_VELOCITY = "launcher_target_velocity";
     private static final String RED_ALLIANCE = "red_alliance";
     private static final String SCORING_START = "scoring_start";
+    private static final String NAV_HOME_X = "navigation_home_x";
+    private static final String NAV_HOME_Y = "navigation_home_y";
+    private static final String NAV_HOME_HEADING = "navigation_home_heading";
     private final Preferences preferences =
             Preferences.userRoot().node("biobuzz/starterbot/teleop");
 
@@ -73,6 +77,22 @@ public class DriveModePreferences {
 
     public void saveRedAlliance(boolean redAlliance) {
         preferences.putBoolean(RED_ALLIANCE, redAlliance);
+        flush();
+    }
+
+    public FieldMap.Pose getNavigationHome() {
+        double x = preferences.getDouble(NAV_HOME_X, Double.NaN);
+        double y = preferences.getDouble(NAV_HOME_Y, Double.NaN);
+        double heading = preferences.getDouble(NAV_HOME_HEADING, Double.NaN);
+        return Double.isFinite(x) && Double.isFinite(y) && Double.isFinite(heading)
+                ? new FieldMap.Pose(x, y, heading) : null;
+    }
+
+    public void saveNavigationHome(FieldMap.Pose pose) {
+        if (pose == null) throw new IllegalArgumentException("Saved home pose is required");
+        preferences.putDouble(NAV_HOME_X, pose.x);
+        preferences.putDouble(NAV_HOME_Y, pose.y);
+        preferences.putDouble(NAV_HOME_HEADING, pose.headingDegrees);
         flush();
     }
 }

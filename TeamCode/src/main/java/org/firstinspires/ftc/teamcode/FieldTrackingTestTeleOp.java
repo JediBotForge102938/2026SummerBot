@@ -55,10 +55,10 @@ public class FieldTrackingTestTeleOp extends OpMode {
             drive.driveRobotRelative(0, 0, 0);
         } else if (configuration.isFieldCentric()) {
             drive.driveFieldRelative(-gamepad1.left_stick_y, gamepad1.left_stick_x,
-                    gamepad1.right_stick_x, 0.25);
+                    gamepad1.right_stick_x, 0.50);
         } else {
             drive.driveRobotRelative(-gamepad1.left_stick_y, gamepad1.left_stick_x,
-                    gamepad1.right_stick_x, 0.25);
+                    gamepad1.right_stick_x, 0.50);
         }
         publish(vision.update(Alliance.BOTH), heading);
     }

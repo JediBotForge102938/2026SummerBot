@@ -75,3 +75,8 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.mockito:mockito-core:4.11.0'
 }
+
+tasks.named('test', Test) {
+    // JavaFX cannot restart after Platform.exit(); isolate the graphical test classes.
+    forkEvery = 1
+}

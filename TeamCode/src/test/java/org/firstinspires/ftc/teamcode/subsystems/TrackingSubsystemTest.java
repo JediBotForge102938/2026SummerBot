@@ -17,6 +17,7 @@ public class TrackingSubsystemTest {
     private SparkFunOTOS sensor;
     private SparkFunOTOS.Status status;
     private double x, y, h;
+    private double vx, vy, vh;
 
     @Before public void setup() {
         HardwareMap hardware = mock(HardwareMap.class);
@@ -28,6 +29,8 @@ public class TrackingSubsystemTest {
         doAnswer(call -> {
             SparkFunOTOS.Pose2D p = call.getArgument(0);
             p.x = x; p.y = y; p.h = h;
+            SparkFunOTOS.Pose2D v = call.getArgument(1);
+            v.x = vx; v.y = vy; v.h = vh;
             return null;
         }).when(sensor).getPosVelAcc(any(), any(), any());
         tracking = new TrackingSubsystem();
@@ -90,5 +93,41 @@ public class TrackingSubsystemTest {
         assertEquals(24, FieldMap.parking(Alliance.RED).minY, 0);
         assertEquals(-24, FieldMap.parking(Alliance.BLUE).maxY, 0);
         assertEquals(4, FieldMap.FLOWER_WALL_POINTS.size());
+    }
+
+    @Test public void invalidVelocityDoesNotChangeExistingPoseValidity() {
+        tracking.start(new FieldMap.Pose(0, 0, 0));
+        vx = Double.NaN;
+        tracking.update(0);
+        assertNotNull(tracking.getPose());
+        assertTrue(tracking.hasValidPose());
+        assertFalse(tracking.hasValidMotion());
+        assertFalse(tracking.isStationary(1.5, 5));
+        verify(sensor, times(1)).calibrateImu();
+        assertFalse(tracking.calibrateImuIfStationary(1.5, 5));
+        verify(sensor, times(1)).calibrateImu();
+    }
+
+    @Test public void motionTransformsToFieldAndRemovesRotatingSensorLeverArm() {
+        tracking.start(new FieldMap.Pose(0, 0, 90));
+        vx = -10;
+        vy = 2;
+        tracking.update(90, 0);
+        assertEquals(2, tracking.getVelocityX(), 1e-9);
+        assertEquals(10, tracking.getVelocityY(), 1e-9);
+        assertFalse(tracking.isStationary(1.5, 5));
+        vx = vy = 0;
+        assertTrue(tracking.calibrateImuIfStationary(20, 5));
+
+        tracking.start(new FieldMap.Pose(0, 0, 0));
+        double forward = (19 - 45.72 / 2) / 2.54;
+        double right = (45.72 / 2 - 7.5) / 2.54;
+        double omega = Math.toRadians(30);
+        vx = omega * forward;
+        vy = -omega * right;
+        tracking.update(90, 30);
+        assertEquals(0, tracking.getSpeedInchesPerSecond(), 1e-9);
+        assertEquals(30, tracking.getHeadingRateDegreesPerSecond(), 0);
+        assertFalse(tracking.isStationary(1.5, 5));
     }
 }

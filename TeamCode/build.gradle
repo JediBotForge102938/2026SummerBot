@@ -30,6 +30,7 @@ rootProject.tasks.named('pushRobotConfigs') {
 
 dependencies {
     implementation project(':FtcRobotController')
+    implementation 'com.pedropathing:ftc:2.1.2'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.mockito:mockito-inline:4.11.0'
 }

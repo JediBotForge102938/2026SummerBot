@@ -36,10 +36,12 @@ public final class RobotProfile {
     public final double otosLeftCm;
     public final double otosLinearScalar;
     public final double otosAngularScalar;
+    public final NavigationSettings navigation;
 
     private RobotProfile(String name, JsonObject root) {
         this.name = name;
-        requireKnownKeys(root, "schemaVersion", "robot", "chassis", "imu", "limelight", "otos");
+        requireKnownKeys(root, "schemaVersion", "robot", "chassis", "imu", "limelight",
+                "otos", "navigation");
         if (integer(root, "schemaVersion") != 1) {
             throw new IllegalArgumentException("Unsupported profile schema version");
         }
@@ -100,10 +102,118 @@ public final class RobotProfile {
                 || otosAngularScalar < 0.872 || otosAngularScalar > 1.127) {
             throw new IllegalArgumentException("OTOS scalars must be between 0.872 and 1.127");
         }
+        navigation = root.has("navigation") ? new NavigationSettings(object(root, "navigation")) : null;
+    }
+
+    /** Profiled navigation geometry, controller limits, and physical-readiness evidence. */
+    public static final class NavigationSettings {
+        public final boolean geometryVerified;
+        public final boolean pedroTuningVerified;
+        public final boolean simulatorEnabled;
+        public final double transitClearanceIn;
+        public final double wallClearanceIn;
+        public final double startWallPlacementToleranceIn;
+        public final double flowerStandoffIn;
+        public final double curveInsetIn;
+        public final double transitPower;
+        public final double finalApproachPower;
+        public final double arrivalToleranceIn;
+        public final double precisionDistanceIn;
+        public final double headingToleranceDegrees;
+        public final double stationarySpeedInPerSec;
+        public final double stationaryTurnRateDegreesPerSec;
+        public final double settleSeconds;
+        public final double timeoutSeconds;
+        public final double progressTimeoutSeconds;
+        public final double progressThresholdIn;
+        public final double translationalP;
+        public final double translationalD;
+        public final double headingP;
+        public final double headingD;
+        public final double driveP;
+        public final double driveD;
+        public final double forwardVelocity;
+        public final double lateralVelocity;
+
+        private NavigationSettings(JsonObject settings) {
+            requireKnownKeys(settings, "geometryVerified", "pedroTuningVerified",
+                    "simulatorEnabled", "transitClearanceIn", "wallClearanceIn",
+                    "startWallPlacementToleranceIn",
+                    "flowerStandoffIn", "curveInsetIn", "transitPower", "finalApproachPower",
+                    "arrivalToleranceIn", "precisionDistanceIn", "headingToleranceDegrees",
+                    "stationarySpeedInPerSec",
+                    "stationaryTurnRateDegreesPerSec",
+                    "settleSeconds", "timeoutSeconds", "progressTimeoutSeconds",
+                    "progressThresholdIn", "translationalP", "translationalD",
+                    "headingP", "headingD", "driveP", "driveD", "forwardVelocity",
+                    "lateralVelocity");
+            geometryVerified = bool(settings, "geometryVerified");
+            pedroTuningVerified = bool(settings, "pedroTuningVerified");
+            simulatorEnabled = bool(settings, "simulatorEnabled");
+            transitClearanceIn = positive(settings, "transitClearanceIn", false);
+            wallClearanceIn = positive(settings, "wallClearanceIn", true);
+            startWallPlacementToleranceIn =
+                    positive(settings, "startWallPlacementToleranceIn", true);
+            flowerStandoffIn = positive(settings, "flowerStandoffIn", false);
+            curveInsetIn = positive(settings, "curveInsetIn", false);
+            transitPower = fraction(settings, "transitPower");
+            finalApproachPower = fraction(settings, "finalApproachPower");
+            arrivalToleranceIn = positive(settings, "arrivalToleranceIn", false);
+            precisionDistanceIn = positive(settings, "precisionDistanceIn", false);
+            headingToleranceDegrees = positive(settings, "headingToleranceDegrees", false);
+            stationarySpeedInPerSec = positive(settings, "stationarySpeedInPerSec", false);
+            stationaryTurnRateDegreesPerSec =
+                    positive(settings, "stationaryTurnRateDegreesPerSec", false);
+            settleSeconds = positive(settings, "settleSeconds", false);
+            timeoutSeconds = positive(settings, "timeoutSeconds", false);
+            progressTimeoutSeconds = positive(settings, "progressTimeoutSeconds", false);
+            progressThresholdIn = positive(settings, "progressThresholdIn", false);
+            translationalP = positive(settings, "translationalP", false);
+            translationalD = positive(settings, "translationalD", true);
+            headingP = positive(settings, "headingP", false);
+            headingD = positive(settings, "headingD", true);
+            driveP = positive(settings, "driveP", false);
+            driveD = positive(settings, "driveD", true);
+            forwardVelocity = positive(settings, "forwardVelocity", false);
+            lateralVelocity = positive(settings, "lateralVelocity", false);
+            if (finalApproachPower > transitPower) {
+                throw new IllegalArgumentException(
+                        "Final-approach power must not exceed transit power");
+            }
+        }
+
+        public boolean isReady(boolean simulator) {
+            return simulator ? simulatorEnabled : geometryVerified && pedroTuningVerified;
+        }
+
+        private static double positive(JsonObject settings, String key, boolean allowZero) {
+            double value = number(settings, key);
+            if (allowZero ? value < 0 : value <= 0) {
+                throw new IllegalArgumentException(key + " must be "
+                        + (allowZero ? "nonnegative" : "positive"));
+            }
+            return value;
+        }
+
+        private static double fraction(JsonObject settings, String key) {
+            double value = number(settings, key);
+            if (value <= 0 || value > 1) {
+                throw new IllegalArgumentException(key + " must be in (0, 1]");
+            }
+            return value;
+        }
     }
 
     public static RobotProfile loadActive(String requiredRobot) {
         return ActiveRobotProfileSource.load(requiredRobot);
+    }
+
+    public boolean isAutonomousReady() {
+        return navigation != null && navigation.isReady(ActiveRobotProfileSource.isSimulator());
+    }
+
+    public boolean isSimulatorRuntime() {
+        return ActiveRobotProfileSource.isSimulator();
     }
 
     public static RobotProfile load(File directory, String active, String requiredRobot) {
@@ -162,7 +272,17 @@ public final class RobotProfile {
                 || value.getAsString().trim().isEmpty()) {
             throw new IllegalArgumentException("Missing string: " + key);
         }
+
         return value.getAsString();
+    }
+
+    private static boolean bool(JsonObject parent, String key) {
+        JsonElement value = parent.get(key);
+        if (value == null || !value.isJsonPrimitive()
+                || !value.getAsJsonPrimitive().isBoolean()) {
+            throw new IllegalArgumentException("Missing boolean: " + key);
+        }
+        return value.getAsBoolean();
     }
 
     private static double number(JsonObject parent, String key) {
