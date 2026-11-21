@@ -161,7 +161,7 @@ public class AutoShootTest {
             assertEquals(1, h.gates.constructed().size());
             verify(h.gates.constructed().get(0)).init(h.op.hardwareMap);
             assertEquals(Boolean.FALSE, h.intakeArguments.get(0));
-            assertEquals(DcMotorSimple.Direction.REVERSE, h.intakeArguments.get(1));
+            assertSame(h.profile, h.intakeArguments.get(1));
             List<?> configs = (List<?>) h.launcherArguments.get(0);
             assertSame(competition.launcherMotors, configs);
             assertSame(competition.launcherPidf, h.launcherArguments.get(1));

@@ -11,6 +11,25 @@ import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
 import org.junit.Test;
 
 public class IntakeSubsystemTest {
+    @Test public void starterProfileReversesBothIntakeServosWithoutReversingMotor() {
+        HardwareMap hardware = mock(HardwareMap.class);
+        DcMotor motor = mock(DcMotor.class);
+        CRServo left = mock(CRServo.class);
+        CRServo right = mock(CRServo.class);
+        when(hardware.get(DcMotor.class, "intake")).thenReturn(motor);
+        when(hardware.get(CRServo.class, "left_intake_servo")).thenReturn(left);
+        when(hardware.get(CRServo.class, "right_intake_servo")).thenReturn(right);
+        IntakeSubsystem intake = new IntakeSubsystem(true,
+                org.firstinspires.ftc.teamcode.TestProfiles.starter());
+        intake.init(hardware);
+        intake.setPower(0.5);
+        verify(left).setDirection(DcMotorSimple.Direction.REVERSE);
+        verify(right).setDirection(DcMotorSimple.Direction.FORWARD);
+        verify(motor).setDirection(DcMotorSimple.Direction.FORWARD);
+        verify(left).setPower(0.5);
+        verify(right).setPower(0.5);
+    }
+
     @Test
     public void motorOnlyModeNeverLooksUpOrCommandsServos() {
         HardwareMap hardware = mock(HardwareMap.class);

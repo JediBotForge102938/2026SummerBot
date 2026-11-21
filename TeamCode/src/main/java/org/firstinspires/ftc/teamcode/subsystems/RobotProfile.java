@@ -26,6 +26,8 @@ public final class RobotProfile {
     public final double chassisWidthCm;
     public final boolean mirrorStrafe;
     public final DcMotorSimple.Direction intakeMotorDirection;
+    public final DcMotorSimple.Direction intakeLeftServoDirection;
+    public final DcMotorSimple.Direction intakeRightServoDirection;
     public final int intakeDefaultSpeedPercent;
     public final int intakeFeedAssistPercent;
     public final List<LauncherSubsystem.MotorConfig> launcherMotors;
@@ -70,8 +72,15 @@ public final class RobotProfile {
         requireKnownKeys(drive, "mirrorStrafe");
         mirrorStrafe = bool(drive, "mirrorStrafe");
         JsonObject intake = object(root, "intake");
-        requireKnownKeys(intake, "motorDirection", "defaultSpeedPercent", "feedAssistPercent");
+        requireKnownKeys(intake, "motorDirection", "defaultSpeedPercent", "feedAssistPercent",
+                "leftServoDirection", "rightServoDirection");
         intakeMotorDirection = DcMotorSimple.Direction.valueOf(text(intake, "motorDirection"));
+        intakeLeftServoDirection = intake.has("leftServoDirection")
+                ? DcMotorSimple.Direction.valueOf(text(intake, "leftServoDirection"))
+                : DcMotorSimple.Direction.FORWARD;
+        intakeRightServoDirection = intake.has("rightServoDirection")
+                ? DcMotorSimple.Direction.valueOf(text(intake, "rightServoDirection"))
+                : DcMotorSimple.Direction.REVERSE;
         intakeDefaultSpeedPercent = percent(intake, "defaultSpeedPercent", true);
         intakeFeedAssistPercent = percent(intake, "feedAssistPercent", false);
         JsonObject launcher = object(root, "launcher");

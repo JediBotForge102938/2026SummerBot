@@ -11,6 +11,8 @@ import org.firstinspires.ftc.teamcode.telemetry.TelemetrySource;
 public class IntakeSubsystem implements TelemetrySource {
     private final boolean servosEnabled;
     private final DcMotorSimple.Direction motorDirection;
+    private final DcMotorSimple.Direction leftServoDirection;
+    private final DcMotorSimple.Direction rightServoDirection;
     private DcMotor intake;
     private CRServo leftIntakeServo;
     private CRServo rightIntakeServo;
@@ -24,8 +26,21 @@ public class IntakeSubsystem implements TelemetrySource {
     }
 
     public IntakeSubsystem(boolean servosEnabled, DcMotorSimple.Direction motorDirection) {
+        this(servosEnabled, motorDirection, DcMotorSimple.Direction.FORWARD,
+                DcMotorSimple.Direction.REVERSE);
+    }
+
+    public IntakeSubsystem(boolean servosEnabled, RobotProfile profile) {
+        this(servosEnabled, profile.intakeMotorDirection, profile.intakeLeftServoDirection,
+                profile.intakeRightServoDirection);
+    }
+
+    private IntakeSubsystem(boolean servosEnabled, DcMotorSimple.Direction motorDirection,
+            DcMotorSimple.Direction leftServoDirection, DcMotorSimple.Direction rightServoDirection) {
         this.servosEnabled = servosEnabled;
         this.motorDirection = motorDirection;
+        this.leftServoDirection = leftServoDirection;
+        this.rightServoDirection = rightServoDirection;
     }
 
     public void init(HardwareMap hardwareMap) {
@@ -35,8 +50,8 @@ public class IntakeSubsystem implements TelemetrySource {
         if (servosEnabled) {
             leftIntakeServo = hardwareMap.get(CRServo.class, "left_intake_servo");
             rightIntakeServo = hardwareMap.get(CRServo.class, "right_intake_servo");
-            rightIntakeServo.setDirection(DcMotorSimple.Direction.REVERSE);
-            leftIntakeServo.setDirection(DcMotorSimple.Direction.FORWARD);
+            rightIntakeServo.setDirection(rightServoDirection);
+            leftIntakeServo.setDirection(leftServoDirection);
         }
         setPower(0);
     }

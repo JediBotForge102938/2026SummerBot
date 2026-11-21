@@ -38,8 +38,7 @@ public class BioBuzzCompetitionTeleopTest {
                 MockedConstruction<IntakeSubsystem> intakes = mockConstruction(IntakeSubsystem.class,
                         (mock, context) -> {
                             assertEquals(false, context.arguments().get(0));
-                            assertEquals(DcMotorSimple.Direction.REVERSE,
-                                    context.arguments().get(1));
+                            assertSame(profile, context.arguments().get(1));
                         });
                 MockedConstruction<LauncherSubsystem> launchers = mockConstruction(LauncherSubsystem.class,
                         (mock, context) -> {

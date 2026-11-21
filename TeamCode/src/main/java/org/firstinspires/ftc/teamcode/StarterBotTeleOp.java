@@ -53,7 +53,7 @@ public class StarterBotTeleOp extends OpMode {
     public void init() {
         RobotProfile profile = RobotProfile.loadActive("starterbot");
         drive.init(hardwareMap, profile);
-        intake = new IntakeSubsystem(true, profile.intakeMotorDirection);
+        intake = new IntakeSubsystem(true, profile);
         intake.init(hardwareMap);
         launcher = new LauncherSubsystem(profile.launcherMotors, profile.launcherPidf,
                 profile.launcherFeedVelocityMargin);

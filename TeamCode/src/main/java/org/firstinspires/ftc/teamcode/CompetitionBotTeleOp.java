@@ -66,7 +66,7 @@ public class CompetitionBotTeleOp extends OpMode {
         gateButtonWasDown = gamepad1.b;
         drive.init(hardwareMap, profile);
         driveInitialized = true;
-        intake = new IntakeSubsystem(false, profile.intakeMotorDirection);
+        intake = new IntakeSubsystem(false, profile);
         intake.init(hardwareMap);
         intakeInitialized = true;
         launcher = new LauncherSubsystem(profile.launcherMotors, profile.launcherPidf,

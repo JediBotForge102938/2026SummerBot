@@ -73,7 +73,7 @@ public final class AutoShoot extends OpMode {
             feeder = gate;
             feederReady = true;
         }
-        intake = new IntakeSubsystem(starter, profile.intakeMotorDirection);
+        intake = new IntakeSubsystem(starter, profile);
         launcher = new LauncherSubsystem(profile.launcherMotors, profile.launcherPidf,
                 profile.launcherFeedVelocityMargin);
         drive.init(hardwareMap, profile);

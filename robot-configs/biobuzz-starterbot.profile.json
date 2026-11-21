@@ -3,7 +3,7 @@
   "robot": "starterbot",
   "chassis": { "lengthCm": 45.72, "widthCm": 45.72 },
   "drive": { "mirrorStrafe": false },
-  "intake": { "motorDirection": "FORWARD", "defaultSpeedPercent": 100, "feedAssistPercent": 50 },
+  "intake": { "motorDirection": "FORWARD", "leftServoDirection": "REVERSE", "rightServoDirection": "FORWARD", "defaultSpeedPercent": 100, "feedAssistPercent": 50 },
   "launcher": {
     "feedVelocityMarginTicksPerSecond": 50,
     "pidf": { "p": 40, "i": 0, "d": 0, "f": 12.5 },

@@ -65,7 +65,11 @@ direction. The field-tracking test uses these values for a provisional diagnosti
 position, but Limelight observations are not fused into the field pose.
 Each profile also specifies the intake motor direction: FORWARD for StarterBot
 and REVERSE for CompetitionBot. TeleOp intake defaults are 100% and 75%,
-respectively, with launcher-ready intake assist of 50% and 35%. D-pad left/right
+respectively. StarterBot's `intake.leftServoDirection` is REVERSE and
+`intake.rightServoDirection` is FORWARD; both TeleOp and Auto Shoot use these
+profile directions. Profiles without these optional fields retain the original
+left FORWARD/right REVERSE defaults. TeleOp intake assists are 50% and 35%,
+respectively. D-pad left/right
 adjusts the TeleOp intake speed in 5% increments; the last setting is stored
 separately by robot. Assist is added to the manual power and the result clamped
 to the motor range. Auto Shoot's intake powers are unchanged.
