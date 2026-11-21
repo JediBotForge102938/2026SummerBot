@@ -21,6 +21,13 @@ public class AutoShootFieldMapTest {
                 assertEquals(alliance == Alliance.RED ? -70 : 70, garden.objectPose.y, 0);
                 assertEquals(alliance == Alliance.RED ? -90 : 90,
                         garden.robotPose.headingDegrees, 0);
+                assertEquals(72 - profile.chassisWidthCm / 2 / 2.54
+                                - profile.navigation.wallClearanceIn,
+                        Math.abs(garden.robotPose.x), 1e-9);
+                LandmarkFieldMap.Destination menuGarden = map.gardenDestination(alliance);
+                assertEquals(garden.robotPose.x, menuGarden.robotPose.x, 0);
+                assertEquals(garden.robotPose.y, menuGarden.robotPose.y, 0);
+                assertEquals(garden.robotPose.headingDegrees, menuGarden.robotPose.headingDegrees, 0);
                 double front = Math.toRadians(garden.robotPose.headingDegrees);
                 assertEquals(profile.navigation.flowerStandoffIn,
                         Math.hypot(garden.objectPose.x - garden.robotPose.x,

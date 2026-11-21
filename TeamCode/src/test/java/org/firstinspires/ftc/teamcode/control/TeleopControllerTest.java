@@ -70,6 +70,249 @@ public class TeleopControllerTest {
     }
 
     @Test
+    public void twoControllersSeparateControlsAndKeepDriveAdjustmentsVolatile() {
+        ConfigurationSubsystem config = mock(ConfigurationSubsystem.class);
+        when(config.isLocked()).thenReturn(true);
+        when(config.isTwoControllers()).thenReturn(true);
+        when(config.getDriveSpeedPercent()).thenReturn(95);
+        when(config.getBumperSpeedPercent()).thenReturn(35);
+        when(preferences.getIntakeSpeedPercent("competitionbot", 75)).thenReturn(75);
+        controller.setIntakeProfile("competitionbot", 75);
+        Gamepad gunner = mock(Gamepad.class);
+        gamepad.dpad_up = true;
+        gunner.dpad_up = true;
+        gunner.right_trigger = 1;
+        controller.configure(config, gamepad, gunner);
+        clearInvocations(preferences, mechanisms, drive);
+        controller.update(gamepad, gunner);
+        assertTrue(controller.getDriveSpeedPercent() == 95);
+        verify(mechanisms).update(0, false);
+        verify(preferences, never()).saveLauncherTargetVelocity(anyInt());
+
+        gamepad.dpad_up = false;
+        gunner.dpad_up = false;
+        gunner.right_trigger = 0;
+        controller.update(gamepad, gunner);
+        gamepad.dpad_up = true;
+        gamepad.dpad_right = true;
+        gamepad.right_bumper = true;
+        gamepad.right_trigger = 1;
+        gunner.dpad_up = true;
+        gunner.dpad_right = true;
+        gunner.right_trigger = 1;
+        gunner.right_bumper = true;
+        controller.update(gamepad, gunner);
+        controller.update(gamepad, gunner);
+        assertTrue(controller.getDriveSpeedPercent() == 95);
+        assertTrue(controller.getBumperSpeedPercent() == 35);
+        gamepad.touchpad_finger_1 = true;
+        gamepad.touchpad_finger_1_y = 0.8f;
+        controller.update(gamepad, gunner);
+        gamepad.touchpad_finger_1 = false;
+        controller.update(gamepad, gunner);
+        gamepad.touchpad_finger_1 = true;
+        gamepad.touchpad_finger_1_y = 0;
+        gamepad.touchpad_finger_1_x = 0.8f;
+        controller.update(gamepad, gunner);
+        assertTrue(controller.getDriveSpeedPercent() == 100);
+        assertTrue(controller.getBumperSpeedPercent() == 40);
+        verify(mechanisms, times(5)).update(0.8, true);
+        verify(preferences).saveIntakeSpeedPercent("competitionbot", 80);
+        verify(preferences).saveLauncherTargetVelocity(
+                LauncherSubsystem.DEFAULT_TARGET_VELOCITY + LauncherSubsystem.TARGET_VELOCITY_STEP);
+        verify(preferences, never()).saveDriveSpeedPercent(anyInt());
+        verify(preferences, never()).saveBumperSpeedPercent(anyInt());
+        gamepad.left_bumper = true;
+        gamepad.left_stick_y = -1;
+        controller.update(gamepad, gunner);
+        verify(drive).driveRobotRelative(1, 0, 0, 0.4);
+        gamepad.a = true;
+        controller.update(gamepad, gunner);
+        verify(drive).driveRobotRelative(0.35, 0, 0, 1, true);
+        for (int i = 0; i < 21; i++) {
+            gamepad.touchpad_finger_1 = false;
+            controller.update(gamepad, gunner);
+            gamepad.touchpad_finger_1 = true;
+            gamepad.touchpad_finger_1_x = 0;
+            gamepad.touchpad_finger_1_y = -0.8f;
+            controller.update(gamepad, gunner);
+            gamepad.touchpad_finger_1 = false;
+            controller.update(gamepad, gunner);
+            gamepad.touchpad_finger_1 = true;
+            gamepad.touchpad_finger_1_x = -0.8f;
+            gamepad.touchpad_finger_1_y = 0;
+            controller.update(gamepad, gunner);
+        }
+        assertTrue(controller.getDriveSpeedPercent() == 0);
+        assertTrue(controller.getBumperSpeedPercent() == 0);
+    }
+
+    @Test
+    public void twoControllerDriverButtonsDoNotTakeOverGunnerAndDriveModeStaysOnDriver() {
+        ConfigurationSubsystem config = mock(ConfigurationSubsystem.class);
+        when(config.isLocked()).thenReturn(true);
+        when(config.isTwoControllers()).thenReturn(true);
+        when(config.getDriveSpeedPercent()).thenReturn(50);
+        when(config.getBumperSpeedPercent()).thenReturn(35);
+        Gamepad gunner = mock(Gamepad.class);
+        controller.configure(config, gamepad, gunner);
+        clearInvocations(preferences, mechanisms, drive);
+        gamepad.right_bumper = true;
+        gamepad.right_trigger = 1;
+        gamepad.dpad_up = true;
+        gamepad.dpad_down = true;
+        gamepad.dpad_left = true;
+        gamepad.dpad_right = true;
+        controller.update(gamepad, gunner);
+        verify(mechanisms).update(0, false);
+        assertTrue(controller.getDriveSpeedPercent() == 50);
+        assertTrue(controller.getBumperSpeedPercent() == 35);
+        verify(preferences, never()).saveLauncherTargetVelocity(anyInt());
+        gamepad.share = true;
+        gamepad.options = true;
+        controller.update(gamepad, gunner);
+        assertTrue(controller.isFieldCentric());
+        verify(preferences).saveFieldCentric(true);
+        gamepad.share = false;
+        gamepad.options = false;
+        controller.update(gamepad, gunner);
+        gamepad.options = true;
+        controller.update(gamepad, gunner);
+        gamepad.options = false;
+        controller.update(gamepad, gunner);
+        verify(drive).resetHeading();
+    }
+
+    @Test
+    public void gunnerTriggersToggleIntakeAndDriverTriggersDoNot() {
+        ConfigurationSubsystem config = mock(ConfigurationSubsystem.class);
+        when(config.isLocked()).thenReturn(true);
+        when(config.isTwoControllers()).thenReturn(true);
+        Gamepad gunner = mock(Gamepad.class);
+        controller.configure(config, gamepad, gunner);
+        clearInvocations(mechanisms);
+
+        gamepad.right_trigger = 1;
+        controller.update(gamepad, gunner);
+        verify(mechanisms).update(0, false);
+        gunner.right_trigger = 1;
+        controller.update(gamepad, gunner);
+        verify(mechanisms).update(1, false);
+        assertTrue(controller.getIntakeDirection().equals("INTAKE"));
+        gunner.right_trigger = 0;
+        gunner.left_trigger = 1;
+        controller.update(gamepad, gunner);
+        verify(mechanisms).update(-1, false);
+        assertTrue(controller.getIntakeDirection().equals("REVERSE"));
+        gunner.right_trigger = 1;
+        controller.update(gamepad, gunner);
+        verify(mechanisms, times(2)).update(0, false);
+        assertTrue(controller.getIntakeDirection().equals("OFF"));
+    }
+
+    @Test
+    public void gunnerReadinessRumbleIsIndependentOfDriverTargetWarning() {
+        ConfigurationSubsystem config = mock(ConfigurationSubsystem.class);
+        when(config.isLocked()).thenReturn(true);
+        when(config.isTwoControllers()).thenReturn(true);
+        Gamepad gunner = mock(Gamepad.class);
+        controller.configure(config, gamepad, gunner);
+        clearInvocations(gamepad, gunner);
+        gamepad.a = true;
+        when(mechanisms.isLauncherReady()).thenReturn(false, true, false);
+        controller.update(gamepad, gunner);
+        controller.update(gamepad, gunner);
+        controller.update(gamepad, gunner);
+        verify(gamepad).rumble(Gamepad.RUMBLE_DURATION_CONTINUOUS);
+        verify(gamepad, never()).rumble(200);
+        verify(gamepad, never()).stopRumble();
+        verify(gunner).rumble(200);
+        verify(gunner).stopRumble();
+        when(tracking.hasTarget()).thenReturn(true);
+        controller.update(gamepad, gunner);
+        verify(gamepad).stopRumble();
+    }
+
+    @Test
+    public void singleControllerTouchpadAdjustsSpeedsOncePerTapWithoutChangingDpad() {
+        ConfigurationSubsystem config = mock(ConfigurationSubsystem.class);
+        when(config.isLocked()).thenReturn(true);
+        when(config.getDriveSpeedPercent()).thenReturn(95);
+        when(config.getBumperSpeedPercent()).thenReturn(35);
+        gamepad.touchpad_finger_1 = true;
+        gamepad.touchpad_finger_1_y = 0.8f;
+        controller.configure(config, gamepad);
+        clearInvocations(preferences);
+        controller.update(gamepad);
+        assertTrue(controller.getDriveSpeedPercent() == 95);
+        gamepad.touchpad_finger_1 = false;
+        controller.update(gamepad);
+        gamepad.touchpad_finger_1 = true;
+        gamepad.dpad_up = true;
+        controller.update(gamepad);
+        controller.update(gamepad);
+        assertTrue(controller.getDriveSpeedPercent() == 100);
+        verify(preferences).saveLauncherTargetVelocity(
+                LauncherSubsystem.DEFAULT_TARGET_VELOCITY + LauncherSubsystem.TARGET_VELOCITY_STEP);
+        gamepad.touchpad_finger_1 = false;
+        gamepad.dpad_up = false;
+        controller.update(gamepad);
+        gamepad.touchpad_finger_1 = true;
+        gamepad.touchpad_finger_1_y = -0.8f;
+        controller.update(gamepad);
+        assertTrue(controller.getDriveSpeedPercent() == 95);
+        gamepad.touchpad_finger_1 = false;
+        controller.update(gamepad);
+        gamepad.touchpad_finger_1 = true;
+        gamepad.touchpad_finger_1_x = 0.8f;
+        gamepad.touchpad_finger_1_y = 0;
+        controller.update(gamepad);
+        assertTrue(controller.getBumperSpeedPercent() == 40);
+        gamepad.touchpad_finger_1 = false;
+        controller.update(gamepad);
+        gamepad.touchpad_finger_1 = true;
+        gamepad.touchpad_finger_1_x = -0.8f;
+        controller.update(gamepad);
+        assertTrue(controller.getBumperSpeedPercent() == 35);
+        gamepad.touchpad_finger_1 = false;
+        controller.update(gamepad);
+        gamepad.touchpad_finger_1 = true;
+        gamepad.touchpad_finger_1_x = 0;
+        gamepad.touchpad_finger_1_y = 0.1f;
+        controller.update(gamepad);
+        assertTrue(controller.getDriveSpeedPercent() == 95);
+        assertTrue(controller.getBumperSpeedPercent() == 35);
+        verify(preferences, never()).saveDriveSpeedPercent(anyInt());
+        verify(preferences, never()).saveBumperSpeedPercent(anyInt());
+    }
+
+    @Test
+    public void twoControllerSpeedUsesOnlyDriverTouchpad() {
+        ConfigurationSubsystem config = mock(ConfigurationSubsystem.class);
+        when(config.isLocked()).thenReturn(true);
+        when(config.isTwoControllers()).thenReturn(true);
+        when(config.getDriveSpeedPercent()).thenReturn(50);
+        when(config.getBumperSpeedPercent()).thenReturn(35);
+        Gamepad gunner = mock(Gamepad.class);
+        gamepad.touchpad_finger_1 = true;
+        gamepad.touchpad_finger_1_y = 1;
+        controller.configure(config, gamepad, gunner);
+        controller.update(gamepad, gunner);
+        assertTrue(controller.getDriveSpeedPercent() == 50);
+        gamepad.touchpad_finger_1 = false;
+        gunner.touchpad_finger_1 = true;
+        gunner.touchpad_finger_1_y = 1;
+        gamepad.dpad_up = true;
+        controller.update(gamepad, gunner);
+        assertTrue(controller.getDriveSpeedPercent() == 50);
+        gamepad.touchpad_finger_1 = true;
+        controller.update(gamepad, gunner);
+        controller.update(gamepad, gunner);
+        assertTrue(controller.getDriveSpeedPercent() == 55);
+        assertTrue(controller.getBumperSpeedPercent() == 35);
+    }
+
+    @Test
     public void mapsExistingInputsAndDefaultsToRobotCentric() {
         gamepad.left_stick_y = -0.5f;
         gamepad.left_stick_x = 0.25f;

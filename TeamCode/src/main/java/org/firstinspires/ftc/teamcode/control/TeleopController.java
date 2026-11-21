@@ -27,6 +27,8 @@ public class TeleopController implements TelemetrySource {
     private boolean dpadDownWasDown;
     private boolean dpadLeftWasDown;
     private boolean dpadRightWasDown;
+    private boolean touchpadWasTouched;
+    private boolean twoControllers;
     private String intakeRobot;
     private int intakeSpeedPercent = 100;
     private boolean launcherWasReady;
@@ -52,17 +54,24 @@ public class TeleopController implements TelemetrySource {
     }
 
     public void update(Gamepad gamepad) {
+        update(gamepad, gamepad);
+    }
+
+    public void update(Gamepad gamepad, Gamepad gunner) {
         if (!configurationManaged) {
             updateInit(gamepad);
         }
         precisionDriving = gamepad.left_bumper;
         aiming = gamepad.a;
-        leftTrigger = gamepad.left_trigger;
-        rightTrigger = gamepad.right_trigger;
+        leftTrigger = gunner.left_trigger;
+        rightTrigger = gunner.right_trigger;
         updateDriveMode(gamepad.back || gamepad.share, gamepad.start || gamepad.options);
-        updateLauncherTarget(gamepad.dpad_up, gamepad.dpad_down);
+        updateLauncherTarget(gunner.dpad_up, gunner.dpad_down);
         if (configurationManaged && intakeRobot != null) {
-            updateIntakeSpeed(gamepad.dpad_left, gamepad.dpad_right);
+            updateIntakeSpeed(gunner.dpad_left, gunner.dpad_right);
+        }
+        if (configurationManaged) {
+            updateTouchpadSpeeds(gamepad);
         }
 
         double forward = -gamepad.left_stick_y;
@@ -90,7 +99,7 @@ public class TeleopController implements TelemetrySource {
             }
         }
         updateIntakeToggle();
-        mechanisms.update(intakeDirection * intakeSpeedPercent / 100.0, gamepad.right_bumper);
+        mechanisms.update(intakeDirection * intakeSpeedPercent / 100.0, gunner.right_bumper);
         boolean ready = mechanisms.isLauncherReady();
         boolean missingTarget = aiming && !tracking.hasTarget();
         if (missingTarget) {
@@ -99,10 +108,14 @@ public class TeleopController implements TelemetrySource {
             }
         } else if (missingTargetRumble) {
             gamepad.stopRumble();
-        } else if (ready && !launcherWasReady) {
-            gamepad.rumble(200);
-        } else if (!ready && launcherWasReady) {
-            gamepad.stopRumble();
+        }
+        // A shared controller's target warning takes priority over readiness feedback.
+        if (gamepad != gunner || (!missingTarget && !missingTargetRumble)) {
+            if (ready && !launcherWasReady) {
+                gunner.rumble(200);
+            } else if (!ready && launcherWasReady) {
+                gunner.stopRumble();
+            }
         }
         missingTargetRumble = missingTarget;
         launcherWasReady = ready;
@@ -121,26 +134,65 @@ public class TeleopController implements TelemetrySource {
         return intakeSpeedPercent;
     }
 
+    public String getIntakeDirection() {
+        return intakeDirection > 0 ? "INTAKE" : intakeDirection < 0 ? "REVERSE" : "OFF";
+    }
+
     public void configure(ConfigurationSubsystem configuration, Gamepad gamepad) {
+        configure(configuration, gamepad, gamepad);
+    }
+
+    public void configure(ConfigurationSubsystem configuration, Gamepad gamepad, Gamepad gunner) {
         if (!configuration.isLocked()) {
             throw new IllegalStateException("Lock configuration before applying it");
         }
         fieldCentric = configuration.isFieldCentric();
         driveSpeed = configuration.getDriveSpeedPercent() / 100.0;
         bumperSpeed = configuration.getBumperSpeedPercent() / 100.0;
+        twoControllers = configuration.isTwoControllers();
         tracking.setAlliance(configuration.getAlliance());
         configurationManaged = true;
-        dpadUpWasDown = gamepad.dpad_up;
-        dpadDownWasDown = gamepad.dpad_down;
-        dpadLeftWasDown = gamepad.dpad_left;
-        dpadRightWasDown = gamepad.dpad_right;
+        dpadUpWasDown = gunner.dpad_up;
+        dpadDownWasDown = gunner.dpad_down;
+        dpadLeftWasDown = gunner.dpad_left;
+        dpadRightWasDown = gunner.dpad_right;
+        touchpadWasTouched = TouchpadInput.isTouched(gamepad);
         intakeDirection = 0;
-        intakeWasDown = gamepad.right_trigger > INTAKE_TRIGGER_THRESHOLD;
-        reverseIntakeWasDown = gamepad.left_trigger > INTAKE_TRIGGER_THRESHOLD;
+        intakeWasDown = gunner.right_trigger > INTAKE_TRIGGER_THRESHOLD;
+        reverseIntakeWasDown = gunner.left_trigger > INTAKE_TRIGGER_THRESHOLD;
         chordArmed = false;
         chordConsumed = false;
         optionsWasDown = false;
         resetPending = false;
+    }
+
+    public int getDriveSpeedPercent() {
+        return (int) Math.round(driveSpeed * 100);
+    }
+
+    public int getBumperSpeedPercent() {
+        return (int) Math.round(bumperSpeed * 100);
+    }
+
+    private void updateTouchpadSpeeds(Gamepad gamepad) {
+        boolean touched = TouchpadInput.isTouched(gamepad);
+        if (touched && !touchpadWasTouched) {
+            float x = TouchpadInput.x(gamepad);
+            float y = TouchpadInput.y(gamepad);
+            if (Float.isFinite(x) && Float.isFinite(y)) {
+                if (Math.abs(y) > Math.abs(x) && Math.abs(y) >= 0.3f) {
+                    adjustDriveSpeeds(y > 0 ? 5 : -5, 0);
+                } else if (Math.abs(x) > Math.abs(y) && Math.abs(x) >= 0.3f) {
+                    adjustDriveSpeeds(0, x > 0 ? 5 : -5);
+                }
+            }
+        }
+        touchpadWasTouched = touched;
+    }
+
+    private void adjustDriveSpeeds(int driveDelta, int bumperDelta) {
+        driveSpeed = Math.max(0, Math.min(100, getDriveSpeedPercent() + driveDelta)) / 100.0;
+        bumperSpeed = Math.max(0, Math.min(100, getBumperSpeedPercent() + bumperDelta)) / 100.0;
     }
 
     /** Allows alliance selection during INIT without driving or spinning mechanisms. */
@@ -184,14 +236,17 @@ public class TeleopController implements TelemetrySource {
         output.number("Translation input scale", (aiming ? AIM_TRANSLATION_SCALE : 1) * 100, "%");
         output.number("Left trigger", leftTrigger, "");
         output.number("Right trigger", rightTrigger, "");
-        output.value("Intake toggle", intakeDirection > 0 ? "INTAKE"
-                : intakeDirection < 0 ? "REVERSE" : "OFF");
+        output.value("Intake toggle", getIntakeDirection());
         output.number("Intake speed", intakeSpeedPercent, "%");
-        output.line("Right/left trigger: toggle intake/reverse; tap again or press both to stop");
-        output.line("D-pad left/right: intake speed -/+5%; saved automatically");
+        String mechanismPad = twoControllers ? "Gunner " : "";
+        output.line(mechanismPad + "Right/left trigger: toggle intake/reverse; tap again or press both to stop");
+        output.line(mechanismPad + "D-pad left/right: intake speed -/+5%; saved automatically");
         output.line("Left bumper: hold for bumper speed");
-        output.line("D-pad up/down: launcher target +/-" + LauncherSubsystem.TARGET_VELOCITY_STEP
+        output.line(mechanismPad + "D-pad up/down: launcher target +/-" + LauncherSubsystem.TARGET_VELOCITY_STEP
                 + " ticks/s (0-" + LauncherSubsystem.MAX_TARGET_VELOCITY + "); saved automatically");
+        if (configurationManaged) {
+            output.line("Touchpad top/bottom: drive speed +/-5%; right/left: bumper speed +/-5% (this run only)");
+        }
         output.line("Share+Options / Back+Start: toggle drive mode (saved automatically)");
         output.line("Options / Start alone: release to reset heading in field-centric mode");
     }

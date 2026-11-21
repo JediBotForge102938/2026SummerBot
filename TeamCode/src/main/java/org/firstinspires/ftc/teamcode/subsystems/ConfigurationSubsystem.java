@@ -12,7 +12,7 @@ import org.firstinspires.ftc.teamcode.telemetry.TelemetryTable;
 /** Owns the pre-start menu; consumers read the locked selections at START. */
 public class ConfigurationSubsystem {
     public enum StartingSpot { AUDIENCE, SCORING }
-    private enum MenuRow { ALLIANCE, DRIVE_MODE, STARTING_SPOT, DRIVE_SPEED, BUMPER_SPEED }
+    private enum MenuRow { ALLIANCE, DRIVE_MODE, STARTING_SPOT, DRIVE_SPEED, BUMPER_SPEED, CONTROLLERS }
 
     private Telemetry telemetry;
     private String robotProfileName;
@@ -24,11 +24,28 @@ public class ConfigurationSubsystem {
     private boolean speedSettingsEnabled;
     private int driveSpeedPercent;
     private int bumperSpeedPercent;
+    private boolean twoControllers;
     private boolean locked;
-    private boolean previousUp;
-    private boolean previousDown;
-    private boolean previousLeft;
-    private boolean previousRight;
+    private final MenuInput firstInput = new MenuInput();
+    private final MenuInput secondInput = new MenuInput();
+
+    private static class MenuInput {
+        private boolean up;
+        private boolean down;
+        private boolean left;
+        private boolean right;
+
+        void reset() {
+            up = down = left = right = false;
+        }
+
+        void remember(Gamepad gamepad) {
+            up = gamepad != null && gamepad.dpad_up;
+            down = gamepad != null && gamepad.dpad_down;
+            left = gamepad != null && gamepad.dpad_left;
+            right = gamepad != null && gamepad.dpad_right;
+        }
+    }
 
     public void init(Telemetry telemetry, Gamepad gamepad, DriveModePreferences preferences) {
         init(telemetry, gamepad, preferences, false);
@@ -44,35 +61,46 @@ public class ConfigurationSubsystem {
         fieldCentric = preferences.getConfigurationFieldCentric();
         startingSpot = preferences.isScoringStart() ? StartingSpot.SCORING : StartingSpot.AUDIENCE;
         this.speedSettingsEnabled = speedSettingsEnabled;
+        twoControllers = false;
         if (speedSettingsEnabled) {
             driveSpeedPercent = preferences.getDriveSpeedPercent();
             bumperSpeedPercent = preferences.getBumperSpeedPercent();
+            twoControllers = preferences.isTwoControllers();
         }
         locked = false;
-        previousUp = false;
-        previousDown = false;
-        previousLeft = false;
-        previousRight = false;
+        firstInput.reset();
+        secondInput.reset();
         telemetry.setDisplayFormat(Telemetry.DisplayFormat.HTML);
         telemetry.setAutoClear(false);
         updateAllianceLight(gamepad);
     }
 
     public void updateInit(Gamepad gamepad) {
-        boolean up = gamepad.dpad_up;
-        boolean down = gamepad.dpad_down;
-        boolean left = gamepad.dpad_left;
-        boolean right = gamepad.dpad_right;
+        updateInit(gamepad, null);
+    }
+
+    public void updateInit(Gamepad gamepad, Gamepad secondGamepad) {
+        boolean up = (gamepad.dpad_up && !firstInput.up && !gamepad.dpad_down)
+                || (secondGamepad != null && secondGamepad.dpad_up && !secondInput.up
+                        && !secondGamepad.dpad_down);
+        boolean down = (gamepad.dpad_down && !firstInput.down && !gamepad.dpad_up)
+                || (secondGamepad != null && secondGamepad.dpad_down && !secondInput.down
+                        && !secondGamepad.dpad_up);
+        boolean left = (gamepad.dpad_left && !firstInput.left && !gamepad.dpad_right)
+                || (secondGamepad != null && secondGamepad.dpad_left && !secondInput.left
+                        && !secondGamepad.dpad_right);
+        boolean right = (gamepad.dpad_right && !firstInput.right && !gamepad.dpad_left)
+                || (secondGamepad != null && secondGamepad.dpad_right && !secondInput.right
+                        && !secondGamepad.dpad_left);
         if (!locked) {
             MenuRow[] rows = MenuRow.values();
             int rowCount = speedSettingsEnabled ? rows.length : MenuRow.STARTING_SPOT.ordinal() + 1;
-            if (up && !previousUp && !down) {
+            if (up && !down) {
                 row = rows[(row.ordinal() + rowCount - 1) % rowCount];
-            } else if (down && !previousDown && !up) {
+            } else if (down && !up) {
                 row = rows[(row.ordinal() + 1) % rowCount];
             }
-            if ((left && !previousLeft && !right)
-                    || (right && !previousRight && !left)) {
+            if (left != right) {
                 switch (row) {
                     case ALLIANCE:
                         preferences.saveConfiguration(alliance != Alliance.RED, fieldCentric,
@@ -107,13 +135,15 @@ public class ConfigurationSubsystem {
                         }
                         break;
                     }
+                    case CONTROLLERS:
+                        preferences.saveTwoControllers(!twoControllers);
+                        twoControllers = !twoControllers;
+                        break;
                 }
             }
         }
-        previousUp = up;
-        previousDown = down;
-        previousLeft = left;
-        previousRight = right;
+        firstInput.remember(gamepad);
+        secondInput.remember(secondGamepad);
     }
 
     public void lock() {
@@ -148,6 +178,10 @@ public class ConfigurationSubsystem {
         return bumperSpeedPercent;
     }
 
+    public boolean isTwoControllers() {
+        return twoControllers;
+    }
+
     private static int adjustSpeed(int value, boolean increase) {
         return Math.max(0, Math.min(100, value + (increase ? 5 : -5)));
     }
@@ -167,6 +201,10 @@ public class ConfigurationSubsystem {
     }
 
     public void publish(boolean currentFieldCentric) {
+        publish(currentFieldCentric, driveSpeedPercent, bumperSpeedPercent);
+    }
+
+    public void publish(boolean currentFieldCentric, int currentDriveSpeed, int currentBumperSpeed) {
         TelemetryTable.heading(telemetry, "Configuration");
         if (robotProfileName != null) {
             telemetry.addData("Robot profile", robotProfileName);
@@ -177,8 +215,9 @@ public class ConfigurationSubsystem {
         menuLine(MenuRow.STARTING_SPOT, "Starting spot",
                 startingSpot == StartingSpot.SCORING ? "Scoring" : "Audience");
         if (speedSettingsEnabled) {
-            menuLine(MenuRow.DRIVE_SPEED, "Drive speed", driveSpeedPercent + "%");
-            menuLine(MenuRow.BUMPER_SPEED, "Bumper speed", bumperSpeedPercent + "%");
+            menuLine(MenuRow.DRIVE_SPEED, "Drive speed", currentDriveSpeed + "%");
+            menuLine(MenuRow.BUMPER_SPEED, "Bumper speed", currentBumperSpeed + "%");
+            menuLine(MenuRow.CONTROLLERS, "Controllers", twoControllers ? "2" : "1");
         }
     }
 

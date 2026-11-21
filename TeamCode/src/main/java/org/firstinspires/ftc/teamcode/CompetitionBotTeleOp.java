@@ -49,6 +49,7 @@ public class CompetitionBotTeleOp extends OpMode {
     private boolean gateInitialized;
     private boolean gateOpen;
     private boolean gateButtonWasDown;
+    private boolean gateTwoControllers;
     private boolean launcherInitialized;
     private boolean driveInitialized;
     private boolean intakeInitialized;
@@ -84,13 +85,15 @@ public class CompetitionBotTeleOp extends OpMode {
         controller.setIntakeProfile(profile.robot, profile.intakeDefaultSpeedPercent);
         display = new StarterBotTelemetry(telemetry, configuration, controller, tracking, launcher);
         configuration.init(telemetry, gamepad1, preferences, true);
+        gateTwoControllers = configuration.isTwoControllers();
+        gateButtonWasDown = gateGamepad().b;
         configuration.setRobotProfileName(profile.name);
         publishConfiguration();
     }
 
     @Override
     public void init_loop() {
-        configuration.updateInit(gamepad1);
+        configuration.updateInit(gamepad1, gamepad2);
         updateGateToggle();
         publishConfiguration();
     }
@@ -101,8 +104,13 @@ public class CompetitionBotTeleOp extends OpMode {
             configuration.lock();
             drive.resetHeading(configuration.getStartingHeadingDegrees(),
                     configuration.getFieldForwardHeadingDegrees());
-            controller.configure(configuration, gamepad1);
-            gateButtonWasDown = gamepad1.b;
+            if (configuration.isTwoControllers()) {
+                controller.configure(configuration, gamepad1, gamepad2);
+            } else {
+                controller.configure(configuration, gamepad1);
+            }
+            gateTwoControllers = configuration.isTwoControllers();
+            gateButtonWasDown = gateGamepad().b;
         }
         display.publish();
     }
@@ -116,21 +124,38 @@ public class CompetitionBotTeleOp extends OpMode {
     @Override
     public void loop() {
         updateGateToggle();
-        controller.update(gamepad1);
+        if (configuration.isTwoControllers()) {
+            controller.update(gamepad1, gamepad2);
+        } else {
+            controller.update(gamepad1);
+        }
         display.publish();
     }
 
     private void updateGateToggle() {
-        if (gamepad1.b && !gateButtonWasDown) {
+        boolean selectedTwo = configuration.isTwoControllers();
+        boolean buttonDown = (selectedTwo ? gamepad2 : gamepad1).b;
+        if (selectedTwo != gateTwoControllers) {
+            gateTwoControllers = selectedTwo;
+            gateButtonWasDown = buttonDown;
+        }
+        if (buttonDown && !gateButtonWasDown) {
             gateOpen = !gateOpen;
             gate.update(gateOpen);
         }
-        gateButtonWasDown = gamepad1.b;
+        gateButtonWasDown = buttonDown;
+    }
+
+    private com.qualcomm.robotcore.hardware.Gamepad gateGamepad() {
+        return gateTwoControllers ? gamepad2 : gamepad1;
     }
 
     @Override
     public void stop() {
         gamepad1.stopRumble();
+        if (configuration.isTwoControllers()) {
+            gamepad2.stopRumble();
+        }
         if (gateInitialized) {
             gate.update(false);
             gateOpen = false;

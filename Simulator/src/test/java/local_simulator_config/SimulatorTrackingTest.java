@@ -208,12 +208,12 @@ public class SimulatorTrackingTest {
         display.verify(travel.telemetry).addLine("Navigation");
         display.verify(travel.telemetry).addLine("Ready");
         display.verify(travel.telemetry).addLine("Landmarks");
-        verify(travel.telemetry, atLeastOnce()).addLine("> West flower");
+        verify(travel.telemetry, atLeastOnce()).addLine("> Red wall flower");
         verify(travel.telemetry, atLeastOnce()).addLine("  Blue scoring shooting start");
         travel.gamepad1.a = false;
         travel.gamepad1.dpad_down = true;
         travel.loop();
-        verify(travel.telemetry, atLeastOnce()).addLine("> East flower");
+        verify(travel.telemetry, atLeastOnce()).addLine("> Blue wall flower");
         travel.gamepad1.dpad_down = false;
         travel.gamepad1.left_stick_y = -1;
         travel.loop();

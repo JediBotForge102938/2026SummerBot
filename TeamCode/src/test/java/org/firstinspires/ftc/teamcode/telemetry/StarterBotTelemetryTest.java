@@ -69,6 +69,11 @@ public class StarterBotTelemetryTest {
                 + "1234 / 1250 ticks/s</tt>");
         verify(telemetry).addLine("<b>Intake</b>");
         verify(telemetry).addLine(contains("75%"));
+        org.mockito.InOrder order = inOrder(telemetry);
+        order.verify(telemetry).addLine("<b>Configuration</b>");
+        order.verify(telemetry).addLine("<b>Launcher</b>");
+        order.verify(telemetry).addLine("<b>Intake</b>");
+        order.verify(telemetry).addLine("<b>Hive Tracking</b>");
         verify(telemetry).update();
         verifyNoMoreInteractions(telemetry);
         verify(tracking, never()).getTargetRangeInches();
@@ -112,6 +117,26 @@ public class StarterBotTelemetryTest {
         verify(telemetry).addLine(contains("<font color='#FFCC66'>SEARCHING</font>"));
         verify(telemetry).addLine("<tt>&nbsp;&nbsp;Target:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
                 + "&nbsp;&nbsp;None</tt>");
+    }
+
+    @Test
+    public void matchConfigurationDisplaysControllerSelectionAndLiveSpeeds() {
+        DriveModePreferences preferences = mock(DriveModePreferences.class);
+        when(preferences.isTwoControllers()).thenReturn(true);
+        configuration.init(telemetry, mock(Gamepad.class), preferences, true);
+        configuration.lock();
+        when(controller.getDriveSpeedPercent()).thenReturn(65);
+        when(controller.getBumperSpeedPercent()).thenReturn(40);
+        clearInvocations(telemetry);
+        display.publish();
+        verify(telemetry).addLine(contains("Drive&nbsp;speed:"));
+        verify(telemetry).addLine(contains("65%"));
+        verify(telemetry).addLine(contains("Bumper&nbsp;speed:"));
+        verify(telemetry).addLine(contains("40%"));
+        verify(telemetry).addLine(contains("Controllers:"));
+        verify(telemetry).addLine(contains("2</tt>"));
+        verify(telemetry, never()).addLine(contains("Direction:"));
+        verify(telemetry, never()).addLine(contains("Gunner&nbsp;triggers:"));
     }
 
     @Test

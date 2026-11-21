@@ -113,19 +113,13 @@ public final class LandmarkFieldMap {
                         * (halfLength + profile.navigation.flowerStandoffIn);
                 target = new FieldMap.Pose(flower.x, y, heading);
             }
-            String[] flowerNames = {"West flower", "East flower", "Audience flower", "Scoring flower"};
+            String[] flowerNames = {"Red wall flower", "Blue wall flower",
+                    "Red audience flower", "Blue scoring flower"};
             result.add(new Destination(flowerNames[result.size()], Kind.FLOWER,
                     target, flower, null, false));
         }
-        double wall = profile.navigation.wallClearanceIn;
-        result.add(new Destination("Red garden", Kind.GARDEN,
-                new FieldMap.Pose(-72 + halfLength + profile.navigation.flowerStandoffIn,
-                        -72 + halfWidth + wall, 180),
-                new FieldMap.Pose(-72, -72, 0), FieldMap.garden(Alliance.RED), false));
-        result.add(new Destination("Blue garden", Kind.GARDEN,
-                new FieldMap.Pose(72 - halfLength - profile.navigation.flowerStandoffIn,
-                        72 - halfWidth - wall, 0),
-                new FieldMap.Pose(72, 72, 0), FieldMap.garden(Alliance.BLUE), false));
+        result.add(gardenCollectionDestination(Alliance.RED, "Red garden"));
+        result.add(gardenCollectionDestination(Alliance.BLUE, "Blue garden"));
         result.add(parkingDestination(Alliance.RED));
         result.add(parkingDestination(Alliance.BLUE));
         for (Alliance alliance : Arrays.asList(Alliance.RED, Alliance.BLUE)) {
@@ -164,15 +158,22 @@ public final class LandmarkFieldMap {
 
     /** Faces the front intake toward the garden's audience/scoring-wall strip. */
     public Destination gardenCollectionDestination(Alliance alliance) {
+        return gardenCollectionDestination(alliance,
+                alliance == Alliance.RED ? "Red garden collection" : "Blue garden collection");
+    }
+
+    private Destination gardenCollectionDestination(Alliance alliance, String name) {
         FieldMap.Region garden = FieldMap.garden(alliance);
         boolean red = alliance == Alliance.RED;
         double edgeY = red ? garden.maxY : garden.minY;
         double y = edgeY + (red ? 1 : -1)
                 * (halfLength + profile.navigation.flowerStandoffIn);
-        FieldMap.Pose pose = new FieldMap.Pose((garden.minX + garden.maxX) / 2,
+        double x = (red ? -1 : 1)
+                * (FieldMap.HALF_FIELD - halfWidth - profile.navigation.wallClearanceIn);
+        FieldMap.Pose pose = new FieldMap.Pose(x,
                 y, red ? -90 : 90);
-        return new Destination(red ? "Red garden collection" : "Blue garden collection",
-                Kind.GARDEN, pose, new FieldMap.Pose(pose.x, edgeY, 0), garden, false);
+        return new Destination(name, Kind.GARDEN, pose,
+                new FieldMap.Pose(pose.x, edgeY, 0), garden, false);
     }
 
     /** Leaves turning clearance and points the rear launcher toward the selected cell. */

@@ -410,10 +410,11 @@ response, endpoint settling, and all routes on the actual robot at low speed.
 Legacy profiles without a `navigation` section still work in existing OpModes;
 Landmark Travel Test reports that the section is required rather than inventing
 navigation tuning. Deploy the updated paired profiles before using this test.
-The profile's 9-inch transit clearance, 2-inch wall clearance, 10-inch
-precision-slowdown radius, 1-inch/3-degree arrival tolerance, and speed/settle
-limits are conservative experimental values, not surveyed or physically
-verified measurements. `curveInsetIn` limits corner rounding (currently 6 inches);
+The profiles' 0.5-inch transit and wall clearances, 10-inch precision-slowdown
+radius, 1-inch/3-degree arrival tolerance, and speed/settle limits are
+experimental values, not surveyed or physically verified measurements. The
+clearances leave little margin for tracking error or unexpected obstacles.
+`curveInsetIn` limits corner rounding (currently 6 inches);
 each proposed curve must still pass full-hull clearance certification.
 Arrival requires at most 1 inch and 3 degrees of error and measured center
 speed below 1.5 in/s / turn rate below 5 deg/s continuously for 0.2 seconds,
@@ -425,6 +426,19 @@ TeamCode uses Pedro Pathing 2.1.2; the simulator compiles against its bundled
 is valid.
 
 ## StarterBot TeleOp controls
+
+These are the one-controller mappings. In either mode, after START, tap the driver's touchpad top/bottom
+to increase/decrease drive speed, or right/left to increase/decrease bumper
+speed, by 5% per tap within 0–100%. Release between taps; the center is
+ignored. Adjustments last only for the current run. The controller and Driver
+Station must support touch coordinates; the simulator does not support them.
+In the INIT menu, either controller's D-pad can navigate and change settings.
+**Controllers** selects
+one or two controllers and is saved between runs (default: one). In two-controller
+mode, gamepad 1 keeps the sticks, A, left bumper, touchpad, and drive-mode/heading controls;
+gamepad 2 uses the trigger, right bumper, and D-pad mechanism controls below.
+The live speeds and controller count appear in telemetry.
+Shooter-ready rumble goes to the gunner; target-lock warnings go to the driver.
 
 | Input | Action |
 | --- | --- |
@@ -442,14 +456,16 @@ is valid.
 Drive mode, launcher target, and tracking alliance are saved in preferences.
 
 CompetitionBot TeleOp shares these controls except that B toggles its gate
-open or closed independently of launcher readiness. The right bumper runs the
+open or closed independently of launcher readiness. In two-controller mode,
+gamepad 2 controls the gate both during INIT and after START. The right bumper runs the
 launcher; readiness still controls the intake feed assist. B held while INIT
 begins must be released before toggling, and holding B across START does not
-cause an additional toggle.
+cause an additional toggle. A disconnect does not transfer controls; Driver
+Station STOP is the safety backup.
 
 Both TeleOps offer Drive speed and Bumper speed in the INIT menu. D-pad left/right
 adjusts each from 0% to 100% in 5% steps; selections are saved on the Robot
-Controller. Defaults are 100% and 35%. Bumper speed may be higher or lower than
+Controller. Defaults are 60% and 100%. Bumper speed may be higher or lower than
 Drive speed. While aiming with A, the existing 35% translation and full rotation
 behavior takes precedence over both settings.
 The launcher target defaults to 1250 encoder ticks/second. Feeding is enabled

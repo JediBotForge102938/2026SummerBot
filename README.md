@@ -42,12 +42,12 @@ red **NOT SCORABLE** for valid vision without an eligible target, yellow
 **SEARCHING** for missing/invalid/stale vision, and uncolored **MANUAL** when
 aiming is inactive. These labels do not change target selection or drive behavior.
 CompetitionBot uses one launcher motor and a positional feeder gate.
-In TeleOp, tap B during INIT or after START to toggle the gate independently of
+In TeleOp, tap B on the selected mechanism controller during INIT or after START to toggle the gate independently of
 launcher speed. It closes on initialization and STOP, and retains its selected
 position across START. The launcher encoder still determines readiness.
 
 Select **Configuration Test** under **2 - (Tests)**. During INIT,
-use gamepad 1 D-pad Up/Down to select the Alliance, Drive mode, or Starting
+use either controller's D-pad Up/Down to select the Alliance, Drive mode, or Starting
 spot row, and Left/Right to change its value. Each press changes one selection;
 opposing arrows cancel each other. The previous selections are restored.
 The compact HTML-styled **Configuration** display shows the three selections in
@@ -94,11 +94,37 @@ controls shooting, including launcher-ready intake feed assist. The profile sets
 that assist to 50% for StarterBot and 35% for CompetitionBot. It is added to
 manual intake power and clamped to the motor's -100% to 100% range.
 During TeleOp INIT, select **Drive speed** and **Bumper speed** with D-pad
-up/down, then adjust with left/right in 5% steps (0–100%). Defaults are 100%
-and 35%; values persist across runs on the same Robot Controller. Holding
+up/down, then adjust with left/right in 5% steps (0–100%). Defaults are 60%
+and 100%; values persist across runs on the same Robot Controller. Holding
 the left bumper selects Bumper speed, which can be a boost or a reduction.
 Holding A to aim retains 35% translation and full rotation regardless of these
 settings.
+
+In the StarterBot and CompetitionBot INIT menu, select **Controllers** with
+either controller's D-pad and choose 1 or 2 with left/right. The choice is saved
+immediately, defaults to 1, and is shared by the two OpModes. START locks it.
+With either controller count, after START tap the driver's touchpad top/bottom
+to increase/decrease drive speed or right/left to
+increase/decrease bumper speed. Each tap changes the selected speed by 5
+percentage points within 0–100%; release between taps. The center is ignored,
+and changes apply only to the current run. Touchpad support depends on the
+controller and Driver Station; the simulator does not support this input.
+With two controllers:
+
+* Gamepad 1 drives with the sticks, A target lock, left bumper speed,
+  Share+Options (or Back+Start) drive-mode toggle, and Options (or Start)
+  heading reset. Its touchpad adjusts drive and bumper speeds.
+* Gamepad 2 controls shooting (right bumper), intake (triggers), CompetitionBot
+  gate (B), launcher speed (D-pad up/down), and intake speed (D-pad left/right).
+
+The two live drive speeds and controller count appear in match telemetry.
+Gamepad 1's match-time speed adjustments are temporary; the saved INIT values
+return on the next run. Held D-pad buttons and intake triggers must be released
+and pressed again after START; a held gate button is also suppressed at INIT,
+START, and when its controlling gamepad changes. Selection is explicit: a
+disconnect does not transfer controls to the other gamepad. Use Driver Station
+STOP as the safety backup. Shooter-ready rumble goes to the gunner, while
+target-lock warnings go to the driver.
 
 The competition, starter, and BioBuzz Cluster Tracking TeleOps use the drive IMU's
 measured yaw rate to compensate cluster bearings for rotation during camera latency.
@@ -127,7 +153,9 @@ clear turning space with the rear-facing launcher aimed toward the selected hive
 The preload batch uses the mapped shooting position, stationary checks, and
 launcher velocity readiness; it does not require AprilTags. It then drives
 directly to its alliance garden with the
-intake facing the garden wall and collects. No post-preload AprilTag observation
+intake facing the audience/scoring wall and aligned alongside the red/blue wall.
+The approach stops with the front 3 inches from the garden strip's outside edge
+and the side at the configured wall clearance. No post-preload AprilTag observation
 is required to reach the garden. After collection it checks AprilTags from the
 garden. If no fresh, scorable alliance hive is visible, it drives to its alliance
 parking edge for the selected starting spot. Otherwise it travels to the confirmed

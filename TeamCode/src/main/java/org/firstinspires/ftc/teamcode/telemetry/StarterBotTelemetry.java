@@ -34,19 +34,8 @@ public class StarterBotTelemetry {
 
     public void publish() {
         telemetry.clearAll();
-        configuration.publish(controller.isFieldCentric());
-        telemetry.addLine("&nbsp;");
-        TelemetryTable.heading(telemetry, "Hive Tracking");
-        TelemetryTable.statusRow(telemetry, "Status", tracking.getTrackingStatus(),
-                tracking.getTrackingStatusLevel());
-        boolean hasTarget = tracking.hasTarget();
-        TelemetryTable.statusRow(telemetry, "Target", tracking.getTargetName(),
-                hasTarget ? RobotTelemetry.Level.SUCCESS : RobotTelemetry.Level.INFO);
-        if (hasTarget) {
-            TelemetryTable.row(telemetry, "Range / error", String.format(Locale.US,
-                    "%.1f in / %.1f deg", tracking.getTargetRangeInches(),
-                    tracking.getHorizontalErrorDegrees()));
-        }
+        configuration.publish(controller.isFieldCentric(), controller.getDriveSpeedPercent(),
+                controller.getBumperSpeedPercent());
         telemetry.addLine("&nbsp;");
         TelemetryTable.heading(telemetry, "Launcher");
         LauncherSubsystem.Status launcherStatus = launcher.getStatus();
@@ -63,6 +52,18 @@ public class StarterBotTelemetry {
         telemetry.addLine("&nbsp;");
         TelemetryTable.heading(telemetry, "Intake");
         TelemetryTable.row(telemetry, "Speed", controller.getIntakeSpeedPercent() + "%");
+        telemetry.addLine("&nbsp;");
+        TelemetryTable.heading(telemetry, "Hive Tracking");
+        TelemetryTable.statusRow(telemetry, "Status", tracking.getTrackingStatus(),
+                tracking.getTrackingStatusLevel());
+        boolean hasTarget = tracking.hasTarget();
+        TelemetryTable.statusRow(telemetry, "Target", tracking.getTargetName(),
+                hasTarget ? RobotTelemetry.Level.SUCCESS : RobotTelemetry.Level.INFO);
+        if (hasTarget) {
+            TelemetryTable.row(telemetry, "Range / error", String.format(Locale.US,
+                    "%.1f in / %.1f deg", tracking.getTargetRangeInches(),
+                    tracking.getHorizontalErrorDegrees()));
+        }
         telemetry.update();
     }
 }

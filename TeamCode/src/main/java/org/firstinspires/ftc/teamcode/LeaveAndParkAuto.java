@@ -37,7 +37,7 @@ public final class LeaveAndParkAuto extends OpMode {
     }
 
     @Override public void init_loop() {
-        configuration.updateInit(gamepad1);
+        configuration.updateInit(gamepad1, gamepad2);
         publish();
     }
 

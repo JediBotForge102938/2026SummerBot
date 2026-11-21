@@ -108,11 +108,12 @@ public class LandmarkFieldMapTest {
                 - (destinations.get(0).robotPose.x
                 + Math.cos(Math.toRadians(destinations.get(0).robotPose.headingDegrees)) * 9)),
                 1e-9);
-        assertEquals(-72, destinations.get(4).objectPose.x, 0);
-        assertEquals(-72, destinations.get(4).objectPose.y, 0);
+        assertEquals(-62.5, destinations.get(4).objectPose.x, 1e-9);
+        assertEquals(-70, destinations.get(4).objectPose.y, 0);
         assertNotNull(destinations.get(4).region);
-        assertEquals(-60, destinations.get(4).robotPose.x, 1e-9);
-        assertEquals(-61, destinations.get(4).robotPose.y, 1e-9);
+        assertEquals(-62.5, destinations.get(4).robotPose.x, 1e-9);
+        assertEquals(-58, destinations.get(4).robotPose.y, 1e-9);
+        assertEquals(-90, destinations.get(4).robotPose.headingDegrees, 0);
         assertEquals(36, destinations.get(6).robotPose.y, 0);
         assertEquals(-36, destinations.get(7).robotPose.y, 0);
         assertEquals(-12, destinations.get(8).robotPose.x, 0);

@@ -116,6 +116,52 @@ public class DriveModePreferencesTest {
     }
 
     @Test
+    public void bothControllersCanNavigateAndEditIndependentlyUntilLocked() {
+        when(storage.getBoolean("red_alliance", true)).thenReturn(true);
+        when(storage.getBoolean("field_centric", true)).thenReturn(true);
+        Gamepad driver = mock(Gamepad.class);
+        Gamepad gunner = mock(Gamepad.class);
+        ConfigurationSubsystem menu = new ConfigurationSubsystem();
+        menu.init(mock(Telemetry.class), driver, preferences, true);
+
+        gunner.dpad_right = true;
+        menu.updateInit(driver, gunner);
+        assertEquals(Alliance.BLUE, menu.getAlliance());
+        menu.updateInit(driver, gunner);
+        assertEquals(Alliance.BLUE, menu.getAlliance());
+        driver.dpad_right = true;
+        menu.updateInit(driver, gunner);
+        assertEquals(Alliance.RED, menu.getAlliance());
+
+        driver.dpad_right = false;
+        gunner.dpad_right = false;
+        gunner.dpad_down = true;
+        menu.updateInit(driver, gunner);
+        gunner.dpad_down = false;
+        driver.dpad_right = true;
+        menu.updateInit(driver, gunner);
+        assertFalse(menu.isFieldCentric());
+
+        driver.dpad_right = false;
+        driver.dpad_down = true;
+        gunner.dpad_up = true;
+        menu.updateInit(driver, gunner);
+        driver.dpad_down = false;
+        gunner.dpad_up = false;
+        menu.updateInit(driver, gunner);
+        gunner.dpad_right = true;
+        menu.updateInit(driver, gunner);
+        assertTrue(menu.isFieldCentric());
+
+        menu.lock();
+        gunner.dpad_right = false;
+        menu.updateInit(driver, gunner);
+        gunner.dpad_right = true;
+        menu.updateInit(driver, gunner);
+        assertTrue(menu.isFieldCentric());
+    }
+
+    @Test
     public void defaultsToRobotCentric() {
         assertFalse(preferences.isFieldCentric());
         verify(storage).getBoolean("field_centric", false);
@@ -160,8 +206,8 @@ public class DriveModePreferencesTest {
         Gamepad gamepad = mock(Gamepad.class);
         ConfigurationSubsystem menu = new ConfigurationSubsystem();
         menu.init(mock(Telemetry.class), gamepad, preferences, true);
-        assertEquals(100, menu.getDriveSpeedPercent());
-        assertEquals(35, menu.getBumperSpeedPercent());
+        assertEquals(60, menu.getDriveSpeedPercent());
+        assertEquals(100, menu.getBumperSpeedPercent());
         for (int i = 0; i < 3; i++) {
             gamepad.dpad_down = true;
             menu.updateInit(gamepad);
@@ -171,7 +217,7 @@ public class DriveModePreferencesTest {
         gamepad.dpad_left = true;
         menu.updateInit(gamepad);
         menu.updateInit(gamepad);
-        assertEquals(95, menu.getDriveSpeedPercent());
+        assertEquals(55, menu.getDriveSpeedPercent());
         gamepad.dpad_left = false;
         gamepad.dpad_down = true;
         menu.updateInit(gamepad);
@@ -194,14 +240,14 @@ public class DriveModePreferencesTest {
         assertEquals(100, menu.getBumperSpeedPercent());
         ConfigurationSubsystem restored = new ConfigurationSubsystem();
         restored.init(mock(Telemetry.class), gamepad, new DriveModePreferences(context), true);
-        assertEquals(95, restored.getDriveSpeedPercent());
+        assertEquals(55, restored.getDriveSpeedPercent());
         assertEquals(100, restored.getBumperSpeedPercent());
     }
 
     @Test
     public void speedMenuClampsAtZeroAndFailedSaveLeavesSelectionUnchanged() {
-        when(storage.getInt("drive_speed_percent", 100)).thenReturn(5);
-        when(storage.getInt("bumper_speed_percent", 35)).thenReturn(35);
+        when(storage.getInt("drive_speed_percent", 60)).thenReturn(5);
+        when(storage.getInt("bumper_speed_percent", 100)).thenReturn(35);
         when(editor.putInt(eq("drive_speed_percent"), anyInt())).thenReturn(editor);
         Gamepad gamepad = mock(Gamepad.class);
         ConfigurationSubsystem menu = new ConfigurationSubsystem();
@@ -231,11 +277,46 @@ public class DriveModePreferencesTest {
     public void speedSettingsValidateAndReportSaveFailures() {
         assertThrows(IllegalArgumentException.class, () -> preferences.saveDriveSpeedPercent(101));
         assertThrows(IllegalArgumentException.class, () -> preferences.saveBumperSpeedPercent(3));
-        when(storage.getInt("drive_speed_percent", 100)).thenReturn(-5);
+        when(storage.getInt("drive_speed_percent", 60)).thenReturn(-5);
         assertThrows(IllegalArgumentException.class, preferences::getDriveSpeedPercent);
         when(editor.putInt(eq("bumper_speed_percent"), anyInt())).thenReturn(editor);
         when(editor.commit()).thenReturn(false);
         assertThrows(IllegalStateException.class, () -> preferences.saveBumperSpeedPercent(40));
+    }
+
+    @Test
+    public void controllerMenuDefaultsPersistsLocksAndReportsSaveFailure() {
+        Map<String, Boolean> saved = new HashMap<>();
+        when(storage.getBoolean(anyString(), anyBoolean())).thenAnswer(invocation ->
+                saved.getOrDefault(invocation.getArgument(0), invocation.getArgument(1)));
+        when(editor.putBoolean(anyString(), anyBoolean())).thenAnswer(invocation -> {
+            saved.put(invocation.getArgument(0), invocation.getArgument(1));
+            return editor;
+        });
+        Gamepad pad = mock(Gamepad.class);
+        ConfigurationSubsystem menu = new ConfigurationSubsystem();
+        menu.init(mock(Telemetry.class), pad, preferences, true);
+        assertFalse(menu.isTwoControllers());
+        pad.dpad_up = true;
+        menu.updateInit(pad);
+        pad.dpad_up = false;
+        menu.updateInit(pad);
+        pad.dpad_right = true;
+        menu.updateInit(pad);
+        menu.updateInit(pad);
+        assertTrue(menu.isTwoControllers());
+        verify(editor).putBoolean("two_controllers", true);
+        ConfigurationSubsystem restored = new ConfigurationSubsystem();
+        restored.init(mock(Telemetry.class), pad, new DriveModePreferences(context), true);
+        assertTrue(restored.isTwoControllers());
+        menu.lock();
+        pad.dpad_right = false;
+        menu.updateInit(pad);
+        pad.dpad_left = true;
+        menu.updateInit(pad);
+        assertTrue(menu.isTwoControllers());
+        when(editor.commit()).thenReturn(false);
+        assertThrows(IllegalStateException.class, () -> preferences.saveTwoControllers(false));
     }
 
     @Test public void intakeSpeedDefaultsAndOverridesAreSeparatePerRobot() {

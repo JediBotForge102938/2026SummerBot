@@ -191,6 +191,56 @@ public class BioBuzzCompetitionTeleopTest {
     }
 
     @Test
+    public void gateFollowsControllerSelectionWithoutEdgesOnSwitchOrStart() {
+        RobotProfile profile = RobotProfile.load(new java.io.File("../robot-configs"),
+                "biobuzz-competitionbot", "competitionbot");
+        try (MockedStatic<RobotProfile> profiles = mockStatic(RobotProfile.class);
+                MockedConstruction<GateSubsystem> gates = mockConstruction(GateSubsystem.class);
+                MockedConstruction<DriveSubsystem> drives = mockConstruction(DriveSubsystem.class);
+                MockedConstruction<IntakeSubsystem> intakes = mockConstruction(IntakeSubsystem.class);
+                MockedConstruction<LauncherSubsystem> launchers = mockConstruction(LauncherSubsystem.class);
+                MockedConstruction<VisionSubsystem> visions = mockConstruction(VisionSubsystem.class);
+                MockedConstruction<DriveModePreferences> prefs = mockConstruction(DriveModePreferences.class);
+                MockedConstruction<MechanismCoordinator> mechanisms = mockConstruction(MechanismCoordinator.class);
+                MockedConstruction<TeleopController> controllers = mockConstruction(TeleopController.class);
+                MockedConstruction<StarterBotTelemetry> displays = mockConstruction(StarterBotTelemetry.class)) {
+            profiles.when(() -> RobotProfile.loadActive("competitionbot")).thenReturn(profile);
+            CompetitionBotTeleOp op = new CompetitionBotTeleOp();
+            op.hardwareMap = mock(HardwareMap.class);
+            op.gamepad1 = mock(Gamepad.class);
+            op.gamepad2 = mock(Gamepad.class);
+            op.telemetry = mock(Telemetry.class);
+            op.init();
+            GateSubsystem gate = gates.constructed().get(0);
+            op.gamepad2.b = true;
+            op.gamepad1.dpad_up = true;
+            op.init_loop();
+            op.gamepad1.dpad_up = false;
+            op.init_loop();
+            op.gamepad1.dpad_right = true;
+            op.init_loop();
+            verify(gate, never()).update(anyBoolean());
+            op.gamepad2.b = false;
+            op.init_loop();
+            op.gamepad2.b = true;
+            op.init_loop();
+            verify(gate).update(true);
+            op.start();
+            verify(controllers.constructed().get(0)).configure(any(), eq(op.gamepad1), eq(op.gamepad2));
+            op.loop();
+            verify(gate, never()).update(false);
+            op.gamepad1.b = true;
+            op.gamepad2.b = false;
+            op.loop();
+            op.gamepad2.b = true;
+            op.loop();
+            verify(gate).update(false);
+            verify(controllers.constructed().get(0), times(3)).update(op.gamepad1, op.gamepad2);
+            op.stop();
+        }
+    }
+
+    @Test
     public void stopAfterPartialInitializationStillStopsInitializedHardware() {
         RobotProfile profile = RobotProfile.load(new java.io.File("../robot-configs"),
                 "biobuzz-competitionbot", "competitionbot");

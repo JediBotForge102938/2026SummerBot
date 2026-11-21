@@ -13,6 +13,7 @@ public class DriveModePreferences {
     private static final String SCORING_START = "scoring_start";
     private static final String DRIVE_SPEED = "drive_speed_percent";
     private static final String BUMPER_SPEED = "bumper_speed_percent";
+    private static final String TWO_CONTROLLERS = "two_controllers";
     private static final String NAV_HOME_X = "navigation_home_x";
     private static final String NAV_HOME_Y = "navigation_home_y";
     private static final String NAV_HOME_HEADING = "navigation_home_heading";
@@ -39,11 +40,21 @@ public class DriveModePreferences {
     }
 
     public int getDriveSpeedPercent() {
-        return readSpeed(DRIVE_SPEED, 100);
+        return readSpeed(DRIVE_SPEED, 60);
     }
 
     public int getBumperSpeedPercent() {
-        return readSpeed(BUMPER_SPEED, 35);
+        return readSpeed(BUMPER_SPEED, 100);
+    }
+
+    public boolean isTwoControllers() {
+        return preferences.getBoolean(TWO_CONTROLLERS, false);
+    }
+
+    public void saveTwoControllers(boolean value) {
+        if (!preferences.edit().putBoolean(TWO_CONTROLLERS, value).commit()) {
+            throw new IllegalStateException("Unable to save controller selection");
+        }
     }
 
     public void saveDriveSpeedPercent(int value) {

@@ -75,7 +75,7 @@ public class StarterBotTeleOp extends OpMode {
 
     @Override
     public void init_loop() {
-        configuration.updateInit(gamepad1);
+        configuration.updateInit(gamepad1, gamepad2);
         publishConfiguration();
     }
 
@@ -85,7 +85,11 @@ public class StarterBotTeleOp extends OpMode {
             configuration.lock();
             drive.resetHeading(configuration.getStartingHeadingDegrees(),
                     configuration.getFieldForwardHeadingDegrees());
-            controller.configure(configuration, gamepad1);
+            if (configuration.isTwoControllers()) {
+                controller.configure(configuration, gamepad1, gamepad2);
+            } else {
+                controller.configure(configuration, gamepad1);
+            }
         }
         display.publish();
     }
@@ -98,13 +102,20 @@ public class StarterBotTeleOp extends OpMode {
 
     @Override
     public void loop() {
-        controller.update(gamepad1);
+        if (configuration.isTwoControllers()) {
+            controller.update(gamepad1, gamepad2);
+        } else {
+            controller.update(gamepad1);
+        }
         display.publish();
     }
 
     @Override
     public void stop() {
         gamepad1.stopRumble();
+        if (configuration.isTwoControllers()) {
+            gamepad2.stopRumble();
+        }
         if (controller != null) {
             controller.stop();
         }

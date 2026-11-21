@@ -354,6 +354,25 @@ public class AutoShootTest {
         }
     }
 
+    @Test public void wallPressStopsIfFootprintCrossesSideWall() {
+        for (boolean red : new boolean[] {true, false}) {
+            try (Harness h = new Harness(red, false)) {
+                h.start();
+                h.arriveAndShoot(0.1);
+                h.loop(3.2);
+                h.loop(3.3);
+                FieldMap.Pose pose = h.target.get().robotPose;
+                when(h.tracking.getPose()).thenReturn(new FieldMap.Pose(
+                        pose.x + (red ? -0.75 : 0.75), pose.y, pose.headingDegrees));
+                clearInvocations(h.drives.constructed().get(0));
+                h.loop(3.5);
+                verify(h.drives.constructed().get(0), never())
+                        .driveRobotRelative(AutoShoot.GARDEN_PRESS_POWER, 0, 0);
+                h.assertStopped();
+            }
+        }
+    }
+
     private static final class Harness implements AutoCloseable {
         final RobotProfile profile;
         final AtomicReference<LandmarkFieldMap.Destination> target = new AtomicReference<>();

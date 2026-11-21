@@ -114,6 +114,34 @@ public class BioBuzzStarterbotTeleopTest {
         opMode.init_loop();
     }
 
+    @Test
+    public void twoControllerSelectionRoutesBothGamepadsAtStartAndDuringMatch() {
+        RobotProfile profile = TestProfiles.starter();
+        try (MockedStatic<RobotProfile> profiles = mockStatic(RobotProfile.class);
+                MockedConstruction<DriveSubsystem> drives = mockConstruction(DriveSubsystem.class);
+                MockedConstruction<IntakeSubsystem> intakes = mockConstruction(IntakeSubsystem.class);
+                MockedConstruction<LauncherSubsystem> launchers = mockConstruction(LauncherSubsystem.class);
+                MockedConstruction<WindmillSubsystem> windmills = mockConstruction(WindmillSubsystem.class);
+                MockedConstruction<VisionSubsystem> visions = mockConstruction(VisionSubsystem.class);
+                MockedConstruction<DriveModePreferences> prefs = mockConstruction(DriveModePreferences.class,
+                        (mock, context) -> when(mock.isTwoControllers()).thenReturn(true));
+                MockedConstruction<HiveTrackingController> tracking = mockConstruction(HiveTrackingController.class);
+                MockedConstruction<TeleopController> controllers = mockConstruction(TeleopController.class);
+                MockedConstruction<StarterBotTelemetry> displays = mockConstruction(StarterBotTelemetry.class)) {
+            profiles.when(() -> RobotProfile.loadActive("starterbot")).thenReturn(profile);
+            StarterBotTeleOp op = new StarterBotTeleOp();
+            op.hardwareMap = mock(HardwareMap.class);
+            op.gamepad1 = mock(Gamepad.class);
+            op.gamepad2 = mock(Gamepad.class);
+            op.telemetry = mock(Telemetry.class);
+            op.init();
+            op.start();
+            op.loop();
+            verify(controllers.constructed().get(0)).configure(any(), eq(op.gamepad1), eq(op.gamepad2));
+            verify(controllers.constructed().get(0)).update(op.gamepad1, op.gamepad2);
+        }
+    }
+
     private static void right(StarterBotTeleOp opMode) {
         opMode.gamepad1.dpad_right = true;
         opMode.init_loop();

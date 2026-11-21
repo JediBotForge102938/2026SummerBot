@@ -100,7 +100,7 @@ public final class AutoShoot extends OpMode {
     }
 
     @Override public void init_loop() {
-        configuration.updateInit(gamepad1);
+        configuration.updateInit(gamepad1, gamepad2);
         publish();
     }
 
@@ -198,9 +198,13 @@ public final class AutoShoot extends OpMode {
         double headingError = pose == null ? Double.NaN
                 : Math.IEEEremainder(pose.headingDegrees - approach.headingDegrees, 360);
         double wallLimit = FieldMap.HALF_FIELD - profile.chassisLengthCm / 2 / 2.54;
+        double headingRadians = pose == null ? Double.NaN : Math.toRadians(pose.headingDegrees);
+        double sideExtent = Math.abs(Math.cos(headingRadians)) * profile.chassisLengthCm / 2 / 2.54
+                + Math.abs(Math.sin(headingRadians)) * profile.chassisWidthCm / 2 / 2.54;
         if (pose == null || !Double.isFinite(headingError)
                 || Math.abs(headingError) > profile.navigation.headingToleranceDegrees
                 || Math.abs(pose.x - approach.x) > profile.navigation.arrivalToleranceIn + 0.5
+                || Math.abs(pose.x) + sideExtent > FieldMap.HALF_FIELD
                 || Math.signum(pose.y) != Math.signum(approach.y)
                 || Math.abs(pose.y) < Math.abs(approach.y) - profile.navigation.arrivalToleranceIn
                 || Math.abs(pose.y) > wallLimit + profile.navigation.startWallPlacementToleranceIn) {
