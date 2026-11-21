@@ -42,8 +42,8 @@ import org.firstinspires.ftc.teamcode.telemetry.StarterBotTelemetry;
 public class StarterBotTeleOp extends OpMode {
     private final DriveSubsystem drive = new DriveSubsystem();
     private final ConfigurationSubsystem configuration = new ConfigurationSubsystem();
-    private final IntakeSubsystem intake = new IntakeSubsystem(true);
-    private final LauncherSubsystem launcher = new LauncherSubsystem();
+    private IntakeSubsystem intake;
+    private LauncherSubsystem launcher;
     private final WindmillSubsystem windmill = new WindmillSubsystem();
     private final VisionSubsystem vision = new VisionSubsystem();
     private TeleopController controller;
@@ -53,17 +53,22 @@ public class StarterBotTeleOp extends OpMode {
     public void init() {
         RobotProfile profile = RobotProfile.loadActive("starterbot");
         drive.init(hardwareMap, profile);
+        intake = new IntakeSubsystem(true, profile.intakeMotorDirection);
         intake.init(hardwareMap);
+        launcher = new LauncherSubsystem(profile.launcherMotors, profile.launcherPidf,
+                profile.launcherFeedVelocityMargin);
         launcher.init(hardwareMap);
         windmill.init(hardwareMap);
         vision.init(hardwareMap, profile);
         DriveModePreferences preferences = new DriveModePreferences(hardwareMap.appContext);
         HiveTrackingController tracking = new HiveTrackingController(
                 vision, preferences, drive::getYawRateDegreesPerSecond);
-        controller = new TeleopController(drive, new MechanismCoordinator(intake, launcher, windmill),
+        controller = new TeleopController(drive, new MechanismCoordinator(intake, launcher, windmill,
+                profile.intakeFeedAssistPercent),
                 preferences, tracking);
+        controller.setIntakeProfile(profile.robot, profile.intakeDefaultSpeedPercent);
         display = new StarterBotTelemetry(telemetry, configuration, controller, tracking, launcher);
-        configuration.init(telemetry, gamepad1, preferences);
+        configuration.init(telemetry, gamepad1, preferences, true);
         configuration.setRobotProfileName(profile.name);
         publishConfiguration();
     }

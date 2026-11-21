@@ -47,6 +47,8 @@ public class TeleopControllerTest {
         ConfigurationSubsystem configuration = mock(ConfigurationSubsystem.class);
         when(configuration.isLocked()).thenReturn(true);
         when(configuration.isFieldCentric()).thenReturn(true);
+        when(configuration.getDriveSpeedPercent()).thenReturn(100);
+        when(configuration.getBumperSpeedPercent()).thenReturn(35);
         when(configuration.getAlliance()).thenReturn(Alliance.RED);
         gamepad.dpad_up = true;
         gamepad.dpad_left = true;
@@ -80,8 +82,103 @@ public class TeleopControllerTest {
 
         assertFalse(controller.isFieldCentric());
         verify(drive).driveRobotRelative(0.5, 0.25, -0.75, 1);
-        verify(mechanisms).update(0.5, true);
+        verify(mechanisms).update(1, true);
         verifyNoInteractions(preferences);
+    }
+
+    @Test public void intakeTriggersToggleOnceSwitchDirectionAndStopTogether() {
+        gamepad.right_trigger = 1;
+        controller.update(gamepad);
+        controller.update(gamepad);
+        gamepad.right_trigger = 0;
+        controller.update(gamepad);
+        verify(mechanisms, times(3)).update(1, false);
+        clearInvocations(mechanisms);
+        gamepad.right_trigger = 1;
+        controller.update(gamepad);
+        verify(mechanisms).update(0, false);
+        gamepad.right_trigger = 0;
+        gamepad.left_trigger = 1;
+        controller.update(gamepad);
+        controller.update(gamepad);
+        gamepad.left_trigger = 0;
+        controller.update(gamepad);
+        verify(mechanisms, times(3)).update(-1, false);
+        clearInvocations(mechanisms);
+        gamepad.left_trigger = 1;
+        controller.update(gamepad);
+        verify(mechanisms).update(0, false);
+        gamepad.left_trigger = 0;
+        gamepad.right_trigger = 1;
+        controller.update(gamepad);
+        gamepad.right_trigger = 0;
+        gamepad.left_trigger = 1;
+        controller.update(gamepad);
+        clearInvocations(mechanisms);
+        gamepad.right_trigger = 1;
+        controller.update(gamepad);
+        gamepad.left_trigger = 0;
+        controller.update(gamepad);
+        verify(mechanisms, times(2)).update(0, false);
+    }
+
+    @Test public void intakeSpeedAdjustsOnPressAndSuppressesHeldInitButtons() {
+        when(preferences.getIntakeSpeedPercent("competitionbot", 75)).thenReturn(75);
+        controller.setIntakeProfile("competitionbot", 75);
+        ConfigurationSubsystem configuration = mock(ConfigurationSubsystem.class);
+        when(configuration.isLocked()).thenReturn(true);
+        gamepad.dpad_right = true;
+        controller.configure(configuration, gamepad);
+        gamepad.right_trigger = 1;
+        controller.update(gamepad);
+        verify(mechanisms).update(0.75, false);
+        verify(preferences, never()).saveIntakeSpeedPercent(anyString(), anyInt());
+        gamepad.dpad_right = false;
+        controller.update(gamepad);
+        gamepad.dpad_right = true;
+        controller.update(gamepad);
+        controller.update(gamepad);
+        verify(preferences).saveIntakeSpeedPercent("competitionbot", 80);
+        verify(mechanisms, times(2)).update(0.8, false);
+        gamepad.dpad_right = false;
+        gamepad.dpad_left = true;
+        gamepad.right_trigger = 0;
+        gamepad.left_trigger = 1;
+        controller.update(gamepad);
+        verify(mechanisms).update(-0.75, false);
+    }
+
+    @Test public void failedIntakeSpeedSaveDoesNotChangeSpeed() {
+        when(preferences.getIntakeSpeedPercent("starterbot", 100)).thenReturn(100);
+        controller.setIntakeProfile("starterbot", 100);
+        ConfigurationSubsystem configuration = mock(ConfigurationSubsystem.class);
+        when(configuration.isLocked()).thenReturn(true);
+        controller.configure(configuration, gamepad);
+        doThrow(new IllegalStateException("Cannot save")).when(preferences)
+                .saveIntakeSpeedPercent("starterbot", 95);
+        gamepad.dpad_left = true;
+        org.junit.Assert.assertThrows(IllegalStateException.class, () -> controller.update(gamepad));
+        org.junit.Assert.assertEquals(100, controller.getIntakeSpeedPercent());
+    }
+
+    @Test public void configuredHeldTriggersRequireReleaseAndStopClearsToggle() {
+        ConfigurationSubsystem configuration = mock(ConfigurationSubsystem.class);
+        when(configuration.isLocked()).thenReturn(true);
+        when(configuration.getAlliance()).thenReturn(Alliance.RED);
+        gamepad.right_trigger = 1;
+        controller.configure(configuration, gamepad);
+        controller.update(gamepad);
+        verify(mechanisms).update(0, false);
+        gamepad.right_trigger = 0;
+        controller.update(gamepad);
+        gamepad.right_trigger = 1;
+        controller.update(gamepad);
+        verify(mechanisms).update(1, false);
+        controller.stop();
+        clearInvocations(mechanisms);
+        gamepad.right_trigger = 0;
+        controller.update(gamepad);
+        verify(mechanisms).update(0, false);
     }
 
     @Test
@@ -393,13 +490,33 @@ public class TeleopControllerTest {
         controller.publishTelemetry(output);
 
         verify(output).status("Drive mode", "ROBOT-CENTRIC", RobotTelemetry.Level.INFO);
-        verify(output).status("Driving", "PRECISION", RobotTelemetry.Level.WARNING);
+        verify(output).status("Driving", "BUMPER", RobotTelemetry.Level.WARNING);
         verify(output).number("Drive power limit", 35, "%");
         verify(output).number("Left trigger", 0.25, "");
         verify(output).number("Right trigger", 0.75, "");
         verifyNoInteractions(drive, mechanisms, gamepad, preferences);
         verify(output, never()).beginFrame();
         verify(output, never()).endFrame();
+    }
+
+    @Test
+    public void configuredDriveAndBumperSpeedsAreIndependentAndAimingIsUnchanged() {
+        ConfigurationSubsystem configuration = mock(ConfigurationSubsystem.class);
+        when(configuration.isLocked()).thenReturn(true);
+        when(configuration.getDriveSpeedPercent()).thenReturn(45);
+        when(configuration.getBumperSpeedPercent()).thenReturn(80);
+        controller.configure(configuration, gamepad);
+        gamepad.left_stick_y = -1;
+        gamepad.right_stick_x = 0.5f;
+        controller.update(gamepad);
+        verify(drive).driveRobotRelative(1, 0, 0.5, 0.45);
+        gamepad.left_bumper = true;
+        controller.update(gamepad);
+        verify(drive).driveRobotRelative(1, 0, 0.5, 0.8);
+        gamepad.a = true;
+        when(tracking.update(true)).thenReturn(0.2);
+        controller.update(gamepad);
+        verify(drive).driveRobotRelative(0.35, 0, 0.2, 1, true);
     }
 
     @Test

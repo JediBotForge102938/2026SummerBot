@@ -8,9 +8,63 @@ import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 import org.junit.Test;
 
 public class LandmarkFieldMapTest {
+    @Test public void parkingEdgesFollowStartingSideAndLeaveMiddleFree() {
+        for (org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance alliance :
+                new org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance[] {
+                        org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance.RED,
+                        org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance.BLUE}) {
+            for (org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem.StartingSpot side :
+                    org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem.StartingSpot.values()) {
+                LandmarkFieldMap.Destination target = map.parkingDestination(alliance, side);
+                boolean audience = side == org.firstinspires.ftc.teamcode.subsystems
+                        .ConfigurationSubsystem.StartingSpot.AUDIENCE;
+                boolean red = alliance == org.firstinspires.ftc.teamcode
+                        .BioBuzzLimelightClusterAdapter.Alliance.RED;
+                double expectedOverlap = red ? (audience ? 2 : 4) : 3;
+                assertEquals(expectedOverlap, audience ? target.robotPose.y + 9 - target.region.minY
+                        : target.region.maxY - (target.robotPose.y - 9), 1e-9);
+                assertEquals(target.robotPose.x < 0 ? 0 : 180,
+                        target.robotPose.headingDegrees, 0);
+                FieldMap.Pose previous = FieldMap.startingPose(alliance, side, 18);
+                List<LandmarkFieldMap.Waypoint> route = map.plan(previous, target);
+                assertFalse(route.isEmpty());
+                for (LandmarkFieldMap.Waypoint waypoint : route) {
+                    assertTrue(target.name + " " + waypoint.segment,
+                            map.segmentStillClear(previous, waypoint, target));
+                    if (waypoint.segment == LandmarkFieldMap.Segment.FINAL_APPROACH) {
+                        assertTrue("Back into parking while facing the open field",
+                                (waypoint.pose.x - previous.x)
+                                        * Math.cos(Math.toRadians(target.robotPose.headingDegrees)) < 0);
+                    }
+                    previous = waypoint.pose;
+                }
+                assertFalse(map.segmentStillClear(new FieldMap.Pose(target.robotPose.x,
+                        (target.region.minY + target.region.maxY) / 2, target.robotPose.headingDegrees),
+                        target.robotPose, LandmarkFieldMap.Segment.FINAL_APPROACH, target));
+            }
+        }
+    }
+
     private final RobotProfile profile = RobotProfile.load(
             new java.io.File("../robot-configs"), "biobuzz-starterbot", "starterbot");
     private final LandmarkFieldMap map = new LandmarkFieldMap(profile);
+
+    @Test public void parkingApproachEntryHasRoomForArrivalError() {
+        LandmarkFieldMap.Destination target = map.parkingDestination(
+                org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance.RED);
+        List<LandmarkFieldMap.Waypoint> route = map.plan(new FieldMap.Pose(50, -45, 0), target);
+        LandmarkFieldMap.Waypoint lastTransit = null;
+        for (LandmarkFieldMap.Waypoint waypoint : route) {
+            if (waypoint.segment == LandmarkFieldMap.Segment.TRANSIT) lastTransit = waypoint;
+        }
+        assertNotNull(lastTransit);
+        double radius = Math.hypot(profile.chassisLengthCm / 2 / 2.54,
+                profile.chassisWidthCm / 2 / 2.54);
+        double limit = BioBuzzFieldMap.FIELD_HALF_SIZE - BioBuzzFieldMap.PERIMETER_STRIP
+                - radius - profile.navigation.wallClearanceIn;
+        assertTrue(Math.abs(lastTransit.pose.x) <= limit - profile.navigation.arrivalToleranceIn - 1.0);
+        assertTrue(Math.abs(lastTransit.pose.y) <= limit - profile.navigation.arrivalToleranceIn - 1.0);
+    }
 
     @Test public void menuHasTwelveAllianceAgnosticDestinationsAndSeparateObjects() {
         List<LandmarkFieldMap.Destination> destinations = map.destinations();

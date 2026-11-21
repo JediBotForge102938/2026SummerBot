@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import org.firstinspires.ftc.teamcode.control.MechanismCoordinator;
 import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
 import org.junit.Before;
@@ -13,6 +14,7 @@ import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.io.File;
 
 public class LauncherSubsystemTest {
     private HardwareMap hardware;
@@ -51,6 +53,84 @@ public class LauncherSubsystemTest {
         verify(left).setVelocity(1500);
         verify(right).setVelocity(1500);
         verify(hardware, never()).get(eq(com.qualcomm.robotcore.hardware.CRServo.class), anyString());
+    }
+
+    @Test
+    public void launcherUsesDirectionsFromEachRobotProfile() {
+        RobotProfile competition = RobotProfile.load(new File("../robot-configs"),
+                "biobuzz-competitionbot", "competitionbot");
+        DcMotorEx competitionMotor = mock(DcMotorEx.class);
+        when(hardware.get(DcMotorEx.class, "launcher")).thenReturn(competitionMotor);
+        LauncherSubsystem configured =
+                new LauncherSubsystem(competition.launcherMotors, competition.launcherPidf,
+                        competition.launcherFeedVelocityMargin);
+        configured.init(hardware);
+        verify(competitionMotor).setDirection(competition.launcherMotors.get(0).direction);
+        when(competitionMotor.getVelocity()).thenReturn(1250.0);
+        configured.update(true);
+        verify(competitionMotor).setVelocity(1250);
+        assertEquals(1250, configured.getVelocity(), 0);
+
+        DcMotorEx starterMotor = mock(DcMotorEx.class);
+        when(hardware.get(DcMotorEx.class, "launcher")).thenReturn(starterMotor);
+        RobotProfile starter = RobotProfile.load(new File("../robot-configs"),
+                "biobuzz-starterbot", "starterbot");
+        new LauncherSubsystem(starter.launcherMotors, starter.launcherPidf,
+                starter.launcherFeedVelocityMargin).init(hardware);
+        verify(starterMotor).setDirection(DcMotor.Direction.FORWARD);
+    }
+
+    @Test
+    public void competitionMarginGatesReadinessAndDropoutAtConfiguredThresholds() {
+        RobotProfile competition = RobotProfile.load(new File("../robot-configs"),
+                "biobuzz-competitionbot", "competitionbot");
+        DcMotorEx motor = mock(DcMotorEx.class);
+        when(hardware.get(DcMotorEx.class, "launcher")).thenReturn(motor);
+        LauncherSubsystem configured = new LauncherSubsystem(competition.launcherMotors,
+                competition.launcherPidf, competition.launcherFeedVelocityMargin, () -> now);
+        configured.init(hardware);
+        configured.setTargetVelocity(800);
+        int threshold = 800 - competition.launcherFeedVelocityMargin;
+        int dropout = threshold - 25;
+        assertEquals(threshold, configured.getFeedVelocityThreshold());
+        assertEquals(dropout, configured.getFeedDropoutThreshold());
+
+        when(motor.getVelocity()).thenReturn((double) threshold);
+        assertFalse(configured.update(true));
+        now += 200_000_000L;
+        assertFalse(configured.update(true));
+        when(motor.getVelocity()).thenReturn((double) threshold + 1);
+        assertFalse(configured.update(true));
+        now += 199_000_000L;
+        assertFalse(configured.update(true));
+        now += 1_000_000L;
+        assertTrue(configured.update(true));
+        when(motor.getVelocity()).thenReturn((double) dropout + 1);
+        assertTrue(configured.update(true));
+        when(motor.getVelocity()).thenReturn((double) dropout);
+        assertFalse(configured.update(true));
+        assertEquals(LauncherSubsystem.Status.BELOW_TARGET, configured.getStatus());
+        configured.setTargetVelocity(0);
+        assertFalse(configured.update(true));
+    }
+
+    @Test
+    public void configuredPidfIsAppliedToEveryLauncherMotor() {
+        LauncherSubsystem.PidfConfig pidf = new LauncherSubsystem.PidfConfig(20, 1.5, 2, 8);
+        LauncherSubsystem configured = new LauncherSubsystem(Arrays.asList(
+                new LauncherSubsystem.MotorConfig("left_launcher", DcMotor.Direction.REVERSE),
+                new LauncherSubsystem.MotorConfig("right_launcher", DcMotor.Direction.FORWARD)), pidf);
+        configured.init(hardware);
+        for (DcMotorEx motor : Arrays.asList(left, right)) {
+            org.mockito.ArgumentCaptor<PIDFCoefficients> coefficients =
+                    org.mockito.ArgumentCaptor.forClass(PIDFCoefficients.class);
+            verify(motor).setPIDFCoefficients(eq(DcMotor.RunMode.RUN_USING_ENCODER),
+                    coefficients.capture());
+            assertEquals(20, coefficients.getValue().p, 0);
+            assertEquals(1.5, coefficients.getValue().i, 0);
+            assertEquals(2, coefficients.getValue().d, 0);
+            assertEquals(8, coefficients.getValue().f, 0);
+        }
     }
 
     @Test

@@ -41,6 +41,49 @@ public class DriveModePreferences {
         return preferences.getBoolean(SCORING_START, false);
     }
 
+    public int getDriveSpeedPercent() {
+        return readSpeed("drive_speed_percent", 100);
+    }
+
+    public int getBumperSpeedPercent() {
+        return readSpeed("bumper_speed_percent", 35);
+    }
+
+    public void saveDriveSpeedPercent(int value) {
+        saveSpeed("drive_speed_percent", value);
+    }
+
+    public void saveBumperSpeedPercent(int value) {
+        saveSpeed("bumper_speed_percent", value);
+    }
+
+    public int getIntakeSpeedPercent(String robot, int defaultValue) {
+        validateSpeed(defaultValue);
+        return readSpeed("intake_speed_percent_" + robot, defaultValue);
+    }
+
+    public void saveIntakeSpeedPercent(String robot, int value) {
+        saveSpeed("intake_speed_percent_" + robot, value);
+    }
+
+    private int readSpeed(String key, int defaultValue) {
+        int value = preferences.getInt(key, defaultValue);
+        validateSpeed(value);
+        return value;
+    }
+
+    private void saveSpeed(String key, int value) {
+        validateSpeed(value);
+        preferences.putInt(key, value);
+        flush();
+    }
+
+    private static void validateSpeed(int value) {
+        if (value < 0 || value > 100 || value % 5 != 0) {
+            throw new IllegalArgumentException("Drive speed must be 0-100 in increments of 5");
+        }
+    }
+
     public void saveConfiguration(boolean redAlliance, boolean fieldCentric, boolean scoringStart) {
         preferences.putBoolean(RED_ALLIANCE, redAlliance);
         preferences.putBoolean(FIELD_CENTRIC, fieldCentric);

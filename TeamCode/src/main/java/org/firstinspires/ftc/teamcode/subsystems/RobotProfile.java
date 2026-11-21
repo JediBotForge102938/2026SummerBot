@@ -4,14 +4,18 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /** Validated sensor configuration paired with an FTC hardware configuration. */
@@ -20,6 +24,14 @@ public final class RobotProfile {
     public final String robot;
     public final double chassisLengthCm;
     public final double chassisWidthCm;
+    public final boolean mirrorStrafe;
+    public final DcMotorSimple.Direction intakeMotorDirection;
+    public final int intakeDefaultSpeedPercent;
+    public final int intakeFeedAssistPercent;
+    public final List<LauncherSubsystem.MotorConfig> launcherMotors;
+    public final LauncherSubsystem.PidfConfig launcherPidf;
+    public final int launcherFeedVelocityMargin;
+    public final GateConfig launcherGate;
     public final String imuName;
     public final RevHubOrientationOnRobot.LogoFacingDirection imuLogo;
     public final RevHubOrientationOnRobot.UsbFacingDirection imuUsb;
@@ -40,9 +52,9 @@ public final class RobotProfile {
 
     private RobotProfile(String name, JsonObject root) {
         this.name = name;
-        requireKnownKeys(root, "schemaVersion", "robot", "chassis", "imu", "limelight",
+        requireKnownKeys(root, "schemaVersion", "robot", "chassis", "drive", "intake", "launcher", "imu", "limelight",
                 "otos", "navigation");
-        if (integer(root, "schemaVersion") != 1) {
+        if (integer(root, "schemaVersion") != 8) {
             throw new IllegalArgumentException("Unsupported profile schema version");
         }
         robot = text(root, "robot");
@@ -53,6 +65,51 @@ public final class RobotProfile {
         if (chassisLengthCm <= 0 || chassisWidthCm <= 0) {
             throw new IllegalArgumentException("Chassis dimensions must be positive");
         }
+        JsonObject drive = object(root, "drive");
+        requireKnownKeys(drive, "mirrorStrafe");
+        mirrorStrafe = bool(drive, "mirrorStrafe");
+        JsonObject intake = object(root, "intake");
+        requireKnownKeys(intake, "motorDirection", "defaultSpeedPercent", "feedAssistPercent");
+        intakeMotorDirection = DcMotorSimple.Direction.valueOf(text(intake, "motorDirection"));
+        intakeDefaultSpeedPercent = percent(intake, "defaultSpeedPercent", true);
+        intakeFeedAssistPercent = percent(intake, "feedAssistPercent", false);
+        JsonObject launcher = object(root, "launcher");
+        requireKnownKeys(launcher, "motors", "pidf", "feedVelocityMarginTicksPerSecond", "gate");
+        launcherGate = "competitionbot".equals(robot)
+                ? new GateConfig(object(launcher, "gate")) : null;
+        if (!"competitionbot".equals(robot) && launcher.has("gate")) {
+            throw new IllegalArgumentException("Gate is only supported for competitionbot");
+        }
+        launcherFeedVelocityMargin = integer(launcher, "feedVelocityMarginTicksPerSecond");
+        if (launcherFeedVelocityMargin < 0
+                || launcherFeedVelocityMargin > LauncherSubsystem.MAX_TARGET_VELOCITY) {
+            throw new IllegalArgumentException("Launcher feed velocity margin must be 0-"
+                    + LauncherSubsystem.MAX_TARGET_VELOCITY + " ticks/s");
+        }
+        JsonObject pidf = object(launcher, "pidf");
+        requireKnownKeys(pidf, "p", "i", "d", "f");
+        launcherPidf = new LauncherSubsystem.PidfConfig(number(pidf, "p"), number(pidf, "i"),
+                number(pidf, "d"), number(pidf, "f"));
+        JsonElement motors = launcher.get("motors");
+        if (motors == null || !motors.isJsonArray() || motors.getAsJsonArray().size() == 0) {
+            throw new IllegalArgumentException("Launcher motors must be a non-empty array");
+        }
+        List<LauncherSubsystem.MotorConfig> configuredMotors = new ArrayList<>();
+        Set<String> motorNames = new HashSet<>();
+        for (JsonElement element : motors.getAsJsonArray()) {
+            if (!element.isJsonObject()) {
+                throw new IllegalArgumentException("Launcher motor must be an object");
+            }
+            JsonObject motor = element.getAsJsonObject();
+            requireKnownKeys(motor, "name", "direction");
+            String motorName = text(motor, "name");
+            if (!motorNames.add(motorName)) {
+                throw new IllegalArgumentException("Duplicate launcher motor: " + motorName);
+            }
+            configuredMotors.add(new LauncherSubsystem.MotorConfig(motorName,
+                    DcMotorSimple.Direction.valueOf(text(motor, "direction"))));
+        }
+        launcherMotors = Collections.unmodifiableList(configuredMotors);
         JsonObject imu = object(root, "imu");
         requireKnownKeys(imu, "name", "logoFacing", "usbFacing");
         imuName = text(imu, "name");
@@ -105,6 +162,23 @@ public final class RobotProfile {
         navigation = root.has("navigation") ? new NavigationSettings(object(root, "navigation")) : null;
     }
 
+    public static final class GateConfig {
+        public final String name;
+        public final double openPosition;
+        public final double closedPosition;
+
+        private GateConfig(JsonObject gate) {
+            requireKnownKeys(gate, "name", "openPosition", "closedPosition");
+            name = text(gate, "name");
+            openPosition = number(gate, "openPosition");
+            closedPosition = number(gate, "closedPosition");
+            if (openPosition < 0 || openPosition > 1 || closedPosition < 0 || closedPosition > 1
+                    || openPosition == closedPosition) {
+                throw new IllegalArgumentException("Gate positions must be distinct and in [0, 1]");
+            }
+        }
+    }
+
     /** Profiled navigation geometry, controller limits, and physical-readiness evidence. */
     public static final class NavigationSettings {
         public final boolean geometryVerified;
@@ -115,6 +189,7 @@ public final class RobotProfile {
         public final double startWallPlacementToleranceIn;
         public final double flowerStandoffIn;
         public final double curveInsetIn;
+        public final double parkingOverlapIn;
         public final double transitPower;
         public final double finalApproachPower;
         public final double arrivalToleranceIn;
@@ -139,7 +214,7 @@ public final class RobotProfile {
             requireKnownKeys(settings, "geometryVerified", "pedroTuningVerified",
                     "simulatorEnabled", "transitClearanceIn", "wallClearanceIn",
                     "startWallPlacementToleranceIn",
-                    "flowerStandoffIn", "curveInsetIn", "transitPower", "finalApproachPower",
+                    "flowerStandoffIn", "curveInsetIn", "parkingOverlapIn", "transitPower", "finalApproachPower",
                     "arrivalToleranceIn", "precisionDistanceIn", "headingToleranceDegrees",
                     "stationarySpeedInPerSec",
                     "stationaryTurnRateDegreesPerSec",
@@ -156,6 +231,8 @@ public final class RobotProfile {
                     positive(settings, "startWallPlacementToleranceIn", true);
             flowerStandoffIn = positive(settings, "flowerStandoffIn", false);
             curveInsetIn = positive(settings, "curveInsetIn", false);
+            parkingOverlapIn = settings.has("parkingOverlapIn")
+                    ? positive(settings, "parkingOverlapIn", false) : 2.0;
             transitPower = fraction(settings, "transitPower");
             finalApproachPower = fraction(settings, "finalApproachPower");
             arrivalToleranceIn = positive(settings, "arrivalToleranceIn", false);
@@ -300,6 +377,15 @@ public final class RobotProfile {
             throw new IllegalArgumentException("Expected integer: " + key);
         }
         return (int) value;
+    }
+
+    private static int percent(JsonObject parent, String key, boolean requireStep) {
+        int value = integer(parent, key);
+        if (value < 0 || value > 100 || (requireStep && value % 5 != 0)) {
+            throw new IllegalArgumentException(key + " must be 0-100"
+                    + (requireStep ? " in increments of 5" : ""));
+        }
+        return value;
     }
 
     private static String opposite(String direction) {

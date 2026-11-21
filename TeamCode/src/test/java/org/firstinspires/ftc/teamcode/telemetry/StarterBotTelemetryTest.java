@@ -35,6 +35,7 @@ public class StarterBotTelemetryTest {
         tracking = mock(HiveTrackingController.class);
         launcher = mock(LauncherSubsystem.class);
         when(controller.isFieldCentric()).thenReturn(true);
+        when(controller.getIntakeSpeedPercent()).thenReturn(75);
         when(tracking.getTrackingStatus()).thenReturn("MANUAL");
         when(tracking.getTrackingStatusLevel()).thenReturn(RobotTelemetry.Level.INFO);
         when(tracking.getTargetName()).thenReturn("None");
@@ -60,12 +61,14 @@ public class StarterBotTelemetryTest {
                 + "&nbsp;&nbsp;MANUAL</tt>");
         verify(telemetry).addLine("<tt>&nbsp;&nbsp;Target:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
                 + "&nbsp;&nbsp;None</tt>");
-        verify(telemetry, times(2)).addLine("&nbsp;");
+        verify(telemetry, times(3)).addLine("&nbsp;");
         verify(telemetry).addLine("<b>Launcher</b>");
         verify(telemetry).addLine("<tt>&nbsp;&nbsp;Status:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
                 + "&nbsp;&nbsp;<font color='#66FF99'>READY</font></tt>");
         verify(telemetry).addLine("<tt>&nbsp;&nbsp;Actual/target:&nbsp;"
                 + "1234 / 1250 ticks/s</tt>");
+        verify(telemetry).addLine("<b>Intake</b>");
+        verify(telemetry).addLine(contains("75%"));
         verify(telemetry).update();
         verifyNoMoreInteractions(telemetry);
         verify(tracking, never()).getTargetRangeInches();

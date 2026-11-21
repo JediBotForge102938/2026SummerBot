@@ -60,6 +60,9 @@ public class StarterBotTelemetry {
             TelemetryTable.statusRow(telemetry, "Feed gate", "DISABLED: positions not configured",
                     RobotTelemetry.Level.WARNING);
         }
+        telemetry.addLine("&nbsp;");
+        TelemetryTable.heading(telemetry, "Intake");
+        TelemetryTable.row(telemetry, "Speed", controller.getIntakeSpeedPercent() + "%");
         telemetry.update();
     }
 }

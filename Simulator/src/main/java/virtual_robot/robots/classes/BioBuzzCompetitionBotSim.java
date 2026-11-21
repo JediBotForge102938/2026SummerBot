@@ -12,6 +12,11 @@ import local_simulator_config.StarterBotOTOS;
 import org.firstinspires.ftc.teamcode.subsystems.ActiveRobotProfileSource;
 import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 import virtual_robot.controller.BotConfig;
+import virtual_robot.controller.VirtualField;
+import org.dyn4j.geometry.Transform;
+import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
+import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem.StartingSpot;
+import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -21,6 +26,23 @@ import java.util.Set;
 @BotConfig(name = "biobuzz-competitionbot", filename = "biobuzz_competitionbot")
 public class BioBuzzCompetitionBotSim extends MecanumPhysicsBase {
     private final List<DcMotorExImpl> mechanismMotors = new ArrayList<>();
+
+    @Override
+    public void initialize() {
+        super.initialize();
+        FieldMap.Pose start = FieldMap.startingPose(Alliance.RED, StartingSpot.AUDIENCE,
+                RobotProfile.loadActive("competitionbot").chassisLengthCm / 2.54);
+        x = start.x * 0.0254 * VirtualField.PIXELS_PER_METER;
+        y = start.y * 0.0254 * VirtualField.PIXELS_PER_METER;
+        headingRadians = Math.toRadians(start.headingDegrees - 90);
+        Transform transform = new Transform();
+        transform.rotate(headingRadians);
+        transform.translate(x / VirtualField.PIXELS_PER_METER,
+                y / VirtualField.PIXELS_PER_METER);
+        chassisBody.setTransform(transform);
+        chassisBody.setLinearVelocity(0, 0);
+        chassisBody.setAngularVelocity(0);
+    }
 
     @Override
     protected void createHardwareMap() {
@@ -36,7 +58,7 @@ public class BioBuzzCompetitionBotSim extends MecanumPhysicsBase {
         for (RobotHardwareConfig.Device device : RobotHardwareConfig.loadDevices(
                 "/robot-configs/biobuzz-competitionbot.xml")) {
             if (device.type() == RobotHardwareConfig.DeviceType.MOTOR) {
-                String wheel = RobotHardwareConfig.bioBuzzDriveWheelSlot(device.name());
+                String wheel = RobotHardwareConfig.driveWheelSlot(device.name());
                 if (wheel != null) {
                     if (!wheels.add(wheel)) {
                         throw new IllegalArgumentException("Duplicate simulated wheel " + wheel);

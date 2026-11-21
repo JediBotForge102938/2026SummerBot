@@ -44,6 +44,37 @@ public class LandmarkTravelControlsTest {
         assertFalse(stopped.manual);
     }
 
+    @Test public void manualDriveUsesHysteresisAroundStickDeadBand() {
+        LandmarkTravelControls controls = new LandmarkTravelControls();
+        LandmarkTravelControls.Input input = new LandmarkTravelControls.Input();
+        controls.seed(input);
+
+        input.leftY = 0.09;
+        assertTrue(controls.update(input, false).manual);
+        input.leftY = 0.06;
+        assertTrue(controls.update(input, false).manual);
+        input.leftY = 0.04;
+        assertFalse(controls.update(input, false).manual);
+        input.leftY = 0.06;
+        assertFalse(controls.update(input, false).manual);
+        input.leftY = 0.09;
+        assertTrue(controls.update(input, false).manual);
+    }
+
+    @Test public void stopButtonResetsManualDriveHysteresis() {
+        LandmarkTravelControls controls = new LandmarkTravelControls();
+        LandmarkTravelControls.Input input = new LandmarkTravelControls.Input();
+        controls.seed(input);
+
+        input.leftY = 0.09;
+        assertTrue(controls.update(input, false).manual);
+        input.y = true;
+        assertTrue(controls.update(input, false).stop);
+        input.y = false;
+        input.leftY = 0.06;
+        assertFalse(controls.update(input, false).manual);
+    }
+
     @Test public void dpadEdgesSelectAndSaveCalibrationEdgesAreRisingOnly() {
         LandmarkTravelControls controls = new LandmarkTravelControls();
         LandmarkTravelControls.Input input = new LandmarkTravelControls.Input();

@@ -12,7 +12,7 @@ import org.firstinspires.ftc.teamcode.telemetry.TelemetryTable;
 /** Owns the pre-start menu; consumers read the locked selections at START. */
 public class ConfigurationSubsystem {
     public enum StartingSpot { AUDIENCE, SCORING }
-    private enum MenuRow { ALLIANCE, DRIVE_MODE, STARTING_SPOT }
+    private enum MenuRow { ALLIANCE, DRIVE_MODE, STARTING_SPOT, DRIVE_SPEED, BUMPER_SPEED }
 
     private Telemetry telemetry;
     private String robotProfileName;
@@ -21,6 +21,9 @@ public class ConfigurationSubsystem {
     private Alliance alliance;
     private boolean fieldCentric;
     private StartingSpot startingSpot;
+    private boolean speedSettingsEnabled;
+    private int driveSpeedPercent;
+    private int bumperSpeedPercent;
     private boolean locked;
     private boolean previousUp;
     private boolean previousDown;
@@ -28,6 +31,11 @@ public class ConfigurationSubsystem {
     private boolean previousRight;
 
     public void init(Telemetry telemetry, Gamepad gamepad, DriveModePreferences preferences) {
+        init(telemetry, gamepad, preferences, false);
+    }
+
+    public void init(Telemetry telemetry, Gamepad gamepad, DriveModePreferences preferences,
+            boolean speedSettingsEnabled) {
         this.telemetry = telemetry;
         this.preferences = preferences;
         robotProfileName = null;
@@ -35,6 +43,11 @@ public class ConfigurationSubsystem {
         alliance = preferences.getConfigurationRedAlliance() ? Alliance.RED : Alliance.BLUE;
         fieldCentric = preferences.getConfigurationFieldCentric();
         startingSpot = preferences.isScoringStart() ? StartingSpot.SCORING : StartingSpot.AUDIENCE;
+        this.speedSettingsEnabled = speedSettingsEnabled;
+        if (speedSettingsEnabled) {
+            driveSpeedPercent = preferences.getDriveSpeedPercent();
+            bumperSpeedPercent = preferences.getBumperSpeedPercent();
+        }
         locked = false;
         previousUp = false;
         previousDown = false;
@@ -52,10 +65,11 @@ public class ConfigurationSubsystem {
         boolean right = gamepad.dpad_right;
         if (!locked) {
             MenuRow[] rows = MenuRow.values();
+            int rowCount = speedSettingsEnabled ? rows.length : MenuRow.STARTING_SPOT.ordinal() + 1;
             if (up && !previousUp && !down) {
-                row = rows[(row.ordinal() + rows.length - 1) % rows.length];
+                row = rows[(row.ordinal() + rowCount - 1) % rowCount];
             } else if (down && !previousDown && !up) {
-                row = rows[(row.ordinal() + 1) % rows.length];
+                row = rows[(row.ordinal() + 1) % rowCount];
             }
             if ((left && !previousLeft && !right)
                     || (right && !previousRight && !left)) {
@@ -77,6 +91,22 @@ public class ConfigurationSubsystem {
                         startingSpot = startingSpot == StartingSpot.AUDIENCE
                                 ? StartingSpot.SCORING : StartingSpot.AUDIENCE;
                         break;
+                    case DRIVE_SPEED: {
+                        int value = adjustSpeed(driveSpeedPercent, right);
+                        if (value != driveSpeedPercent) {
+                            preferences.saveDriveSpeedPercent(value);
+                            driveSpeedPercent = value;
+                        }
+                        break;
+                    }
+                    case BUMPER_SPEED: {
+                        int value = adjustSpeed(bumperSpeedPercent, right);
+                        if (value != bumperSpeedPercent) {
+                            preferences.saveBumperSpeedPercent(value);
+                            bumperSpeedPercent = value;
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -110,6 +140,18 @@ public class ConfigurationSubsystem {
         return startingSpot;
     }
 
+    public int getDriveSpeedPercent() {
+        return driveSpeedPercent;
+    }
+
+    public int getBumperSpeedPercent() {
+        return bumperSpeedPercent;
+    }
+
+    private static int adjustSpeed(int value, boolean increase) {
+        return Math.max(0, Math.min(100, value + (increase ? 5 : -5)));
+    }
+
     public double getStartingHeadingDegrees() {
         // Field zero is Red-to-Blue. Rear starts face the audience; audience starts face rear.
         return startingSpot == StartingSpot.SCORING ? 270 : 90;
@@ -134,6 +176,10 @@ public class ConfigurationSubsystem {
                 currentFieldCentric ? "Field-centric" : "Robot-centric");
         menuLine(MenuRow.STARTING_SPOT, "Starting spot",
                 startingSpot == StartingSpot.SCORING ? "Scoring" : "Audience");
+        if (speedSettingsEnabled) {
+            menuLine(MenuRow.DRIVE_SPEED, "Drive speed", driveSpeedPercent + "%");
+            menuLine(MenuRow.BUMPER_SPEED, "Bumper speed", bumperSpeedPercent + "%");
+        }
     }
 
     public void setRobotProfileName(String name) {

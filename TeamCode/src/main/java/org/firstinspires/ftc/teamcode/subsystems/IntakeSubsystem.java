@@ -10,20 +10,27 @@ import org.firstinspires.ftc.teamcode.telemetry.TelemetrySource;
 
 public class IntakeSubsystem implements TelemetrySource {
     private final boolean servosEnabled;
+    private final DcMotorSimple.Direction motorDirection;
     private DcMotor intake;
     private CRServo leftIntakeServo;
     private CRServo rightIntakeServo;
 
     public IntakeSubsystem() {
-        this(true);
+        this(true, DcMotorSimple.Direction.FORWARD);
     }
 
     public IntakeSubsystem(boolean servosEnabled) {
+        this(servosEnabled, DcMotorSimple.Direction.FORWARD);
+    }
+
+    public IntakeSubsystem(boolean servosEnabled, DcMotorSimple.Direction motorDirection) {
         this.servosEnabled = servosEnabled;
+        this.motorDirection = motorDirection;
     }
 
     public void init(HardwareMap hardwareMap) {
         intake = hardwareMap.get(DcMotor.class, "intake");
+        intake.setDirection(motorDirection);
         intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         if (servosEnabled) {
             leftIntakeServo = hardwareMap.get(CRServo.class, "left_intake_servo");

@@ -16,6 +16,9 @@ import local_simulator_config.RobotHardwareConfig;
 import local_simulator_config.StarterBotOTOS;
 import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 import org.firstinspires.ftc.teamcode.subsystems.ActiveRobotProfileSource;
+import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
+import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem.StartingSpot;
+import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
 import org.dyn4j.geometry.Transform;
 import virtual_robot.controller.BotConfig;
 import virtual_robot.controller.VirtualField;
@@ -27,8 +30,6 @@ import java.util.Set;
 @BotConfig(name = "biobuzz-starterbot", filename = "biobuzz_starterbot")
 public class BioBuzzStarterBotSim extends MecanumPhysicsBase {
     private static final String ROBOT_CONFIG_RESOURCE = "/robot-configs/biobuzz-starterbot.xml";
-    private static final int STARTING_COLUMN = 3;
-    private static final int STARTING_ROW = 6;
 
     @FXML
     private Rectangle launcherVisual;
@@ -113,11 +114,14 @@ public class BioBuzzStarterBotSim extends MecanumPhysicsBase {
     public void initialize() {
         super.initialize();
 
-        double cellSize = VirtualField.FIELD_WIDTH / 6.0;
-        x = (STARTING_COLUMN - 0.5) * cellSize - VirtualField.HALF_FIELD_WIDTH;
-        y = VirtualField.HALF_FIELD_WIDTH - (STARTING_ROW - 0.5) * cellSize;
+        FieldMap.Pose start = FieldMap.startingPose(Alliance.RED, StartingSpot.AUDIENCE,
+                RobotProfile.loadActive("starterbot").chassisLengthCm / 2.54);
+        x = start.x * 0.0254 * VirtualField.PIXELS_PER_METER;
+        y = start.y * 0.0254 * VirtualField.PIXELS_PER_METER;
+        headingRadians = Math.toRadians(start.headingDegrees - 90);
 
         Transform transform = new Transform();
+        transform.rotate(headingRadians);
         transform.translate(
                 x / VirtualField.PIXELS_PER_METER,
                 y / VirtualField.PIXELS_PER_METER);

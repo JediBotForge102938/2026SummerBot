@@ -10,7 +10,9 @@ import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
 import org.firstinspires.ftc.teamcode.telemetry.TelemetrySource;
 
 public class TeleopController implements TelemetrySource {
-    private static final double PRECISION_POWER_SCALE = 0.35;
+    private static final double AIM_TRANSLATION_SCALE = 0.35;
+    private double driveSpeed = 1;
+    private double bumperSpeed = 0.35;
     private final DriveSubsystem drive;
     private final MechanismCoordinator mechanisms;
     private final DriveModePreferences preferences;
@@ -23,6 +25,10 @@ public class TeleopController implements TelemetrySource {
     private boolean resetPending;
     private boolean dpadUpWasDown;
     private boolean dpadDownWasDown;
+    private boolean dpadLeftWasDown;
+    private boolean dpadRightWasDown;
+    private String intakeRobot;
+    private int intakeSpeedPercent = 100;
     private boolean launcherWasReady;
     private boolean missingTargetRumble;
     private boolean precisionDriving;
@@ -30,6 +36,10 @@ public class TeleopController implements TelemetrySource {
     private Alliance controllerLedAlliance;
     private double leftTrigger;
     private double rightTrigger;
+    private static final double INTAKE_TRIGGER_THRESHOLD = 0.5;
+    private boolean intakeWasDown;
+    private boolean reverseIntakeWasDown;
+    private int intakeDirection;
 
     public TeleopController(DriveSubsystem drive, MechanismCoordinator mechanisms,
             DriveModePreferences preferences, HiveTrackingController tracking) {
@@ -51,15 +61,18 @@ public class TeleopController implements TelemetrySource {
         rightTrigger = gamepad.right_trigger;
         updateDriveMode(gamepad.back || gamepad.share, gamepad.start || gamepad.options);
         updateLauncherTarget(gamepad.dpad_up, gamepad.dpad_down);
+        if (configurationManaged && intakeRobot != null) {
+            updateIntakeSpeed(gamepad.dpad_left, gamepad.dpad_right);
+        }
 
         double forward = -gamepad.left_stick_y;
         double strafe = gamepad.left_stick_x;
         double trackingRotation = tracking.update(gamepad.a);
         double rotate = gamepad.a ? trackingRotation : gamepad.right_stick_x;
-        double powerScale = precisionDriving ? PRECISION_POWER_SCALE : 1;
+        double powerScale = precisionDriving ? bumperSpeed : driveSpeed;
         if (gamepad.a) {
-            forward *= PRECISION_POWER_SCALE;
-            strafe *= PRECISION_POWER_SCALE;
+            forward *= AIM_TRANSLATION_SCALE;
+            strafe *= AIM_TRANSLATION_SCALE;
             // While aiming, precision applies only to translation, not automatic rotation.
             powerScale = 1;
         }
@@ -76,7 +89,8 @@ public class TeleopController implements TelemetrySource {
                 drive.driveRobotRelative(forward, strafe, rotate, powerScale);
             }
         }
-        mechanisms.update(gamepad.right_trigger - gamepad.left_trigger, gamepad.right_bumper);
+        updateIntakeToggle();
+        mechanisms.update(intakeDirection * intakeSpeedPercent / 100.0, gamepad.right_bumper);
         boolean ready = mechanisms.isLauncherReady();
         boolean missingTarget = aiming && !tracking.hasTarget();
         if (missingTarget) {
@@ -98,15 +112,31 @@ public class TeleopController implements TelemetrySource {
         return fieldCentric;
     }
 
+    public void setIntakeProfile(String robot, int defaultSpeedPercent) {
+        intakeRobot = java.util.Objects.requireNonNull(robot);
+        intakeSpeedPercent = preferences.getIntakeSpeedPercent(robot, defaultSpeedPercent);
+    }
+
+    public int getIntakeSpeedPercent() {
+        return intakeSpeedPercent;
+    }
+
     public void configure(ConfigurationSubsystem configuration, Gamepad gamepad) {
         if (!configuration.isLocked()) {
             throw new IllegalStateException("Lock configuration before applying it");
         }
         fieldCentric = configuration.isFieldCentric();
+        driveSpeed = configuration.getDriveSpeedPercent() / 100.0;
+        bumperSpeed = configuration.getBumperSpeedPercent() / 100.0;
         tracking.setAlliance(configuration.getAlliance());
         configurationManaged = true;
         dpadUpWasDown = gamepad.dpad_up;
         dpadDownWasDown = gamepad.dpad_down;
+        dpadLeftWasDown = gamepad.dpad_left;
+        dpadRightWasDown = gamepad.dpad_right;
+        intakeDirection = 0;
+        intakeWasDown = gamepad.right_trigger > INTAKE_TRIGGER_THRESHOLD;
+        reverseIntakeWasDown = gamepad.left_trigger > INTAKE_TRIGGER_THRESHOLD;
         chordArmed = false;
         chordConsumed = false;
         optionsWasDown = false;
@@ -137,6 +167,9 @@ public class TeleopController implements TelemetrySource {
         aiming = false;
         leftTrigger = 0;
         rightTrigger = 0;
+        intakeDirection = 0;
+        intakeWasDown = false;
+        reverseIntakeWasDown = false;
     }
 
     @Override
@@ -144,19 +177,49 @@ public class TeleopController implements TelemetrySource {
         output.status("Drive mode", fieldCentric ? "FIELD-CENTRIC" : "ROBOT-CENTRIC",
                 RobotTelemetry.Level.INFO);
         output.status("Driving", aiming ? "AIMING (SLOW TRANSLATION)"
-                        : precisionDriving ? "PRECISION" : "NORMAL",
+                        : precisionDriving ? "BUMPER" : "NORMAL",
                 aiming || precisionDriving ? RobotTelemetry.Level.WARNING : RobotTelemetry.Level.INFO);
-        output.number("Drive power limit", (!aiming && precisionDriving
-                ? PRECISION_POWER_SCALE : 1) * 100, "%");
-        output.number("Translation input scale", (aiming || precisionDriving
-                ? PRECISION_POWER_SCALE : 1) * 100, "%");
+        output.number("Drive power limit", (aiming ? 1 : precisionDriving
+                ? bumperSpeed : driveSpeed) * 100, "%");
+        output.number("Translation input scale", (aiming ? AIM_TRANSLATION_SCALE : 1) * 100, "%");
         output.number("Left trigger", leftTrigger, "");
         output.number("Right trigger", rightTrigger, "");
-        output.line("Left bumper: hold for precision driving");
+        output.value("Intake toggle", intakeDirection > 0 ? "INTAKE"
+                : intakeDirection < 0 ? "REVERSE" : "OFF");
+        output.number("Intake speed", intakeSpeedPercent, "%");
+        output.line("Right/left trigger: toggle intake/reverse; tap again or press both to stop");
+        output.line("D-pad left/right: intake speed -/+5%; saved automatically");
+        output.line("Left bumper: hold for bumper speed");
         output.line("D-pad up/down: launcher target +/-" + LauncherSubsystem.TARGET_VELOCITY_STEP
                 + " ticks/s (0-" + LauncherSubsystem.MAX_TARGET_VELOCITY + "); saved automatically");
         output.line("Share+Options / Back+Start: toggle drive mode (saved automatically)");
         output.line("Options / Start alone: release to reset heading in field-centric mode");
+    }
+
+    private void updateIntakeToggle() {
+        boolean intakeDown = rightTrigger > INTAKE_TRIGGER_THRESHOLD;
+        boolean reverseDown = leftTrigger > INTAKE_TRIGGER_THRESHOLD;
+        if (intakeDown && reverseDown) {
+            intakeDirection = 0;
+        } else if (intakeDown && !intakeWasDown) {
+            intakeDirection = intakeDirection == 1 ? 0 : 1;
+        } else if (reverseDown && !reverseIntakeWasDown) {
+            intakeDirection = intakeDirection == -1 ? 0 : -1;
+        }
+        intakeWasDown = intakeDown;
+        reverseIntakeWasDown = reverseDown;
+    }
+
+    private void updateIntakeSpeed(boolean left, boolean right) {
+        int direction = left && !right && !dpadLeftWasDown ? -1
+                : right && !left && !dpadRightWasDown ? 1 : 0;
+        dpadLeftWasDown = left;
+        dpadRightWasDown = right;
+        int speed = Math.max(0, Math.min(100, intakeSpeedPercent + direction * 5));
+        if (speed != intakeSpeedPercent) {
+            preferences.saveIntakeSpeedPercent(intakeRobot, speed);
+            intakeSpeedPercent = speed;
+        }
     }
 
     private void updateLauncherTarget(boolean upDown, boolean downDown) {

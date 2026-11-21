@@ -37,13 +37,15 @@ public final class LandmarkTravelControls {
         }
     }
 
-    private static final double DEAD_BAND = 0.08;
+    private static final double MANUAL_START_DEAD_BAND = 0.08;
+    private static final double MANUAL_RELEASE_DEAD_BAND = 0.04;
     private boolean previousA;
     private boolean previousX;
     private boolean previousOptions;
     private boolean previousStart;
     private boolean previousUp;
     private boolean previousDown;
+    private boolean manualActive;
 
     /** Samples controls at START so held INIT buttons cannot become fresh actions. */
     public void seed(Input input) {
@@ -62,9 +64,8 @@ public final class LandmarkTravelControls {
         boolean routeEdge = input.a && !previousA;
         int selectionDelta = input.dpadUp && !previousUp && !input.dpadDown ? -1
                 : input.dpadDown && !previousDown && !input.dpadUp ? 1 : 0;
-        boolean manual = Math.abs(input.leftX) > DEAD_BAND
-                || Math.abs(input.leftY) > DEAD_BAND
-                || Math.abs(input.rightX) > DEAD_BAND;
+        double stickMagnitude = Math.max(Math.abs(input.leftX),
+                Math.max(Math.abs(input.leftY), Math.abs(input.rightX)));
         previousA = input.a;
         previousX = input.x;
         previousOptions = options;
@@ -72,11 +73,18 @@ public final class LandmarkTravelControls {
         previousUp = input.dpadUp;
         previousDown = input.dpadDown;
 
-        if (input.y) return new Actions(true, true, false, false, false, false, 0);
-        if (input.b) return new Actions(true, true, false, false, false, false, 0);
-        if (calibrateEdge) return new Actions(true, true, false, false, true, false, 0);
-        if (saveEdge) return new Actions(true, true, false, false, false, true, 0);
-        if (manual) return new Actions(false, true, false, true, false, false, 0);
+        if (input.y || input.b) {
+            manualActive = false;
+            return new Actions(true, true, false, false, false, false, 0);
+        }
+        if (calibrateEdge || saveEdge) {
+            manualActive = false;
+            return new Actions(true, true, false, false, calibrateEdge, saveEdge, 0);
+        }
+        manualActive = manualActive
+                ? stickMagnitude > MANUAL_RELEASE_DEAD_BAND
+                : stickMagnitude > MANUAL_START_DEAD_BAND;
+        if (manualActive) return new Actions(false, true, false, true, false, false, 0);
         return new Actions(false, false, routeEdge,
                 false, false, false, selectionDelta);
     }

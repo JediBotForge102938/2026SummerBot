@@ -149,6 +149,110 @@ public class DriveModePreferencesTest {
     }
 
     @Test
+    public void speedMenuStepsPersistsAndAllowsBoostOrSlowerBumper() {
+        Map<String, Integer> saved = new HashMap<>();
+        when(storage.getInt(anyString(), anyInt())).thenAnswer(invocation ->
+                saved.getOrDefault(invocation.getArgument(0), invocation.getArgument(1)));
+        when(editor.putInt(anyString(), anyInt())).thenAnswer(invocation -> {
+            saved.put(invocation.getArgument(0), invocation.getArgument(1));
+            return editor;
+        });
+        Gamepad gamepad = mock(Gamepad.class);
+        ConfigurationSubsystem menu = new ConfigurationSubsystem();
+        menu.init(mock(Telemetry.class), gamepad, preferences, true);
+        assertEquals(100, menu.getDriveSpeedPercent());
+        assertEquals(35, menu.getBumperSpeedPercent());
+        for (int i = 0; i < 3; i++) {
+            gamepad.dpad_down = true;
+            menu.updateInit(gamepad);
+            gamepad.dpad_down = false;
+            menu.updateInit(gamepad);
+        }
+        gamepad.dpad_left = true;
+        menu.updateInit(gamepad);
+        menu.updateInit(gamepad);
+        assertEquals(95, menu.getDriveSpeedPercent());
+        gamepad.dpad_left = false;
+        gamepad.dpad_down = true;
+        menu.updateInit(gamepad);
+        gamepad.dpad_down = false;
+        menu.updateInit(gamepad);
+        for (int i = 0; i < 13; i++) {
+            gamepad.dpad_right = true;
+            menu.updateInit(gamepad);
+            gamepad.dpad_right = false;
+            menu.updateInit(gamepad);
+        }
+        assertEquals(100, menu.getBumperSpeedPercent());
+        gamepad.dpad_right = true;
+        menu.updateInit(gamepad);
+        assertEquals(100, menu.getBumperSpeedPercent());
+        menu.lock();
+        gamepad.dpad_right = false;
+        gamepad.dpad_left = true;
+        menu.updateInit(gamepad);
+        assertEquals(100, menu.getBumperSpeedPercent());
+        ConfigurationSubsystem restored = new ConfigurationSubsystem();
+        restored.init(mock(Telemetry.class), gamepad, new DriveModePreferences(context), true);
+        assertEquals(95, restored.getDriveSpeedPercent());
+        assertEquals(100, restored.getBumperSpeedPercent());
+    }
+
+    @Test
+    public void speedMenuClampsAtZeroAndFailedSaveLeavesSelectionUnchanged() {
+        when(storage.getInt("drive_speed_percent", 100)).thenReturn(5);
+        when(storage.getInt("bumper_speed_percent", 35)).thenReturn(35);
+        when(editor.putInt(eq("drive_speed_percent"), anyInt())).thenReturn(editor);
+        Gamepad gamepad = mock(Gamepad.class);
+        ConfigurationSubsystem menu = new ConfigurationSubsystem();
+        menu.init(mock(Telemetry.class), gamepad, preferences, true);
+        for (int i = 0; i < 3; i++) {
+            gamepad.dpad_down = true;
+            menu.updateInit(gamepad);
+            gamepad.dpad_down = false;
+            menu.updateInit(gamepad);
+        }
+        when(editor.commit()).thenReturn(false);
+        gamepad.dpad_left = true;
+        assertThrows(IllegalStateException.class, () -> menu.updateInit(gamepad));
+        assertEquals(5, menu.getDriveSpeedPercent());
+        when(editor.commit()).thenReturn(true);
+        menu.updateInit(gamepad);
+        assertEquals(0, menu.getDriveSpeedPercent());
+        gamepad.dpad_left = false;
+        menu.updateInit(gamepad);
+        gamepad.dpad_left = true;
+        menu.updateInit(gamepad);
+        assertEquals(0, menu.getDriveSpeedPercent());
+        verify(editor, times(2)).putInt("drive_speed_percent", 0);
+    }
+
+    @Test
+    public void speedSettingsValidateAndReportSaveFailures() {
+        assertThrows(IllegalArgumentException.class, () -> preferences.saveDriveSpeedPercent(101));
+        assertThrows(IllegalArgumentException.class, () -> preferences.saveBumperSpeedPercent(3));
+        when(storage.getInt("drive_speed_percent", 100)).thenReturn(-5);
+        assertThrows(IllegalArgumentException.class, preferences::getDriveSpeedPercent);
+        when(editor.putInt(eq("bumper_speed_percent"), anyInt())).thenReturn(editor);
+        when(editor.commit()).thenReturn(false);
+        assertThrows(IllegalStateException.class, () -> preferences.saveBumperSpeedPercent(40));
+    }
+
+    @Test public void intakeSpeedDefaultsAndOverridesAreSeparatePerRobot() {
+        Map<String, Integer> saved = new HashMap<>();
+        when(storage.getInt(anyString(), anyInt())).thenAnswer(invocation ->
+                saved.getOrDefault(invocation.getArgument(0), invocation.getArgument(1)));
+        when(editor.putInt(anyString(), anyInt())).thenAnswer(invocation -> {
+            saved.put(invocation.getArgument(0), invocation.getArgument(1));
+            return editor;
+        });
+        assertEquals(75, preferences.getIntakeSpeedPercent("competitionbot", 75));
+        assertEquals(100, preferences.getIntakeSpeedPercent("starterbot", 100));
+        preferences.saveIntakeSpeedPercent("competitionbot", 60);
+        assertEquals(60, preferences.getIntakeSpeedPercent("competitionbot", 75));
+        assertEquals(100, preferences.getIntakeSpeedPercent("starterbot", 100));
+    }
+    @Test
     public void launcherTargetRestoresAcrossInstancesIncludingZeroAndMaximum() {
         doAnswer(invocation -> {
             int target = invocation.getArgument(1);

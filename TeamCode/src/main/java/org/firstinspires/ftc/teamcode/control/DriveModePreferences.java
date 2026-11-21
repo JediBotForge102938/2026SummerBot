@@ -11,6 +11,8 @@ public class DriveModePreferences {
     private static final String LAUNCHER_TARGET_VELOCITY = "launcher_target_velocity";
     private static final String RED_ALLIANCE = "red_alliance";
     private static final String SCORING_START = "scoring_start";
+    private static final String DRIVE_SPEED = "drive_speed_percent";
+    private static final String BUMPER_SPEED = "bumper_speed_percent";
     private static final String NAV_HOME_X = "navigation_home_x";
     private static final String NAV_HOME_Y = "navigation_home_y";
     private static final String NAV_HOME_HEADING = "navigation_home_heading";
@@ -34,6 +36,50 @@ public class DriveModePreferences {
 
     public boolean isScoringStart() {
         return preferences.getBoolean(SCORING_START, false);
+    }
+
+    public int getDriveSpeedPercent() {
+        return readSpeed(DRIVE_SPEED, 100);
+    }
+
+    public int getBumperSpeedPercent() {
+        return readSpeed(BUMPER_SPEED, 35);
+    }
+
+    public void saveDriveSpeedPercent(int value) {
+        saveSpeed(DRIVE_SPEED, value);
+    }
+
+    public void saveBumperSpeedPercent(int value) {
+        saveSpeed(BUMPER_SPEED, value);
+    }
+
+    public int getIntakeSpeedPercent(String robot, int defaultValue) {
+        validateSpeed(defaultValue);
+        return readSpeed("intake_speed_percent_" + robot, defaultValue);
+    }
+
+    public void saveIntakeSpeedPercent(String robot, int value) {
+        saveSpeed("intake_speed_percent_" + robot, value);
+    }
+
+    private int readSpeed(String key, int defaultValue) {
+        int value = preferences.getInt(key, defaultValue);
+        validateSpeed(value);
+        return value;
+    }
+
+    private void saveSpeed(String key, int value) {
+        validateSpeed(value);
+        if (!preferences.edit().putInt(key, value).commit()) {
+            throw new IllegalStateException("Unable to save " + key);
+        }
+    }
+
+    private static void validateSpeed(int value) {
+        if (value < 0 || value > 100 || value % 5 != 0) {
+            throw new IllegalArgumentException("Drive speed must be 0-100 in increments of 5");
+        }
     }
 
     public void saveConfiguration(boolean redAlliance, boolean fieldCentric, boolean scoringStart) {

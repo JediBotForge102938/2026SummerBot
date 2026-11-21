@@ -39,6 +39,7 @@ sourceSets {
                     'src/main/java'
             ]
             exclude 'virtual_robot/config/Config.java'
+            exclude 'virtual_robot/controller/VirtualRobotApplication.java'
             exclude 'org/firstinspires/ftc/teamcode/control/DriveModePreferences.java'
             exclude 'org/firstinspires/ftc/teamcode/subsystems/ActiveRobotProfileSource.java'
             exclude 'org/firstinspires/ftc/teamcode/telemetry/TelemetryMarkup.java'

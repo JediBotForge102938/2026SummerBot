@@ -43,8 +43,16 @@ public final class LandmarkNavigationService {
 
     public LandmarkNavigationService(DriveSubsystem drive,
             TrackingSubsystem tracking, RobotProfile profile) {
+        this(drive, tracking, profile, 1.0);
+    }
+
+    public LandmarkNavigationService(DriveSubsystem drive,
+            TrackingSubsystem tracking, RobotProfile profile, double headingResponseScale) {
         if (drive == null || tracking == null || profile == null) {
             throw new IllegalArgumentException("Navigation requires drive, tracking and profile");
+        }
+        if (!Double.isFinite(headingResponseScale) || headingResponseScale <= 0) {
+            throw new IllegalArgumentException("Heading response scale must be finite and positive");
         }
         this.profile = profile;
         this.tracking = tracking;
@@ -58,7 +66,8 @@ public final class LandmarkNavigationService {
                 new PIDFCoefficients(settings.translationalP, 0,
                         settings.translationalD, 0));
         constants.setCoefficientsHeadingPIDF(
-                new PIDFCoefficients(settings.headingP, 0, settings.headingD, 0));
+                new PIDFCoefficients(settings.headingP * headingResponseScale,
+                        0, settings.headingD, 0));
         constants.setCoefficientsDrivePIDF(
                 new FilteredPIDFCoefficients(settings.driveP, 0,
                         settings.driveD, 0, 0));
@@ -142,7 +151,7 @@ public final class LandmarkNavigationService {
             return;
         }
         boolean clear = waypoint.segment == LandmarkFieldMap.Segment.TRANSIT
-                ? map.isTransitClear(pose)
+                ? map.segmentStillClear(pose, pose, waypoint.segment, target)
                 : map.segmentStillClear(pose, waypoint, target);
         if (!clear) {
             fail(String.format(Locale.US,

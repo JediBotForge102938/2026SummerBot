@@ -70,6 +70,25 @@ public class MechanismCoordinatorTest {
         verifyIntakePower(0.5);
     }
 
+    @Test public void profileAssistAddsToManualIntakeAndClampsOutput() {
+        HardwareMap hardware = mock(HardwareMap.class);
+        DcMotor motor = mock(DcMotor.class);
+        when(hardware.get(DcMotor.class, "intake")).thenReturn(motor);
+        IntakeSubsystem intake = new IntakeSubsystem(false);
+        intake.init(hardware);
+        clearInvocations(motor);
+        LauncherSubsystem launcher = mock(LauncherSubsystem.class);
+        org.firstinspires.ftc.teamcode.subsystems.LauncherFeeder feeder =
+                mock(org.firstinspires.ftc.teamcode.subsystems.LauncherFeeder.class);
+        when(launcher.update(true)).thenReturn(true);
+        MechanismCoordinator coordinator = new MechanismCoordinator(intake, launcher, feeder, 35);
+        coordinator.update(0, true);
+        verify(motor).setPower(0.35);
+        coordinator.update(0.75, true);
+        verify(motor).setPower(1.0);
+        coordinator.update(-0.75, true);
+        verify(motor).setPower(-0.4);
+    }
     @Test
     public void readyShootingClampsForwardAndPreservesReverseInteraction() {
         when(flywheel.getVelocity()).thenReturn(1250.0);

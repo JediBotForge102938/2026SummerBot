@@ -19,6 +19,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import org.firstinspires.ftc.teamcode.control.DriveModePreferences;
+import java.io.File;
 
 public class DriveSubsystemTest {
     private HardwareMap hardware;
@@ -253,6 +254,36 @@ public class DriveSubsystemTest {
         assertWheelPowers(1, -1, 1, -1);
         drive.driveRobotRelative(0, 0, -1);
         assertWheelPowers(-1, 1, -1, 1);
+    }
+
+    @Test
+    public void profilesMirrorOnlyRobotRelativeLateralMotion() {
+        RobotProfile starter = RobotProfile.load(new File("../robot-configs"),
+                "biobuzz-starterbot", "starterbot");
+        RobotProfile competition = RobotProfile.load(new File("../robot-configs"),
+                "biobuzz-competitionbot", "competitionbot");
+        for (RobotProfile profile : new RobotProfile[] {starter, competition}) {
+            drive.init(hardware, profile);
+            double sign = profile.mirrorStrafe ? 1 : -1;
+            drive.driveRobotRelative(0, 1, 0);
+            assertWheelPowers(sign, -sign, -sign, sign);
+            drive.driveRobotRelative(0, -1, 0);
+            assertWheelPowers(-sign, sign, sign, -sign);
+            drive.driveRobotRelative(1, 0, 0);
+            assertWheelPowers(1, 1, 1, 1);
+            drive.driveRobotRelative(0, 0, 1);
+            assertWheelPowers(1, -1, 1, -1);
+            drive.driveRobotRelative(0, 1, 0.6, 1, true);
+            assertWheelPowers(0.6 + sign * 0.4, -0.6 - sign * 0.4,
+                    0.6 - sign * 0.4, -0.6 + sign * 0.4);
+            when(imu.getRobotYawPitchRollAngles()).thenReturn(
+                    new YawPitchRollAngles(AngleUnit.DEGREES, 90, 0, 0, 0));
+            drive.driveFieldRelative(1, 0, 0);
+            assertWheelPowers(sign, -sign, -sign, sign);
+        }
+        drive.init(hardware);
+        drive.driveRobotRelative(0, 1, 0);
+        assertWheelPowers(-1, 1, 1, -1);
     }
 
     @Test

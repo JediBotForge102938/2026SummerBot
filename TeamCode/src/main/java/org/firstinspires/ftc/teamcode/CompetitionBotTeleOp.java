@@ -24,7 +24,6 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.teamcode.control.DriveModePreferences;
 import org.firstinspires.ftc.teamcode.control.HiveTrackingController;
@@ -33,22 +32,23 @@ import org.firstinspires.ftc.teamcode.control.TeleopController;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.GateSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.LauncherFeeder;
 import org.firstinspires.ftc.teamcode.subsystems.LauncherSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 import org.firstinspires.ftc.teamcode.telemetry.StarterBotTelemetry;
 
-import java.util.Arrays;
-
 @TeleOp(name = "CompetitionBot")
 public class CompetitionBotTeleOp extends OpMode {
     private final DriveSubsystem drive = new DriveSubsystem();
     private final ConfigurationSubsystem configuration = new ConfigurationSubsystem();
-    private final IntakeSubsystem intake = new IntakeSubsystem(false);
-    private final LauncherSubsystem launcher = new LauncherSubsystem(Arrays.asList(
-            new LauncherSubsystem.MotorConfig("left_launcher", DcMotor.Direction.REVERSE),
-            new LauncherSubsystem.MotorConfig("right_launcher", DcMotor.Direction.FORWARD)));
+    private IntakeSubsystem intake;
+    private LauncherSubsystem launcher;
+    private GateSubsystem gate;
+    private boolean gateInitialized;
+    private boolean gateOpen;
+    private boolean gateButtonWasDown;
     private boolean launcherInitialized;
     private boolean driveInitialized;
     private boolean intakeInitialized;
@@ -59,10 +59,18 @@ public class CompetitionBotTeleOp extends OpMode {
     @Override
     public void init() {
         RobotProfile profile = RobotProfile.loadActive("competitionbot");
+        gate = new GateSubsystem(profile.launcherGate);
+        gate.init(hardwareMap);
+        gateInitialized = true;
+        gateOpen = false;
+        gateButtonWasDown = gamepad1.b;
         drive.init(hardwareMap, profile);
         driveInitialized = true;
+        intake = new IntakeSubsystem(false, profile.intakeMotorDirection);
         intake.init(hardwareMap);
         intakeInitialized = true;
+        launcher = new LauncherSubsystem(profile.launcherMotors, profile.launcherPidf,
+                profile.launcherFeedVelocityMargin);
         launcher.init(hardwareMap);
         launcherInitialized = true;
         vision.init(hardwareMap, profile);
@@ -70,11 +78,12 @@ public class CompetitionBotTeleOp extends OpMode {
         HiveTrackingController tracking = new HiveTrackingController(
                 vision, preferences, drive::getYawRateDegreesPerSecond);
         controller = new TeleopController(drive,
-                new MechanismCoordinator(intake, launcher, LauncherFeeder.DISABLED),
+                new MechanismCoordinator(intake, launcher, LauncherFeeder.DISABLED,
+                        profile.intakeFeedAssistPercent),
                 preferences, tracking);
-        display = new StarterBotTelemetry(telemetry, configuration, controller, tracking, launcher,
-                false);
-        configuration.init(telemetry, gamepad1, preferences);
+        controller.setIntakeProfile(profile.robot, profile.intakeDefaultSpeedPercent);
+        display = new StarterBotTelemetry(telemetry, configuration, controller, tracking, launcher);
+        configuration.init(telemetry, gamepad1, preferences, true);
         configuration.setRobotProfileName(profile.name);
         publishConfiguration();
     }
@@ -82,6 +91,7 @@ public class CompetitionBotTeleOp extends OpMode {
     @Override
     public void init_loop() {
         configuration.updateInit(gamepad1);
+        updateGateToggle();
         publishConfiguration();
     }
 
@@ -92,6 +102,7 @@ public class CompetitionBotTeleOp extends OpMode {
             drive.resetHeading(configuration.getStartingHeadingDegrees(),
                     configuration.getFieldForwardHeadingDegrees());
             controller.configure(configuration, gamepad1);
+            gateButtonWasDown = gamepad1.b;
         }
         display.publish();
     }
@@ -104,13 +115,26 @@ public class CompetitionBotTeleOp extends OpMode {
 
     @Override
     public void loop() {
+        updateGateToggle();
         controller.update(gamepad1);
         display.publish();
+    }
+
+    private void updateGateToggle() {
+        if (gamepad1.b && !gateButtonWasDown) {
+            gateOpen = !gateOpen;
+            gate.update(gateOpen);
+        }
+        gateButtonWasDown = gamepad1.b;
     }
 
     @Override
     public void stop() {
         gamepad1.stopRumble();
+        if (gateInitialized) {
+            gate.update(false);
+            gateOpen = false;
+        }
         if (controller != null) {
             controller.stop();
         } else {

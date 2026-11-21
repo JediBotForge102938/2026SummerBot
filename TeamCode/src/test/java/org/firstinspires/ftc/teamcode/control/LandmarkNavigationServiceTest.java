@@ -39,22 +39,29 @@ public class LandmarkNavigationServiceTest {
         return tracking;
     }
 
-    @Test public void physicalNavigationIsBlockedUntilBothEvidenceFlagsAreVerified() {
-        RobotProfile profile = RobotProfile.load(
-                new File("../robot-configs"), "biobuzz-starterbot", "starterbot");
-        DriveSubsystem drive = mock(DriveSubsystem.class);
-        TrackingSubsystem tracking = mock(TrackingSubsystem.class);
-        LandmarkNavigationService navigation =
-                new LandmarkNavigationService(drive, tracking, profile);
-        LandmarkFieldMap.Destination target = new LandmarkFieldMap(profile)
-                .destinations().get(0);
-
-        assertFalse(profile.navigation.geometryVerified);
-        assertFalse(profile.navigation.pedroTuningVerified);
-        assertFalse(navigation.start(target, 0));
-        assertEquals("Blocked", navigation.getPhase());
-        assertTrue(navigation.getStatus().contains("not verified"));
-        verify(drive, atLeastOnce()).driveRobotRelative(0, 0, 0);
+    @Test public void physicalNavigationIsBlockedUntilBothEvidenceFlagsAreVerified() throws Exception {
+        String original = new String(Files.readAllBytes(new File(
+                "../robot-configs/biobuzz-starterbot.profile.json").toPath()), StandardCharsets.UTF_8);
+        for (boolean geometry : new boolean[] {false, true}) {
+            for (boolean tuning : new boolean[] {false, true}) {
+                if (geometry && tuning) continue;
+                String json = original.replace("\"geometryVerified\": true",
+                                "\"geometryVerified\": " + geometry)
+                        .replace("\"pedroTuningVerified\": true",
+                                "\"pedroTuningVerified\": " + tuning);
+                Files.write(new File(folder.getRoot(), "unverified.profile.json").toPath(),
+                        json.getBytes(StandardCharsets.UTF_8));
+                RobotProfile profile = RobotProfile.load(folder.getRoot(), "unverified", "starterbot");
+                DriveSubsystem drive = mock(DriveSubsystem.class);
+                TrackingSubsystem tracking = mock(TrackingSubsystem.class);
+                LandmarkNavigationService navigation = new LandmarkNavigationService(drive, tracking, profile);
+                LandmarkFieldMap.Destination target = new LandmarkFieldMap(profile).destinations().get(0);
+                assertFalse(navigation.start(target, 0));
+                assertEquals("Blocked", navigation.getPhase());
+                assertTrue(navigation.getStatus().contains("not verified"));
+                verify(drive, atLeastOnce()).driveRobotRelative(0, 0, 0);
+            }
+        }
     }
 
     @Test public void invalidMotionStopsAndFrozenRobotHitsProgressTimeout() throws Exception {

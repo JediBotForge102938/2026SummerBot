@@ -1,7 +1,17 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 8,
   "robot": "competitionbot",
-  "chassis": { "lengthCm": 45.72, "widthCm": 45.72 },
+  "chassis": { "lengthCm": 44.75, "widthCm": 39 },
+  "drive": { "mirrorStrafe": true },
+  "intake": { "motorDirection": "REVERSE", "defaultSpeedPercent": 75, "feedAssistPercent": 35 },
+  "launcher": {
+    "gate": { "name": "gate", "openPosition": 0, "closedPosition": 0.3 },
+    "feedVelocityMarginTicksPerSecond": 250,
+    "pidf": { "p": 40, "i": 0, "d": 0, "f": 12.5 },
+    "motors": [
+      { "name": "launcher", "direction": "FORWARD" }
+    ]
+  },
   "imu": { "name": "imu", "logoFacing": "RIGHT", "usbFacing": "UP" },
   "limelight": {
     "name": "limelight", "pipeline": 0, "aimDirection": "launcher",
@@ -11,8 +21,8 @@
   "otos": {
     "name": "otos",
     "rawAxes": "forward-negative-x-right-positive-y-clockwise-negative",
-    "opticalCenterFromBackCm": 19.0,
-    "opticalCenterFromLeftCm": 7.5,
+    "opticalCenterFromBackCm": 2.5,
+    "opticalCenterFromLeftCm": 14.5,
     "linearScalar": 1.0,
     "angularScalar": 1.0
   },
@@ -25,6 +35,7 @@
     "startWallPlacementToleranceIn": 1.0,
     "flowerStandoffIn": 3.0,
     "curveInsetIn": 6.0,
+    "parkingOverlapIn": 2.0,
     "transitPower": 0.50,
     "finalApproachPower": 0.20,
     "arrivalToleranceIn": 1.0,

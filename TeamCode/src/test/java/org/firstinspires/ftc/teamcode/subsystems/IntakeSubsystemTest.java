@@ -24,6 +24,7 @@ public class IntakeSubsystemTest {
 
         verify(hardware).get(DcMotor.class, "intake");
         verifyNoMoreInteractions(hardware);
+        verify(motor).setDirection(DcMotorSimple.Direction.FORWARD);
         verify(motor).setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         verify(motor).setPower(0);
         verify(motor).setPower(0.5);
@@ -46,11 +47,31 @@ public class IntakeSubsystemTest {
 
         verify(left).setDirection(DcMotorSimple.Direction.FORWARD);
         verify(right).setDirection(DcMotorSimple.Direction.REVERSE);
+        verify(motor).setDirection(DcMotorSimple.Direction.FORWARD);
         verify(left).setPower(0);
         verify(right).setPower(0);
         verify(motor).setPower(1);
         verify(left).setPower(1);
         verify(right).setPower(1);
+    }
+
+    @Test
+    public void motorDirectionCanBeReversedWithoutChangingServoDirections() {
+        HardwareMap hardware = mock(HardwareMap.class);
+        DcMotor motor = mock(DcMotor.class);
+        CRServo left = mock(CRServo.class);
+        CRServo right = mock(CRServo.class);
+        when(hardware.get(DcMotor.class, "intake")).thenReturn(motor);
+        when(hardware.get(CRServo.class, "left_intake_servo")).thenReturn(left);
+        when(hardware.get(CRServo.class, "right_intake_servo")).thenReturn(right);
+        IntakeSubsystem intake =
+                new IntakeSubsystem(true, DcMotorSimple.Direction.REVERSE);
+
+        intake.init(hardware);
+
+        verify(motor).setDirection(DcMotorSimple.Direction.REVERSE);
+        verify(left).setDirection(DcMotorSimple.Direction.FORWARD);
+        verify(right).setDirection(DcMotorSimple.Direction.REVERSE);
     }
 
     @Test

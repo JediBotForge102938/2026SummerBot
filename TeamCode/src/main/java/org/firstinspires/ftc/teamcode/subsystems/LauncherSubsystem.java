@@ -20,7 +20,7 @@ public class LauncherSubsystem implements TelemetrySource {
     public static final int DEFAULT_TARGET_VELOCITY = 1250;
     public static final int MAX_TARGET_VELOCITY = 6000;
     public static final int TARGET_VELOCITY_STEP = 25;
-    private static final int FEED_VELOCITY_MARGIN = 50;
+    private static final int DEFAULT_FEED_VELOCITY_MARGIN = 50;
     private static final int FEED_HYSTERESIS = 25;
     private static final long READY_DWELL_NANOS = 200_000_000L;
 
@@ -41,7 +41,25 @@ public class LauncherSubsystem implements TelemetrySource {
         }
     }
 
+    public static final class PidfConfig {
+        public final double p, i, d, f;
+
+        public PidfConfig(double p, double i, double d, double f) {
+            for (double coefficient : new double[] {p, i, d, f}) {
+                if (!Double.isFinite(coefficient) || coefficient < 0) {
+                    throw new IllegalArgumentException("Launcher PIDF coefficients must be finite and nonnegative");
+                }
+            }
+            this.p = p;
+            this.i = i;
+            this.d = d;
+            this.f = f;
+        }
+    }
+
     private final List<MotorConfig> motorConfigs;
+    private final PidfConfig pidf;
+    private final int feedVelocityMargin;
     private final List<DcMotorEx> motors = new ArrayList<>();
     private int targetVelocity = DEFAULT_TARGET_VELOCITY;
     private final LongSupplier nanoTime;
@@ -65,8 +83,29 @@ public class LauncherSubsystem implements TelemetrySource {
     }
 
     public LauncherSubsystem(List<MotorConfig> motorConfigs, LongSupplier nanoTime) {
+        this(motorConfigs, new PidfConfig(40, 0, 0, 12.5), nanoTime);
+    }
+
+    public LauncherSubsystem(List<MotorConfig> motorConfigs, PidfConfig pidf) {
+        this(motorConfigs, pidf, System::nanoTime);
+    }
+
+    public LauncherSubsystem(List<MotorConfig> motorConfigs, PidfConfig pidf, LongSupplier nanoTime) {
+        this(motorConfigs, pidf, DEFAULT_FEED_VELOCITY_MARGIN, nanoTime);
+    }
+
+    public LauncherSubsystem(List<MotorConfig> motorConfigs, PidfConfig pidf, int feedVelocityMargin) {
+        this(motorConfigs, pidf, feedVelocityMargin, System::nanoTime);
+    }
+
+    public LauncherSubsystem(List<MotorConfig> motorConfigs, PidfConfig pidf,
+            int feedVelocityMargin, LongSupplier nanoTime) {
         if (motorConfigs == null || motorConfigs.isEmpty()) {
             throw new IllegalArgumentException("At least one launcher motor is required");
+        }
+        if (feedVelocityMargin < 0 || feedVelocityMargin > MAX_TARGET_VELOCITY) {
+            throw new IllegalArgumentException("Launcher feed velocity margin must be 0-"
+                    + MAX_TARGET_VELOCITY + " ticks/s");
         }
         Set<String> names = new HashSet<>();
         for (MotorConfig config : motorConfigs) {
@@ -76,6 +115,8 @@ public class LauncherSubsystem implements TelemetrySource {
             }
         }
         this.motorConfigs = Collections.unmodifiableList(new ArrayList<>(motorConfigs));
+        this.pidf = Objects.requireNonNull(pidf, "Launcher PIDF configuration");
+        this.feedVelocityMargin = feedVelocityMargin;
         this.nanoTime = Objects.requireNonNull(nanoTime);
     }
 
@@ -93,7 +134,7 @@ public class LauncherSubsystem implements TelemetrySource {
             motor.setDirection(motorConfigs.get(index).direction);
             motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
             motor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER,
-                    new PIDFCoefficients(40, 0, 0, 12.5));
+                    new PIDFCoefficients(pidf.p, pidf.i, pidf.d, pidf.f));
             motor.setVelocity(0);
         }
         motors.addAll(configured);
@@ -161,7 +202,7 @@ public class LauncherSubsystem implements TelemetrySource {
     }
 
     public int getFeedVelocityThreshold() {
-        return Math.max(0, targetVelocity - FEED_VELOCITY_MARGIN);
+        return Math.max(0, targetVelocity - feedVelocityMargin);
     }
 
     public int getFeedDropoutThreshold() {

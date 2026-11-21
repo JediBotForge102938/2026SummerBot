@@ -33,6 +33,17 @@ import virtual_robot.robots.classes.StarterBotConfigurationExerciseSim;
 import virtual_robot.robots.classes.StarterBotMecanumSim;
 
 public class SimulatorConfigurationsTest {
+    @Test public void leaveAndParkIsDiscoveredAsAutonomous() {
+        java.util.Set<Class<?>> discovered = new Reflections("org.firstinspires.ftc.teamcode")
+                .getTypesAnnotatedWith(com.qualcomm.robotcore.eventloop.opmode.Autonomous.class);
+        Class<?> autonomous = org.firstinspires.ftc.teamcode.LeaveAndParkAuto.class;
+        assertTrue(discovered.contains(autonomous));
+        assertTrue(OpMode.class.isAssignableFrom(autonomous));
+        assertNull(autonomous.getAnnotation(com.qualcomm.robotcore.eventloop.opmode.Disabled.class));
+        assertEquals("Leave & Park",
+                autonomous.getAnnotation(com.qualcomm.robotcore.eventloop.opmode.Autonomous.class).name());
+    }
+
     @Test public void configurationNamesAndResourcesMatchXmlFiles() {
         assertConfig(BioBuzzStarterBotSim.class, "biobuzz-starterbot");
         assertConfig(BioBuzzCompetitionBotSim.class, "biobuzz-competitionbot");
@@ -68,6 +79,38 @@ public class SimulatorConfigurationsTest {
                         || System.getProperty("os.name").startsWith("Mac"));
         Platform.startup(() -> { });
         try {
+            java.util.concurrent.FutureTask<Void> layoutCheck = new java.util.concurrent.FutureTask<>(() -> {
+                javafx.scene.control.TextArea telemetry = new javafx.scene.control.TextArea();
+                telemetry.setText("Navigation stopped: footprint left approach_corridor route at X -60 Y -61");
+                javafx.scene.layout.VBox sidebar = new javafx.scene.layout.VBox(
+                        new javafx.scene.control.Label("OpModes"), telemetry,
+                        new javafx.scene.control.CheckBox("GamePad1"));
+                Pane field = new Pane();
+                field.setPrefSize(648, 648);
+                field.setMinSize(648, 648);
+                field.setMaxSize(648, 648);
+                Pane controls = new Pane();
+                controls.setPrefWidth(195);
+                javafx.scene.layout.BorderPane layout =
+                        new javafx.scene.layout.BorderPane(field, null, sidebar, null, controls);
+                virtual_robot.controller.VirtualRobotApplication.configureLayout(layout);
+                new javafx.scene.Scene(layout, 1263, 720);
+                layout.resize(1263, 720);
+                layout.applyCss();
+                layout.layout();
+                assertTrue(telemetry.isWrapText());
+                assertTrue("Telemetry must be wider than the old 250 px panel", telemetry.getWidth() >= 400);
+                assertTrue("Telemetry must fill the sidebar vertically", telemetry.getHeight() >= 600);
+                double oldHeight = telemetry.getHeight();
+                layout.resize(1463, 900);
+                layout.layout();
+                assertTrue("Telemetry should expand with window width", telemetry.getWidth() >= 600);
+                assertTrue("Telemetry should expand with window height", telemetry.getHeight() > oldHeight);
+                assertEquals(648, field.getWidth(), 0);
+                return null;
+            });
+            Platform.runLater(layoutCheck);
+            layoutCheck.get(10, java.util.concurrent.TimeUnit.SECONDS);
             VirtualRobotController controller = mock(VirtualRobotController.class);
             when(controller.getFieldPane()).thenReturn(new Pane());
             when(controller.getWorld()).thenReturn(new World<Body>());
@@ -83,7 +126,7 @@ public class SimulatorConfigurationsTest {
             hardware.setActive(true);
             assertEquals("biobuzz-competitionbot", RobotProfile.loadActive("competitionbot").name);
             for (String name : new String[] {"left_front_drive", "right_front_drive",
-                    "left_back_drive", "right_back_drive", "left_launcher", "right_launcher", "intake"}) {
+                    "left_back_drive", "right_back_drive", "launcher", "intake"}) {
                 assertNotNull(hardware.get(DcMotorEx.class, name));
             }
             assertNotNull(hardware.get(Servo.class, "gate"));
@@ -158,7 +201,7 @@ public class SimulatorConfigurationsTest {
         HardwareMap hardware = robot.getHardwareMap();
         hardware.setActive(true);
         DriveSubsystem drive = new DriveSubsystem();
-        drive.init(hardware);
+        drive.init(hardware, RobotProfile.loadActive(null));
         drive.resetHeading();
         TrackingSubsystem tracking = new TrackingSubsystem();
         tracking.init(hardware, RobotProfile.loadActive(null));

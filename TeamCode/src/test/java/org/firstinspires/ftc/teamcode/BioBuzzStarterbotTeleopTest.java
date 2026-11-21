@@ -37,9 +37,10 @@ public class BioBuzzStarterbotTeleopTest {
                     .thenThrow(new IllegalStateException("Missing profile"));
             StarterBotTeleOp opMode = new StarterBotTeleOp();
             assertThrows(IllegalStateException.class, opMode::init);
-            verifyNoInteractions(drives.constructed().get(0), intakes.constructed().get(0),
-                    launchers.constructed().get(0), windmills.constructed().get(0),
+            verifyNoInteractions(drives.constructed().get(0), windmills.constructed().get(0),
                     visions.constructed().get(0));
+            assertTrue(intakes.constructed().isEmpty());
+            assertTrue(launchers.constructed().isEmpty());
         }
     }
 
@@ -49,7 +50,14 @@ public class BioBuzzStarterbotTeleopTest {
         try (MockedStatic<RobotProfile> profiles = mockStatic(RobotProfile.class);
                 MockedConstruction<DriveSubsystem> drives = mockConstruction(DriveSubsystem.class);
                 MockedConstruction<IntakeSubsystem> intakes = mockConstruction(IntakeSubsystem.class);
-                MockedConstruction<LauncherSubsystem> launchers = mockConstruction(LauncherSubsystem.class);
+                MockedConstruction<LauncherSubsystem> launchers =
+                        mockConstruction(LauncherSubsystem.class,
+                                (mock, context) -> {
+                                    assertSame(profile.launcherMotors, context.arguments().get(0));
+                                    assertSame(profile.launcherPidf, context.arguments().get(1));
+                                    assertEquals(profile.launcherFeedVelocityMargin,
+                                            context.arguments().get(2));
+                                });
                 MockedConstruction<WindmillSubsystem> windmills = mockConstruction(WindmillSubsystem.class);
                 MockedConstruction<VisionSubsystem> visions = mockConstruction(VisionSubsystem.class);
                 MockedConstruction<DriveModePreferences> preferences = mockConstruction(DriveModePreferences.class,
@@ -67,6 +75,8 @@ public class BioBuzzStarterbotTeleopTest {
             opMode.telemetry = mock(Telemetry.class);
             opMode.init();
             TeleopController controller = controllers.constructed().get(0);
+            verify(controller).setIntakeProfile(profile.robot, profile.intakeDefaultSpeedPercent);
+            clearInvocations(controller);
             DriveSubsystem drive = drives.constructed().get(0);
             opMode.gamepad1.left_stick_y = -1;
             right(opMode);

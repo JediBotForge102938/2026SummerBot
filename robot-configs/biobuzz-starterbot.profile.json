@@ -1,7 +1,14 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 8,
   "robot": "starterbot",
   "chassis": { "lengthCm": 45.72, "widthCm": 45.72 },
+  "drive": { "mirrorStrafe": false },
+  "intake": { "motorDirection": "FORWARD", "defaultSpeedPercent": 100, "feedAssistPercent": 50 },
+  "launcher": {
+    "feedVelocityMarginTicksPerSecond": 50,
+    "pidf": { "p": 40, "i": 0, "d": 0, "f": 12.5 },
+    "motors": [{ "name": "launcher", "direction": "FORWARD" }]
+  },
   "imu": { "name": "imu", "logoFacing": "RIGHT", "usbFacing": "UP" },
   "limelight": {
     "name": "limelight", "pipeline": 0, "aimDirection": "launcher",
@@ -11,20 +18,21 @@
   "otos": {
     "name": "otos",
     "rawAxes": "forward-negative-x-right-positive-y-clockwise-negative",
-    "opticalCenterFromBackCm": 19.0,
+    "opticalCenterFromBackCm": 18.8,
     "opticalCenterFromLeftCm": 7.5,
     "linearScalar": 1.0,
     "angularScalar": 1.0
   },
   "navigation": {
-    "geometryVerified": false,
-    "pedroTuningVerified": false,
+    "geometryVerified": true,
+    "pedroTuningVerified": true,
     "simulatorEnabled": true,
-    "transitClearanceIn": 9.0,
+    "transitClearanceIn": 2.0,
     "wallClearanceIn": 2.0,
     "startWallPlacementToleranceIn": 1.0,
     "flowerStandoffIn": 3.0,
     "curveInsetIn": 6.0,
+    "parkingOverlapIn": 2.0,
     "transitPower": 0.50,
     "finalApproachPower": 0.20,
     "arrivalToleranceIn": 1.0,

@@ -182,30 +182,34 @@ public final class LandmarkTravelTestTeleOp extends OpMode {
 
     private void publish(FieldMap.Pose pose) {
         telemetry.clearAll();
-        configuration.publish();
+        if (!started) {
+            configuration.publish();
+            telemetry.addLine("");
+        }
+        telemetry.addLine("Navigation");
+        telemetry.addData("Target", navigation == null || navigation.getTarget() == null
+                ? "None" : navigation.getTarget().name);
+        telemetry.addData("Phase", navigation == null ? "Not initialized" : navigation.getPhase());
+        telemetry.addData("Pose", pose == null ? "Unavailable"
+                : String.format(Locale.US, "X %.1f Y %.1f H %.1f",
+                        pose.x, pose.y, pose.headingDegrees));
+        if (navigation != null && navigation.getTarget() != null) {
+            FieldMap.Pose goal = navigation.getTarget().robotPose;
+            telemetry.addData("Goal", "X %.1f Y %.1f H %.1f",
+                    goal.x, goal.y, goal.headingDegrees);
+        }
+        telemetry.addData("Power", navigation == null ? "0%"
+                : String.format(Locale.US, "%.0f%%", navigation.getPowerLimit() * 100));
+        telemetry.addLine("Status");
+        publishWrapped(navigation == null ? "Not initialized" : navigation.getStatus());
         telemetry.addLine("");
-        telemetry.addLine("Landmark travel: d-pad up/down select; A starts/cancels route.");
-        telemetry.addLine("B/Y stop. Sticks cancel to manual at 50%. X calibrates OTOS IMU.");
-        telemetry.addLine("Options/Start saves a safe home. No vision or mechanism actuation.");
-        telemetry.addData("Selected destination", "%s (%d / %d)",
-                destinations.isEmpty() ? "Unavailable" : destinations.get(selected).name,
-                Math.min(selected + 1, destinations.size()), destinations.size());
+        telemetry.addLine("Landmarks");
         for (int row = 0; row < destinations.size(); row++) {
             telemetry.addLine((row == selected ? "> " : "  ") + destinations.get(row).name);
         }
-        telemetry.addData("Active target", navigation == null || navigation.getTarget() == null
-                ? "None" : navigation.getTarget().name);
-        telemetry.addData("Robot pose", pose == null ? "Unavailable"
-                : String.format(Locale.US, "X %.1f Y %.1f H %.1f",
-                        pose.x, pose.y, pose.headingDegrees));
-        telemetry.addData("Navigation phase", navigation == null ? "Not initialized"
-                : navigation.getPhase());
-        telemetry.addData("Power limit", navigation == null ? "0%"
-                : String.format(Locale.US, "%.0f%%", navigation.getPowerLimit() * 100));
-        telemetry.addData("Readiness", readiness());
-        telemetry.addData("Control status", controlStatus);
-        telemetry.addData("Navigation status", navigation == null
-                ? "Not initialized" : navigation.getStatus());
+        telemetry.addLine("");
+        publishWrapped(readiness());
+        publishWrapped(controlStatus);
         if (tracking != null && started) {
             telemetry.addData("Tracking", tracking.getStatus());
             telemetry.addData("Measured motion", "%.2f in/s, %.1f deg/s",
@@ -213,6 +217,17 @@ public final class LandmarkTravelTestTeleOp extends OpMode {
                     tracking.getHeadingRateDegreesPerSecond());
         }
         telemetry.update();
+    }
+
+    private void publishWrapped(String text) {
+        final int width = 42;
+        while (text.length() > width) {
+            int split = text.lastIndexOf(' ', width);
+            if (split <= 0) split = width;
+            telemetry.addLine(text.substring(0, split));
+            text = text.substring(split).trim();
+        }
+        telemetry.addLine(text);
     }
 
     private String readiness() {

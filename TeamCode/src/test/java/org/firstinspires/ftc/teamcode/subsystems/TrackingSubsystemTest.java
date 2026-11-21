@@ -18,6 +18,7 @@ public class TrackingSubsystemTest {
     private SparkFunOTOS.Status status;
     private double x, y, h;
     private double vx, vy, vh;
+    private RobotProfile profile;
 
     @Before public void setup() {
         HardwareMap hardware = mock(HardwareMap.class);
@@ -34,7 +35,8 @@ public class TrackingSubsystemTest {
             return null;
         }).when(sensor).getPosVelAcc(any(), any(), any());
         tracking = new TrackingSubsystem();
-        tracking.init(hardware, TestProfiles.starter());
+        profile = TestProfiles.starter();
+        tracking.init(hardware, profile);
     }
 
     @Test public void allStartingPosesAndRawAxesTransformToField() {
@@ -58,8 +60,8 @@ public class TrackingSubsystemTest {
     @Test public void rotationCompensatesOpticalCenterOnce() {
         FieldMap.Pose start = new FieldMap.Pose(0, 0, 0);
         tracking.start(start);
-        double forward = (19 - 45.72 / 2) / 2.54;
-        double right = (45.72 / 2 - 7.5) / 2.54;
+        double forward = (profile.otosBackCm - profile.chassisLengthCm / 2) / 2.54;
+        double right = (profile.chassisWidthCm / 2 - profile.otosLeftCm) / 2.54;
         // A stationary robot rotates 90 degrees: raw readings report sensor displacement.
         double dx = right - forward;
         double dy = forward + right;
@@ -120,8 +122,8 @@ public class TrackingSubsystemTest {
         assertTrue(tracking.calibrateImuIfStationary(20, 5));
 
         tracking.start(new FieldMap.Pose(0, 0, 0));
-        double forward = (19 - 45.72 / 2) / 2.54;
-        double right = (45.72 / 2 - 7.5) / 2.54;
+        double forward = (profile.otosBackCm - profile.chassisLengthCm / 2) / 2.54;
+        double right = (profile.chassisWidthCm / 2 - profile.otosLeftCm) / 2.54;
         double omega = Math.toRadians(30);
         vx = omega * forward;
         vy = -omega * right;

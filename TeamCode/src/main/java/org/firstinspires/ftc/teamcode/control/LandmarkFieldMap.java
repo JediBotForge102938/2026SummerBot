@@ -12,7 +12,8 @@ import java.util.List;
 
 /** Navigation-only targets and footprint-aware routes; field objects remain separate from poses. */
 public final class LandmarkFieldMap {
-    public enum Kind { FLOWER, GARDEN, PARKING, SHOOTING_START, SAVED_HOME }
+    private static final double APPROACH_ENTRY_DRIFT_MARGIN_IN = 1.0;
+    public enum Kind { FLOWER, GARDEN, PARKING, SHOOTING_START, HIVE_SHOOTING, SAVED_HOME }
     public enum Segment { DEPARTURE, TRANSIT, APPROACH_CORRIDOR, FINAL_APPROACH }
 
     public static final class Destination {
@@ -22,16 +23,24 @@ public final class LandmarkFieldMap {
         public final FieldMap.Pose objectPose;
         public final FieldMap.Region region;
         private final boolean reverseFinalApproach;
+        private final boolean edgeParking;
 
         private Destination(String name, Kind kind, FieldMap.Pose robotPose,
                 FieldMap.Pose objectPose, FieldMap.Region region,
                 boolean reverseFinalApproach) {
+            this(name, kind, robotPose, objectPose, region, reverseFinalApproach, false);
+        }
+
+        private Destination(String name, Kind kind, FieldMap.Pose robotPose,
+                FieldMap.Pose objectPose, FieldMap.Region region,
+                boolean reverseFinalApproach, boolean edgeParking) {
             this.name = name;
             this.kind = kind;
             this.robotPose = robotPose;
             this.objectPose = objectPose;
             this.region = region;
             this.reverseFinalApproach = reverseFinalApproach;
+            this.edgeParking = edgeParking;
         }
 
         public static Destination savedHome(FieldMap.Pose pose) {
@@ -117,14 +126,8 @@ public final class LandmarkFieldMap {
                 new FieldMap.Pose(72 - halfLength - profile.navigation.flowerStandoffIn,
                         72 - halfWidth - wall, 0),
                 new FieldMap.Pose(72, 72, 0), FieldMap.garden(Alliance.BLUE), false));
-        result.add(new Destination("Red parking", Kind.PARKING,
-                new FieldMap.Pose(-72 + halfLength + profile.navigation.flowerStandoffIn,
-                        36, 180),
-                null, FieldMap.parking(Alliance.RED), false));
-        result.add(new Destination("Blue parking", Kind.PARKING,
-                new FieldMap.Pose(72 - halfLength - profile.navigation.flowerStandoffIn,
-                        -36, 0),
-                null, FieldMap.parking(Alliance.BLUE), false));
+        result.add(parkingDestination(Alliance.RED));
+        result.add(parkingDestination(Alliance.BLUE));
         for (Alliance alliance : Arrays.asList(Alliance.RED, Alliance.BLUE)) {
             for (StartingSpot side : Arrays.asList(StartingSpot.AUDIENCE, StartingSpot.SCORING)) {
                 FieldMap.Pose start = FieldMap.startingPose(alliance, side,
@@ -137,6 +140,76 @@ public final class LandmarkFieldMap {
             }
         }
         return Collections.unmodifiableList(result);
+    }
+
+    public Destination parkingDestination(Alliance alliance) {
+        FieldMap.Region region = FieldMap.parking(alliance);
+        boolean red = alliance == Alliance.RED;
+        double x = 72 - halfLength - profile.navigation.flowerStandoffIn;
+        return new Destination(red ? "Red parking" : "Blue parking", Kind.PARKING,
+                new FieldMap.Pose(red ? -x : x, (region.minY + region.maxY) / 2,
+                        red ? 180 : 0), null, region, false);
+    }
+
+    public Destination gardenDestination(Alliance alliance) {
+        FieldMap.Region garden = FieldMap.garden(alliance);
+        for (Destination destination : destinations()) {
+            if (destination.kind == Kind.GARDEN
+                    && destination.region.minX == garden.minX) {
+                return destination;
+            }
+        }
+        throw new IllegalStateException("Alliance garden is not mapped");
+    }
+
+    /** Faces the front intake toward the garden's audience/scoring-wall strip. */
+    public Destination gardenCollectionDestination(Alliance alliance) {
+        FieldMap.Region garden = FieldMap.garden(alliance);
+        boolean red = alliance == Alliance.RED;
+        double edgeY = red ? garden.maxY : garden.minY;
+        double y = edgeY + (red ? 1 : -1)
+                * (halfLength + profile.navigation.flowerStandoffIn);
+        FieldMap.Pose pose = new FieldMap.Pose((garden.minX + garden.maxX) / 2,
+                y, red ? -90 : 90);
+        return new Destination(red ? "Red garden collection" : "Blue garden collection",
+                Kind.GARDEN, pose, new FieldMap.Pose(pose.x, edgeY, 0), garden, false);
+    }
+
+    /** Leaves turning clearance and points the rear launcher toward the selected cell. */
+    public Destination hiveShootingDestination(Alliance alliance, StartingSpot side) {
+        FieldMap.Pose cell = FieldMap.hiveCell(alliance, side);
+        double y = transitLimit - 0.5;
+        FieldMap.Pose pose = new FieldMap.Pose(cell.x,
+                side == StartingSpot.AUDIENCE ? -y : y,
+                side == StartingSpot.AUDIENCE ? -90 : 90);
+        if (!isTransitClear(pose)) {
+            throw new IllegalStateException("No clear hive shooting position for this profile");
+        }
+        return new Destination(alliance + " " + side + " shooting approach",
+                Kind.HIVE_SHOOTING, pose, cell, null, false);
+    }
+
+    public Destination parkingDestination(Alliance alliance, StartingSpot startingSpot) {
+        if (startingSpot == null) throw new IllegalArgumentException("Starting spot is required");
+        Destination center = parkingDestination(alliance);
+        double overlap = profile.navigation.parkingOverlapIn
+                + (startingSpot == StartingSpot.SCORING ? 1.0 : 0.0);
+        if ((alliance == Alliance.BLUE && startingSpot == StartingSpot.AUDIENCE)
+                || (alliance == Alliance.RED && startingSpot == StartingSpot.SCORING)) {
+            overlap += 1.0;
+        }
+        if (overlap <= profile.navigation.arrivalToleranceIn
+                || overlap >= (center.region.maxY - center.region.minY) / 2) {
+            throw new IllegalStateException("Parking overlap must exceed arrival tolerance and leave the middle free");
+        }
+        double y = startingSpot == StartingSpot.AUDIENCE
+                ? center.region.minY - halfWidth + overlap
+                : center.region.maxY + halfWidth - overlap;
+        Destination edge = new Destination(center.name + (startingSpot == StartingSpot.AUDIENCE
+                ? " audience edge" : " scoring edge"), Kind.PARKING,
+                new FieldMap.Pose(center.robotPose.x, y, alliance == Alliance.RED ? 0 : 180),
+                null, center.region, true, true);
+        return edge;
     }
 
     public boolean isTransitClear(FieldMap.Pose pose) {
@@ -188,8 +261,8 @@ public final class LandmarkFieldMap {
         }
 
         Approach approach = findPreApproach(goal, destination);
-        List<FieldMap.Pose> transit = transitRoute(routeStart, approach.entry);
-        plan.addAll(smoothTransit(routeStart, transit, goal.headingDegrees));
+        List<FieldMap.Pose> transit = transitRoute(routeStart, approach.entry, destination);
+        plan.addAll(smoothTransit(routeStart, transit, goal.headingDegrees, destination));
         if (distance(approach.entry, approach.point) > 0.1) {
             plan.add(new Waypoint(approach.point, Segment.APPROACH_CORRIDOR));
         }
@@ -199,11 +272,25 @@ public final class LandmarkFieldMap {
             throw new IllegalStateException("Route refused: final approach violates clearance");
         }
         plan.add(new Waypoint(goal, Segment.FINAL_APPROACH));
+        if (destination.edgeParking) {
+            FieldMap.Pose previous = start;
+            for (Waypoint waypoint : plan) {
+                if (!parkingMiddleClear(previous, waypoint.pose, destination,
+                        waypoint.segment == Segment.TRANSIT ? robotRadius : halfLength,
+                        waypoint.segment == Segment.TRANSIT ? robotRadius : halfWidth)) {
+                    throw new IllegalStateException("Route refused: parking route crosses partner space");
+                }
+                previous = waypoint.pose;
+            }
+        }
         return Collections.unmodifiableList(plan);
     }
 
     public boolean segmentStillClear(FieldMap.Pose from, FieldMap.Pose to, Segment segment,
             Destination destination) {
+        if (!parkingMiddleClear(from, to, destination,
+                segment == Segment.TRANSIT ? robotRadius : halfLength,
+                segment == Segment.TRANSIT ? robotRadius : halfWidth)) return false;
         if (segment == Segment.TRANSIT) {
             return segmentTransitClear(from, to);
         }
@@ -223,6 +310,9 @@ public final class LandmarkFieldMap {
 
     public boolean segmentStillClear(FieldMap.Pose from, Waypoint waypoint,
             Destination destination) {
+        if (destination.edgeParking && !parkingMiddleClear(from, waypoint.pose, destination,
+                waypoint.segment == Segment.TRANSIT ? robotRadius : halfLength,
+                waypoint.segment == Segment.TRANSIT ? robotRadius : halfWidth)) return false;
         if (waypoint.segment == Segment.DEPARTURE) {
             return Math.abs(angleDifference(from.headingDegrees, waypoint.pose.headingDegrees))
                     <= profile.navigation.headingToleranceDegrees
@@ -233,6 +323,18 @@ public final class LandmarkFieldMap {
     }
 
     private double departureClearance(FieldMap.Pose start) {
+        for (Alliance alliance : new Alliance[] {Alliance.RED, Alliance.BLUE}) {
+            FieldMap.Pose garden = gardenCollectionDestination(alliance).robotPose;
+            double wallLimit = FieldMap.HALF_FIELD - halfLength;
+            if (Math.abs(start.x - garden.x) <= profile.navigation.arrivalToleranceIn + 0.5
+                    && Math.signum(start.y) == Math.signum(garden.y)
+                    && Math.abs(start.y) >= Math.abs(garden.y)
+                    && Math.abs(start.y) <= wallLimit + profile.navigation.startWallPlacementToleranceIn
+                    && Math.abs(angleDifference(start.headingDegrees, garden.headingDegrees))
+                    <= profile.navigation.headingToleranceDegrees) {
+                return -profile.navigation.startWallPlacementToleranceIn;
+            }
+        }
         for (Destination destination : destinations()) {
             if (destination.kind == Kind.SHOOTING_START
                     && distance(start, destination.robotPose)
@@ -270,7 +372,7 @@ public final class LandmarkFieldMap {
     }
 
     private List<Waypoint> smoothTransit(FieldMap.Pose start, List<FieldMap.Pose> points,
-            double heading) {
+            double heading, Destination destination) {
         List<Waypoint> result = new ArrayList<>();
         FieldMap.Pose previous = start;
         for (int i = 0; i < points.size(); i++) {
@@ -284,7 +386,9 @@ public final class LandmarkFieldMap {
                     FieldMap.Pose entry = toward(corner, previous, cut, heading);
                     FieldMap.Pose exit = toward(corner, next, cut, heading);
                     List<FieldMap.Pose> controls = Arrays.asList(entry, corner, exit);
-                    if (segmentTransitClear(previous, entry) && isCurveTransitClear(controls)) {
+                    if (segmentTransitClear(previous, entry) && isCurveTransitClear(controls)
+                            && parkingMiddleClear(previous, entry, destination, robotRadius, robotRadius)
+                            && parkingCurveClear(controls, destination)) {
                         result.add(new Waypoint(entry, Segment.TRANSIT));
                         result.add(new Waypoint(exit, Segment.TRANSIT, controls));
                         previous = exit;
@@ -348,14 +452,24 @@ public final class LandmarkFieldMap {
             throw new IllegalStateException("Route refused: no clear heading-aligned approach");
         }
         FieldMap.Pose entry = point;
-        if (!isTransitClear(entry)) {
-            double stepX = Math.abs(point.x) > transitLimit ? -Math.signum(point.x) : 0;
-            double stepY = Math.abs(point.y) > transitLimit ? -Math.signum(point.y) : 0;
+        // Leave room for arrival tolerance and tracking drift before the transit safety boundary.
+        double entryLimit = transitLimit - profile.navigation.arrivalToleranceIn
+                - APPROACH_ENTRY_DRIFT_MARGIN_IN;
+        if (!isTransitClear(entry) || Math.abs(entry.x) > entryLimit
+                || Math.abs(entry.y) > entryLimit
+                || !parkingMiddleClear(entry, entry, destination, robotRadius, robotRadius)) {
+            double stepX = Math.abs(point.x) > entryLimit || destination.edgeParking
+                    ? -Math.signum(point.x) : 0;
+            double stepY = Math.abs(point.y) > entryLimit ? -Math.signum(point.y) : 0;
             for (double offset = 0.5; offset <= 72; offset += 0.5) {
                 FieldMap.Pose candidate = new FieldMap.Pose(
                         point.x + stepX * offset,
                         point.y + stepY * offset, goal.headingDegrees);
-                if (isTransitClear(candidate)
+                if (isTransitClear(candidate) && Math.abs(candidate.x) <= entryLimit
+                        && Math.abs(candidate.y) <= entryLimit
+                        && parkingMiddleClear(candidate, candidate, destination,
+                        robotRadius + profile.navigation.arrivalToleranceIn,
+                        robotRadius + profile.navigation.arrivalToleranceIn)
                         && segmentFootprintClear(candidate, point, goal.headingDegrees,
                         wallClearance)) {
                     entry = candidate;
@@ -364,6 +478,7 @@ public final class LandmarkFieldMap {
             }
         }
         if (!isTransitClear(entry)
+                || !parkingMiddleClear(entry, entry, destination, robotRadius, robotRadius)
                 || !segmentFootprintClear(entry, point, goal.headingDegrees, wallClearance)) {
             throw new IllegalStateException("Route refused: no safe entry to final approach corridor");
         }
@@ -379,11 +494,15 @@ public final class LandmarkFieldMap {
         }
     }
 
-    private List<FieldMap.Pose> transitRoute(FieldMap.Pose start, FieldMap.Pose goal) {
+    private List<FieldMap.Pose> transitRoute(FieldMap.Pose start, FieldMap.Pose goal,
+            Destination destination) {
         if (!isTransitClear(start) || !isTransitClear(goal)) {
             throw new IllegalStateException("Route refused: transit endpoint is not clear");
         }
-        double xOffset = (transitLimit - keepOutX) / 2;
+        double sideLimit = destination.edgeParking
+                ? Math.min(transitLimit, Math.min(Math.abs(destination.region.minX),
+                        Math.abs(destination.region.maxX)) - robotRadius) : transitLimit;
+        double xOffset = (sideLimit - keepOutX) / 2;
         double yOffset = (transitLimit - keepOutY) / 2;
         if (xOffset <= 0 || yOffset <= 0) {
             throw new IllegalStateException("Route refused: no clearance around field frame");
@@ -413,7 +532,9 @@ public final class LandmarkFieldMap {
             if (current < 0 || !Double.isFinite(distances[current])) break;
             visited[current] = true;
             for (int next = 0; next < nodes.size(); next++) {
-                if (!visited[next] && segmentTransitClear(nodes.get(current), nodes.get(next))) {
+                if (!visited[next] && segmentTransitClear(nodes.get(current), nodes.get(next))
+                        && parkingMiddleClear(nodes.get(current), nodes.get(next),
+                        destination, robotRadius, robotRadius)) {
                     double candidate = distances[current] + distance(nodes.get(current), nodes.get(next));
                     if (candidate < distances[next]) {
                         distances[next] = candidate;
@@ -434,6 +555,34 @@ public final class LandmarkFieldMap {
     private boolean segmentTransitClear(FieldMap.Pose start, FieldMap.Pose end) {
         if (!isTransitClear(start) || !isTransitClear(end)) return false;
         return !segmentIntersectsRectangle(start.x, start.y, end.x, end.y, keepOutX, keepOutY);
+    }
+
+    private boolean parkingMiddleClear(FieldMap.Pose start, FieldMap.Pose end,
+            Destination destination, double extentX, double extentY) {
+        if (!destination.edgeParking) return true;
+        FieldMap.Region region = destination.region;
+        double centerX = (region.minX + region.maxX) / 2;
+        double centerY = (region.minY + region.maxY) / 2;
+        return !segmentIntersectsRectangle(start.x - centerX, start.y - centerY,
+                end.x - centerX, end.y - centerY,
+                (region.maxX - region.minX) / 2 + extentX,
+                (region.maxY - region.minY) / 4 + extentY);
+    }
+
+    private boolean parkingCurveClear(List<FieldMap.Pose> controls, Destination destination) {
+        if (!destination.edgeParking) return true;
+        double minX = Double.POSITIVE_INFINITY, maxX = Double.NEGATIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY, maxY = Double.NEGATIVE_INFINITY;
+        for (FieldMap.Pose point : controls) {
+            minX = Math.min(minX, point.x);
+            maxX = Math.max(maxX, point.x);
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+        }
+        FieldMap.Region r = destination.region;
+        return maxX < r.minX - robotRadius || minX > r.maxX + robotRadius
+                || maxY < r.minY + (r.maxY - r.minY) / 4 - robotRadius
+                || minY > r.maxY - (r.maxY - r.minY) / 4 + robotRadius;
     }
 
     private boolean segmentFootprintClear(FieldMap.Pose start, FieldMap.Pose end,

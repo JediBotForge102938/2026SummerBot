@@ -17,6 +17,7 @@ public class DriveSubsystem implements TelemetrySource {
     private IMU imu;
     private double headingOffsetDegrees;
     private double fieldForwardHeadingDegrees;
+    private boolean mirrorStrafe;
 
     private double leftFrontPower;
     private double rightFrontPower;
@@ -25,18 +26,19 @@ public class DriveSubsystem implements TelemetrySource {
 
     public void init(HardwareMap hardwareMap) {
         init(hardwareMap, "imu", RevHubOrientationOnRobot.LogoFacingDirection.RIGHT,
-                RevHubOrientationOnRobot.UsbFacingDirection.UP);
+                RevHubOrientationOnRobot.UsbFacingDirection.UP, false);
     }
 
     public void init(HardwareMap hardwareMap, RobotProfile profile) {
-        init(hardwareMap, profile.imuName, profile.imuLogo, profile.imuUsb);
+        init(hardwareMap, profile.imuName, profile.imuLogo, profile.imuUsb, profile.mirrorStrafe);
     }
 
     private void init(HardwareMap hardwareMap, String imuName,
             RevHubOrientationOnRobot.LogoFacingDirection logo,
-            RevHubOrientationOnRobot.UsbFacingDirection usb) {
+            RevHubOrientationOnRobot.UsbFacingDirection usb, boolean mirrorStrafe) {
         headingOffsetDegrees = 0;
         fieldForwardHeadingDegrees = 0;
+        this.mirrorStrafe = mirrorStrafe;
         leftFrontDrive = hardwareMap.get(DcMotor.class, "left_front_drive");
         rightFrontDrive = hardwareMap.get(DcMotor.class, "right_front_drive");
         leftBackDrive = hardwareMap.get(DcMotor.class, "left_back_drive");
@@ -150,8 +152,8 @@ public class DriveSubsystem implements TelemetrySource {
         if (!Double.isFinite(powerScale) || powerScale < 0 || powerScale > 1) {
             throw new IllegalArgumentException("Drive power scale must be between 0 and 1");
         }
-        // Match the assembled chassis's lateral direction after any field-to-robot transform.
-        strafe = -strafe;
+        // Apply the chassis correction after the field-to-robot transform.
+        if (!mirrorStrafe) strafe = -strafe;
         if (prioritizeRotation) {
             if (!Double.isFinite(rotate) || Math.abs(rotate) > 1) {
                 throw new IllegalArgumentException("Prioritized rotation must be between -1 and 1");

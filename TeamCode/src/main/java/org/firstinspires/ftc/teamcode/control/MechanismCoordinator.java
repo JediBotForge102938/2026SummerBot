@@ -7,17 +7,25 @@ import org.firstinspires.ftc.teamcode.subsystems.LauncherFeeder;
 import java.util.Objects;
 
 public class MechanismCoordinator {
-    private static final double SHOOTING_INTAKE_ASSIST = 0.5;
-
     private final IntakeSubsystem intake;
     private final LauncherSubsystem launcher;
     private final LauncherFeeder feeder;
+    private final double shootingIntakeAssist;
 
     public MechanismCoordinator(IntakeSubsystem intake, LauncherSubsystem launcher,
             LauncherFeeder feeder) {
+        this(intake, launcher, feeder, 50);
+    }
+
+    public MechanismCoordinator(IntakeSubsystem intake, LauncherSubsystem launcher,
+            LauncherFeeder feeder, int feedAssistPercent) {
+        if (feedAssistPercent < 0 || feedAssistPercent > 100) {
+            throw new IllegalArgumentException("Feed assist must be 0-100 percent");
+        }
         this.intake = intake;
         this.launcher = launcher;
         this.feeder = Objects.requireNonNull(feeder);
+        shootingIntakeAssist = feedAssistPercent / 100.0;
     }
 
     public void update(double intakePower, boolean shootRequested) {
@@ -31,14 +39,14 @@ public class MechanismCoordinator {
         }
         feeder.update(ready);
         if (ready) {
-            intakePower += SHOOTING_INTAKE_ASSIST;
+            intakePower += shootingIntakeAssist;
         }
         intake.setPower(intakePower);
     }
 
     public void stop() {
-        launcher.update(false);
         feeder.update(false);
+        launcher.update(false);
         intake.setPower(0);
     }
 

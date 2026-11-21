@@ -41,9 +41,10 @@ Hive Tracking status is green **LOCKED IN** for a selected scorable target,
 red **NOT SCORABLE** for valid vision without an eligible target, yellow
 **SEARCHING** for missing/invalid/stale vision, and uncolored **MANUAL** when
 aiming is inactive. These labels do not change target selection or drive behavior.
-CompetitionBot retains its reversed left / forward right launcher motors and
-disabled feeder gate. Its Launcher table explicitly shows the disabled gate;
-actual speed represents the slowest launcher motor, which determines readiness.
+CompetitionBot uses one launcher motor and a positional feeder gate.
+In TeleOp, tap B during INIT or after START to toggle the gate independently of
+launcher speed. It closes on initialization and STOP, and retains its selected
+position across START. The launcher encoder still determines readiness.
 
 Select **Configuration Test** under **2 - (Tests)**. During INIT,
 use gamepad 1 D-pad Up/Down to select the Alliance, Drive mode, or Starting
@@ -80,6 +81,25 @@ heading is not valid until START establishes the reference.
 
 ### IMU-assisted hive aiming
 
+StarterBot and CompetitionBot intake controls toggle rather than requiring a hold:
+tap the right trigger past halfway for intake, or the left trigger for reverse.
+During TeleOp, D-pad left/right adjusts intake speed by 5% from 0 to 100%; the
+display shows the selected speed, saved separately for each robot on the Robot
+Controller. Profile defaults are 100% for StarterBot and 75% for CompetitionBot.
+Tap the active direction again to stop; tapping the opposite
+direction switches immediately. Pressing both triggers stops intake and requires
+a release/new press to restart. STOP clears the toggle; triggers held across
+INIT/START must be released before they can toggle. The right bumper still
+controls shooting, including launcher-ready intake feed assist. The profile sets
+that assist to 50% for StarterBot and 35% for CompetitionBot. It is added to
+manual intake power and clamped to the motor's -100% to 100% range.
+During TeleOp INIT, select **Drive speed** and **Bumper speed** with D-pad
+up/down, then adjust with left/right in 5% steps (0–100%). Defaults are 100%
+and 35%; values persist across runs on the same Robot Controller. Holding
+the left bumper selects Bumper speed, which can be a boost or a reduction.
+Holding A to aim retains 35% translation and full rotation regardless of these
+settings.
+
 The competition, starter, and BioBuzz Cluster Tracking TeleOps use the drive IMU's
 measured yaw rate to compensate cluster bearings for rotation during camera latency.
 The estimated image age includes Limelight capture and pipeline delays plus result
@@ -97,7 +117,48 @@ robot before full-speed use. OTOS-based position prediction remains a separate s
 requiring calibrated sensor and rear-camera mounting offsets; OTOS is not required
 by these TeleOps.
 
+### Auto Shoot autonomous
+
+Select **Auto Shoot** under **1 - (Autonomous)** with the active
+`biobuzz-starterbot` or `biobuzz-competitionbot` configuration. During INIT select
+the alliance and starting spot, place the robot at that preset facing inward,
+and load four pollen. START locks those selections. The routine first moves into
+clear turning space with the rear-facing launcher aimed toward the selected hive.
+The preload batch uses the mapped shooting position, stationary checks, and
+launcher velocity readiness; it does not require AprilTags. It then drives
+directly to its alliance garden with the
+intake facing the garden wall and collects. No post-preload AprilTag observation
+is required to reach the garden. After collection it checks AprilTags from the
+garden. If no fresh, scorable alliance hive is visible, it drives to its alliance
+parking edge for the selected starting spot. Otherwise it travels to the confirmed
+hive's shooting position, aims, shoots the collected batch, and then parks.
+Missing or unscorable tags during the second shooting attempt also cause parking,
+not a search for another hive. Navigation/tracking failures still stop all motion.
+
+Feeding and collection are **timed estimates, not measured ball counts**. Calibrate
+`AutoShoot.BATCH_FEED_SECONDS` (currently 2.6 seconds of enabled feeding per batch),
+`COLLECTION_SECONDS` (2 seconds at the garden), and the launcher's default velocity
+on the actual robot. Collection uses a straight 15% forward-power wall press
+with the intake running for at most 2 seconds, then stops the drive before the
+AprilTag check. Tracking loss, heading/lateral drift, or leaving the collection
+corridor aborts the press. Contact is timed, not confirmed by a wall sensor;
+verify contact power and duration on hardware. Navigation permits a straight
+departure from this garden-wall contact without turning against the wall.
+Auto Shoot uses 1.5x the profile's navigation heading proportional gain for a
+quicker turning response, retaining existing drive power limits; other OpModes
+keep their existing gains.
+Launcher-speed interruptions pause feeding. Missing vision
+after collection sends the robot to park. The competition gate opens when the
+routine permits feeding and closes when feeding stops; intake provides feed
+assist. This routine makes one garden visit, not an unlimited collection loop.
+It stops on navigation/tracking failure, vision/aim timeout, B/Y, STOP, or the
+30-second autonomous deadline, and leaves all drive/mechanism outputs stopped.
+Existing profile geometry/Pedro verification gates remain enforced on hardware;
+the checked-in profiles are not yet fully verified for physical autonomous use.
+Simulator route execution does not verify physical ball collection or shot count.
+
 ## Requirements
+
 To use this Android Studio project, you will need Android Studio Narwhal 3 Feature Drop or later.
 
 To program your robot in Blocks or OnBot Java, you do not need Android Studio.

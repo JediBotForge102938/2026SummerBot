@@ -23,7 +23,7 @@ use their existing configuration conventions.
 
 The StarterBot profile records the existing hub orientation (logo RIGHT, USB UP),
 Limelight name and pipeline 0, and the approved OTOS measurements: optical
-center 19 cm from the back and 7.5 cm from the left of the 18-inch square robot.
+center 18.8 cm from the back and 7.5 cm from the left of the 18-inch square robot.
 OTOS scalars of 1.0 are nominal, **not calibrated**. Field navigation leaves
 the OTOS hardware offset at zero and subtracts the rotating lever arm in the
 navigator exactly once. The direct-return OTOS test intentionally uses zero
@@ -41,6 +41,23 @@ zero roll for StarterBot. Yaw is measured counterclockwise from robot forward;
 pitch is positive upward; roll is clockwise looking in the camera's forward
 direction. The field-tracking test uses these values for a provisional diagnostic
 position, but Limelight observations are not fused into the field pose.
+Each profile also specifies the intake motor direction: FORWARD for StarterBot
+and REVERSE for CompetitionBot. TeleOp intake defaults are 100% and 75%,
+respectively, with launcher-ready intake assist of 50% and 35%. D-pad left/right
+adjusts the TeleOp intake speed in 5% increments; the last setting is stored
+separately by robot. Assist is added to the manual power and the result clamped
+to the motor range. Auto Shoot's intake powers are unchanged.
+`drive.mirrorStrafe` is false for StarterBot
+and true for CompetitionBot, reversing only the robot-relative lateral drive
+component after any field-centric transform. `launcher.motors` lists each motor
+name and its `FORWARD` or `REVERSE` direction; `launcher.pidf` supplies the
+velocity controller's P, I, D and F coefficients for that robot. Both profiles
+initially retain the previous values (40, 0, 0, 12.5), which have not been tuned
+for CompetitionBot's launcher. `launcher.feedVelocityMarginTicksPerSecond` is
+the readiness margin below target: 100 for CompetitionBot and 50 for StarterBot.
+CompetitionBot's `launcher.gate` specifies the servo name and open/closed
+positions. Re-upload both version 8 profiles with the updated app; older profiles
+are rejected.
 
 The current vision algorithm assumes the camera faces the launcher, and the
 field-navigation experiment assumes raw OTOS forward = negative X, right =
@@ -87,6 +104,15 @@ Limelight is a no-target mock, so vision remains searching and cannot provide
 vision position or delta. Telemetry is plain text without Driver Station colors.
 Place and orient the simulated robot at the selected starting pose before INIT;
 the menu sets the estimator's assumed pose but does not reposition the simulator.
+Both full BioBuzz models initially spawn at the red/audience shooting pose
+(X -12, Y -63, heading 90 degrees for an 18-inch chassis), not the nearby tile
+center at Y -60. Selecting another INIT start still requires manually matching
+the simulator placement. A three-inch initial placement error shifts every
+tracked destination by three inches; it can make one garden look too close to
+its wall and the other too far away despite both reporting arrival.
+The simulator window is resizable. Its telemetry sidebar starts at 420 pixels
+wide, fills the available height, wraps long lines, and grows when the window
+is enlarged; the field retains its original dimensions.
 The simulator ignores OTOS calibration scalars, supports only zero OTOS hardware
 offset, and does not support setting the OTOS position. Its idealized sensors and
 field are not a substitute for robot tests.
@@ -94,11 +120,11 @@ The **biobuzz-competitionbot** entry uses its own XML and placeholder sensor
 profile. Its chassis is an approximation, its mechanisms have no detailed
 visualization, and its Limelight is also a no-target mock. The drive-only and
 exercise entries do not have BioBuzz sensor profiles.
-The BioBuzz simulator models the physical robot's reversed lateral response by
-swapping front/back wheel slots on each side. This preserves forward and turn
-responses, but an individual drive-motor command or encoder corresponds to the
-opposite end of the simulated chassis. It does not assert how the physical
-robot is wired; the teaching configurations retain their original wheel mapping.
+The StarterBot simulator approximates its lateral response by swapping front/back
+wheel slots on each side. CompetitionBot uses the simulator's normal wheel mapping
+to approximate its observed opposite lateral response. This preserves forward and
+turn responses; the mapping does not assert how either physical robot is wired.
+The teaching configurations retain their original wheel mapping.
 
 ## Profiles
 
@@ -124,14 +150,15 @@ The full StarterBot TeleOp requires the four named drive motors, `imu`,
 I2C bus 0, port 0. The paired sensor profile supplies hub orientation and
 Limelight name and pipeline. The hardware configuration also includes an OTOS device.
 
-The competition profile maps `left_launcher`, `right_launcher`, and `gate`.
-The CompetitionBot TeleOp uses the shared launcher subsystem with the left motor
-REVERSE and the right motor FORWARD. Both receive the same encoder ticks/second
-target. Readiness requires every motor above target minus 50 ticks/s together for
-200 ms; any motor at or below target minus 75 ticks/s removes readiness.
-The StarterBot windmill is a separate feeder subsystem. Competition positional
-gate actuation is deferred until safe blocked/feeding positions are measured;
-the CompetitionBot TeleOp does not command `gate`.
+The competition profile maps `launcher` to Expansion Hub port 3 and uses
+FORWARD for its motor direction. Readiness requires its encoder speed above
+target minus 250 ticks/s for 200 ms; at or below target minus 275 ticks/s removes
+readiness. Its positional servo is named `gate`, with open position 0.0 and
+closed position 0.3. In TeleOp, B toggles the gate during INIT or after START,
+independently of launcher speed; it closes during initialization and STOP and
+retains its position across START. Auto Shoot opens it only when
+its launcher readiness, alignment and stationary checks permit feeding.
+The StarterBot windmill is a separate feeder subsystem.
 The competition TeleOp now uses the same `TeleopController` and controls as the
 StarterBot, including hive tracking, slow aiming translation, rumble and alliance
 LEDs. Drive mode, launcher target and alliance currently share the StarterBot
@@ -187,7 +214,7 @@ distance and rotate it to confirm position and heading change; stationary zero
 readings alone do not establish that optical tracking works. Heading wraps at
 180 degrees. Raw readings retain the measured sensor axes: forward is negative
 X, right is positive Y, clockwise decreases heading. Separately, the navigator
-compensates the sensor optical-center position measured 19 cm from the back and
+compensates the sensor optical-center position measured 18.8 cm from the back and
 7.5 cm from the left: 3.86 cm behind and 15.36 cm left of robot center. Raw
 sensor position and velocity are transformed to robot-center field coordinates,
 including the rotating offset. Unit scalars are still uncalibrated.
@@ -244,13 +271,42 @@ only while flat and stationary; calibration is refused if the sensor reports
 motion. Release the sticks and wait for the robot to stop before pressing X.
 Each action runs once per button press. STOP always zeros drive power.
 
+## Leave & Park autonomous
+
+Select **Leave & Park** in **1 - (Autonomous)**. During INIT, select the alliance
+and audience/scoring starting spot using the shared configuration menu, and
+place the robot at that mapped starting pose. START automatically begins one
+Pedro route to the nearest end of the selected alliance's parking box, then stops:
+Audience starts use the audience end; Scoring starts use the scoring end.
+The robot backs into parking and finishes facing inward toward the open field,
+away from the side wall, ready to drive forward out of parking.
+Chassis overlap along the box's length starts at profile `parkingOverlapIn`
+(2 inches with the supplied profiles). Red Audience uses that baseline;
+Blue Audience and Blue Scoring add 1 inch (3 inches total); Red Scoring adds
+2 inches (4 inches total), leaving the middle free for the alliance partner.
+The planner and runtime clearance checks reserve the central half of the box
+against the swept chassis footprint; routes do not drive through that space.
+The existing center-parking rows in Landmark Travel Test are unchanged.
+The drive-mode selection does not affect autonomous field-coordinate routing.
+No A press, manual driving, mechanism actuation, or automatic restart occurs.
+B/Y cancels; Driver Station STOP also stops the drive.
+
+This uses the same profile power limits, tracking, clearance checks, arrival
+criteria, and physical-readiness gate as Landmark Travel Test. Both supplied
+physical profiles remain blocked until geometry and Pedro tuning are verified;
+simulator experiments remain enabled. The parking target is an approach pose,
+not a claim that the entire 18-inch chassis fits within the 11-inch parking strip.
+
 ## Landmark travel test
 
 Select **Landmark Travel Test** in **2 - (Tests)**. INIT uses the existing
 alliance and audience/scoring start selector to seed the same OTOS + hub-IMU
 field estimate. After START, D-pad up/down selects among the twelve
 alliance-agnostic flower, garden, parking, and shooting-start destinations plus
-the separately saved home. Destinations describe robot poses separately from
+the separately saved home. The INIT configuration
+table is hidden after START. Navigation status and current/goal poses appear
+above the concise landmark list; long status messages wrap onto short lines so
+simulator telemetry exposes the complete stop reason. Destinations describe robot poses separately from
 flower attachment points, hive objects, and field regions. Routes use the
 profile's chassis geometry, a conservative expanded frame keep-out, and
 heading-aligned straight retreat/final-approach segments, with fixed-heading
@@ -303,15 +359,27 @@ is valid.
 | Left stick | Drive translation |
 | Right stick X | Manual rotation |
 | A, held | Aim rotation at a visible scorable hive; translation remains manual |
-| Left bumper, held | Use 35% drive power |
+| Left bumper, held | Use the configured bumper speed |
 | Right / left trigger | Intake forward / reverse |
 | Right bumper, held | Run launcher; feed after it reaches speed |
 | D-pad up / down | Adjust launcher target by 25 encoder ticks/second (0–6000) |
-| D-pad left / right | Select RED / BLUE tracking alliance |
+| D-pad left / right | Adjust intake speed in 5% steps |
 | Share + Options / Back + Start | Toggle robot-centric / field-centric drive |
 | Options / Start alone, released | Reset heading in field-centric mode |
 
 Drive mode, launcher target, and tracking alliance are saved in preferences.
+
+CompetitionBot TeleOp shares these controls except that B toggles its gate
+open or closed independently of launcher readiness. The right bumper runs the
+launcher; readiness still controls the intake feed assist. B held while INIT
+begins must be released before toggling, and holding B across START does not
+cause an additional toggle.
+
+Both TeleOps offer Drive speed and Bumper speed in the INIT menu. D-pad left/right
+adjusts each from 0% to 100% in 5% steps; selections are saved on the Robot
+Controller. Defaults are 100% and 35%. Bumper speed may be higher or lower than
+Drive speed. While aiming with A, the existing 35% translation and full rotation
+behavior takes precedence over both settings.
 The launcher target defaults to 1250 encoder ticks/second. Feeding is enabled
 only after the launcher holds above its target threshold for 200 ms; a zero
 target disables launcher feeding. Start and Options are SDK aliases, so the

@@ -5,12 +5,14 @@ import static org.mockito.Mockito.*;
 
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.control.DriveModePreferences;
 import org.firstinspires.ftc.teamcode.control.TeleopController;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
+import org.firstinspires.ftc.teamcode.subsystems.GateSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.LauncherFeeder;
 import org.firstinspires.ftc.teamcode.control.MechanismCoordinator;
 import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
@@ -27,23 +29,30 @@ import org.mockito.MockedStatic;
 public class BioBuzzCompetitionTeleopTest {
     @Test
     public void competitionUsesSharedControllerForInitLoopDriveLoopAndStop() {
-        RobotProfile profile = TestProfiles.starter();
+        RobotProfile profile = RobotProfile.load(new java.io.File("../robot-configs"),
+                "biobuzz-competitionbot", "competitionbot");
         try (MockedStatic<RobotProfile> profiles = mockStatic(RobotProfile.class);
                 MockedConstruction<DriveSubsystem> drives = mockConstruction(DriveSubsystem.class);
+                MockedConstruction<GateSubsystem> gates = mockConstruction(GateSubsystem.class,
+                        (mock, context) -> assertSame(profile.launcherGate, context.arguments().get(0)));
                 MockedConstruction<IntakeSubsystem> intakes = mockConstruction(IntakeSubsystem.class,
-                        (mock, context) -> assertEquals(false, context.arguments().get(0)));
+                        (mock, context) -> {
+                            assertEquals(false, context.arguments().get(0));
+                            assertEquals(DcMotorSimple.Direction.REVERSE,
+                                    context.arguments().get(1));
+                        });
                 MockedConstruction<LauncherSubsystem> launchers = mockConstruction(LauncherSubsystem.class,
                         (mock, context) -> {
                             List<?> motors = (List<?>) context.arguments().get(0);
-                            assertEquals(2, motors.size());
-                            LauncherSubsystem.MotorConfig left =
+                            assertSame(profile.launcherMotors, motors);
+                            assertSame(profile.launcherPidf, context.arguments().get(1));
+                            assertEquals(profile.launcherFeedVelocityMargin,
+                                    context.arguments().get(2));
+                            assertEquals(1, motors.size());
+                            LauncherSubsystem.MotorConfig launcher =
                                     (LauncherSubsystem.MotorConfig) motors.get(0);
-                            LauncherSubsystem.MotorConfig right =
-                                    (LauncherSubsystem.MotorConfig) motors.get(1);
-                            assertEquals("left_launcher", left.name);
-                            assertEquals(DcMotor.Direction.REVERSE, left.direction);
-                            assertEquals("right_launcher", right.name);
-                            assertEquals(DcMotor.Direction.FORWARD, right.direction);
+                            assertEquals("launcher", launcher.name);
+                            assertEquals(profile.launcherMotors.get(0).direction, launcher.direction);
                         });
                 MockedConstruction<VisionSubsystem> visions = mockConstruction(VisionSubsystem.class);
                 MockedConstruction<DriveModePreferences> preferences =
@@ -53,13 +62,15 @@ public class BioBuzzCompetitionTeleopTest {
                         });
                 MockedConstruction<MechanismCoordinator> mechanisms =
                         mockConstruction(MechanismCoordinator.class,
-                                (mock, context) -> assertSame(LauncherFeeder.DISABLED,
-                                        context.arguments().get(2)));
+                                (mock, context) -> {
+                                    assertSame(LauncherFeeder.DISABLED, context.arguments().get(2));
+                                    assertEquals(profile.intakeFeedAssistPercent,
+                                            context.arguments().get(3));
+                                });
                 MockedConstruction<TeleopController> controllers =
                         mockConstruction(TeleopController.class);
                 MockedConstruction<StarterBotTelemetry> displays =
-                        mockConstruction(StarterBotTelemetry.class,
-                                (mock, context) -> assertEquals(false, context.arguments().get(5)))) {
+                        mockConstruction(StarterBotTelemetry.class)) {
             profiles.when(() -> RobotProfile.loadActive("competitionbot")).thenReturn(profile);
             CompetitionBotTeleOp opMode = new CompetitionBotTeleOp();
             opMode.hardwareMap = mock(HardwareMap.class);
@@ -68,7 +79,10 @@ public class BioBuzzCompetitionTeleopTest {
             opMode.init();
 
             TeleopController controller = controllers.constructed().get(0);
+            verify(controller).setIntakeProfile(profile.robot, profile.intakeDefaultSpeedPercent);
+            clearInvocations(controller);
             verify(drives.constructed().get(0)).init(opMode.hardwareMap, profile);
+            verify(gates.constructed().get(0)).init(opMode.hardwareMap);
             verify(intakes.constructed().get(0)).init(opMode.hardwareMap);
             verify(launchers.constructed().get(0)).init(opMode.hardwareMap);
             verify(visions.constructed().get(0)).init(opMode.hardwareMap, profile);
@@ -77,13 +91,18 @@ public class BioBuzzCompetitionTeleopTest {
             opMode.init_loop();
             opMode.gamepad1.dpad_right = false;
             opMode.init_loop();
-            opMode.gamepad1.dpad_up = true;
+            opMode.gamepad1.dpad_down = true;
             opMode.init_loop();
-            opMode.gamepad1.dpad_up = false;
+            opMode.gamepad1.dpad_down = false;
+            opMode.init_loop();
+            opMode.gamepad1.dpad_down = true;
+            opMode.init_loop();
+            opMode.gamepad1.dpad_down = false;
             opMode.init_loop();
             opMode.gamepad1.dpad_right = true;
             opMode.init_loop();
             verifyNoInteractions(controller, displays.constructed().get(0));
+            opMode.gamepad1.b = true;
             opMode.start();
             org.mockito.ArgumentCaptor<ConfigurationSubsystem> selected =
                     org.mockito.ArgumentCaptor.forClass(ConfigurationSubsystem.class);
@@ -97,21 +116,87 @@ public class BioBuzzCompetitionTeleopTest {
             opMode.start();
             verify(drives.constructed().get(0)).resetHeading(270, 180);
             opMode.loop();
-            verify(controller).update(opMode.gamepad1);
+            verify(gates.constructed().get(0), never()).update(anyBoolean());
+            opMode.gamepad1.b = false;
+            opMode.loop();
+            opMode.gamepad1.b = true;
+            opMode.loop();
+            opMode.loop();
+            verify(gates.constructed().get(0), times(1)).update(true);
+            opMode.gamepad1.b = false;
+            opMode.loop();
+            opMode.gamepad1.b = true;
+            opMode.loop();
+            verify(gates.constructed().get(0), times(1)).update(false);
+            opMode.gamepad1.b = false;
+            opMode.loop();
+            opMode.gamepad1.b = true;
+            opMode.loop();
+            verify(gates.constructed().get(0), times(2)).update(true);
+            verify(controller, times(8)).update(opMode.gamepad1);
             verify(controller, never()).updateInit(any());
             verify(drives.constructed().get(0), never()).resetHeading();
             opMode.stop();
+            verify(gates.constructed().get(0), times(2)).update(false);
             verify(controller).stop();
             verify(opMode.gamepad1).stopRumble();
             verify(visions.constructed().get(0)).stop();
-            verify(displays.constructed().get(0), times(4)).publish();
+            verify(displays.constructed().get(0), times(11)).publish();
+        }
+    }
+
+    @Test
+    public void gateTogglesDuringInitAndRetainsPositionAcrossStart() {
+        RobotProfile profile = RobotProfile.load(new java.io.File("../robot-configs"),
+                "biobuzz-competitionbot", "competitionbot");
+        try (MockedStatic<RobotProfile> profiles = mockStatic(RobotProfile.class);
+                MockedConstruction<GateSubsystem> gates = mockConstruction(GateSubsystem.class);
+                MockedConstruction<DriveSubsystem> drives = mockConstruction(DriveSubsystem.class);
+                MockedConstruction<IntakeSubsystem> intakes = mockConstruction(IntakeSubsystem.class);
+                MockedConstruction<LauncherSubsystem> launchers = mockConstruction(LauncherSubsystem.class);
+                MockedConstruction<VisionSubsystem> visions = mockConstruction(VisionSubsystem.class);
+                MockedConstruction<DriveModePreferences> preferences = mockConstruction(DriveModePreferences.class);
+                MockedConstruction<MechanismCoordinator> mechanisms = mockConstruction(MechanismCoordinator.class);
+                MockedConstruction<TeleopController> controllers = mockConstruction(TeleopController.class);
+                MockedConstruction<StarterBotTelemetry> displays = mockConstruction(StarterBotTelemetry.class)) {
+            profiles.when(() -> RobotProfile.loadActive("competitionbot")).thenReturn(profile);
+            CompetitionBotTeleOp opMode = new CompetitionBotTeleOp();
+            opMode.hardwareMap = mock(HardwareMap.class);
+            opMode.gamepad1 = mock(Gamepad.class);
+            opMode.telemetry = mock(Telemetry.class);
+            opMode.gamepad1.b = true;
+            opMode.init();
+            GateSubsystem gate = gates.constructed().get(0);
+            clearInvocations(controllers.constructed().get(0));
+            verify(gate).init(opMode.hardwareMap);
+            opMode.init_loop();
+            verify(gate, never()).update(anyBoolean());
+            opMode.gamepad1.b = false;
+            opMode.init_loop();
+            opMode.gamepad1.b = true;
+            opMode.init_loop();
+            opMode.init_loop();
+            verify(gate).update(true);
+            verifyNoInteractions(controllers.constructed().get(0));
+            opMode.start();
+            opMode.loop();
+            verify(gate, never()).update(false);
+            opMode.gamepad1.b = false;
+            opMode.loop();
+            opMode.gamepad1.b = true;
+            opMode.loop();
+            verify(gate).update(false);
+            opMode.stop();
+            verify(gate, times(2)).update(false);
         }
     }
 
     @Test
     public void stopAfterPartialInitializationStillStopsInitializedHardware() {
-        RobotProfile profile = TestProfiles.starter();
+        RobotProfile profile = RobotProfile.load(new java.io.File("../robot-configs"),
+                "biobuzz-competitionbot", "competitionbot");
         try (MockedStatic<RobotProfile> profiles = mockStatic(RobotProfile.class);
+                MockedConstruction<GateSubsystem> gates = mockConstruction(GateSubsystem.class);
                 MockedConstruction<DriveSubsystem> drives = mockConstruction(DriveSubsystem.class);
                 MockedConstruction<IntakeSubsystem> intakes = mockConstruction(IntakeSubsystem.class);
                 MockedConstruction<LauncherSubsystem> launchers =
@@ -125,6 +210,7 @@ public class BioBuzzCompetitionTeleopTest {
             opMode.gamepad1 = mock(Gamepad.class);
             assertThrows(IllegalStateException.class, opMode::init);
             opMode.stop();
+            verify(gates.constructed().get(0)).update(false);
             verify(drives.constructed().get(0)).driveRobotRelative(0, 0, 0);
             verify(intakes.constructed().get(0)).setPower(0);
             verify(visions.constructed().get(0)).stop();
