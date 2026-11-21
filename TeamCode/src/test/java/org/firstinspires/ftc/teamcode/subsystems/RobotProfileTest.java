@@ -25,7 +25,7 @@ public class RobotProfileTest {
     @Rule public TemporaryFolder folder = new TemporaryFolder();
 
     private static final String VALID = "{"
-            + "\"schemaVersion\":8,\"robot\":\"starterbot\","
+            + "\"schemaVersion\":9,\"robot\":\"starterbot\","
             + "\"chassis\":{\"lengthCm\":45.72,\"widthCm\":45.72},"
             + "\"drive\":{\"mirrorStrafe\":false},"
             + "\"intake\":{\"motorDirection\":\"FORWARD\",\"defaultSpeedPercent\":100,\"feedAssistPercent\":50},"
@@ -38,7 +38,7 @@ public class RobotProfileTest {
             + "\"yawDegrees\":180,\"pitchUpDegrees\":37,\"rollDegrees\":0},"
             + "\"otos\":{\"name\":\"optical\",\"rawAxes\":"
             + "\"forward-negative-x-right-positive-y-clockwise-negative\","
-            + "\"opticalCenterFromBackCm\":20,\"opticalCenterFromLeftCm\":10,"
+            + "\"opticalCenterFromBackCm\":20,\"opticalCenterFromLeftCm\":10,\"mountingRotationDegrees\":0,"
             + "\"linearScalar\":1.02,\"angularScalar\":0.98},"
             + "\"navigation\":{\"geometryVerified\":false,\"pedroTuningVerified\":false,"
             + "\"simulatorEnabled\":true,\"transitClearanceIn\":2,\"wallClearanceIn\":2,"
@@ -46,7 +46,9 @@ public class RobotProfileTest {
             + "\"flowerStandoffIn\":3,\"curveInsetIn\":6,\"transitPower\":0.5,\"finalApproachPower\":0.2,"
             + "\"arrivalToleranceIn\":1,\"precisionDistanceIn\":10,"
             + "\"headingToleranceDegrees\":3,"
+            + "\"transitAlignmentPower\":0.15,"
             + "\"stationarySpeedInPerSec\":0.75,"
+            + "\"bypassSettleTranslationSpeed\":false,"
             + "\"stationaryTurnRateDegreesPerSec\":5,\"settleSeconds\":0.2,"
             + "\"timeoutSeconds\":60,\"progressTimeoutSeconds\":4,"
             + "\"progressThresholdIn\":0.1,\"translationalP\":0.08,"
@@ -106,6 +108,12 @@ public class RobotProfileTest {
         RobotProfile competition = RobotProfile.load(directory, "biobuzz-competitionbot", "competitionbot");
         assertEquals(18.8, starter.otosBackCm, 0);
         assertEquals(7.5, starter.otosLeftCm, 0);
+        assertEquals(0, starter.otosMountingRotationDegrees, 0);
+        assertEquals(-90, competition.otosMountingRotationDegrees, 0);
+        assertTrue(starter.navigation.bypassSettleTranslationSpeed);
+        assertTrue(competition.navigation.bypassSettleTranslationSpeed);
+        assertEquals(0.15, starter.navigation.transitAlignmentPower, 0);
+        assertEquals(0.4, competition.navigation.transitAlignmentPower, 0);
         assertEquals("limelight", starter.limelightName);
         assertEquals("competitionbot", competition.robot);
         assertEquals(DcMotorSimple.Direction.FORWARD, starter.intakeMotorDirection);
@@ -124,7 +132,8 @@ public class RobotProfileTest {
         assertTrue(starter.navigation.pedroTuningVerified);
         assertTrue(starter.navigation.simulatorEnabled);
         assertEquals(0.5, starter.navigation.transitPower, 0);
-        assertEquals(0.2, starter.navigation.finalApproachPower, 0);
+        assertEquals(0.4, starter.navigation.finalApproachPower, 0);
+        assertEquals(0.4, competition.navigation.finalApproachPower, 0);
         assertEquals(60, starter.navigation.timeoutSeconds, 0);
         assertThrows(IllegalStateException.class,
                 () -> RobotProfile.load(directory, "biobuzz-starterbot", "competitionbot"));
@@ -138,7 +147,13 @@ public class RobotProfileTest {
                 () -> RobotProfile.load(folder.getRoot(), "missing", "starterbot"));
         for (String invalid : new String[] {
                 "{}",
-                VALID.replace("\"schemaVersion\":8", "\"schemaVersion\":7"),
+                VALID.replace("\"schemaVersion\":9", "\"schemaVersion\":8"),
+                VALID.replace("\"mountingRotationDegrees\":0,", ""),
+                VALID.replace("\"mountingRotationDegrees\":0", "\"mountingRotationDegrees\":\"90\""),
+                VALID.replace("\"bypassSettleTranslationSpeed\":false,", ""),
+                VALID.replace("\"bypassSettleTranslationSpeed\":false", "\"bypassSettleTranslationSpeed\":\"true\""),
+                VALID.replace("\"transitAlignmentPower\":0.15,", ""),
+                VALID.replace("\"transitAlignmentPower\":0.15", "\"transitAlignmentPower\":1.1"),
                 VALID.replace("\"drive\":{\"mirrorStrafe\":false},", ""),
                 VALID.replace("\"mirrorStrafe\":false", "\"mirrorStrafe\":\"false\""),
                 VALID.replace("\"defaultSpeedPercent\":100", "\"defaultSpeedPercent\":101"),

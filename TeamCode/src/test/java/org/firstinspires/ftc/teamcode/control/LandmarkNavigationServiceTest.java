@@ -15,6 +15,7 @@ import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
 import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 import org.firstinspires.ftc.teamcode.subsystems.TrackingSubsystem;
+import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
 import org.junit.Test;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
@@ -23,10 +24,16 @@ public class LandmarkNavigationServiceTest {
     @Rule public TemporaryFolder folder = new TemporaryFolder();
 
     private RobotProfile verifiedTestProfile() throws Exception {
+        return verifiedTestProfile(false);
+    }
+
+    private RobotProfile verifiedTestProfile(boolean bypass) throws Exception {
         String json = new String(Files.readAllBytes(new File(
                 "../robot-configs/biobuzz-starterbot.profile.json").toPath()), StandardCharsets.UTF_8)
                 .replace("\"geometryVerified\": false", "\"geometryVerified\": true")
-                .replace("\"pedroTuningVerified\": false", "\"pedroTuningVerified\": true");
+                .replace("\"pedroTuningVerified\": false", "\"pedroTuningVerified\": true")
+                .replace("\"bypassSettleTranslationSpeed\": true",
+                        "\"bypassSettleTranslationSpeed\": " + bypass);
         Files.write(new File(folder.getRoot(), "verified.profile.json").toPath(),
                 json.getBytes(StandardCharsets.UTF_8));
         return RobotProfile.load(folder.getRoot(), "verified", "starterbot");
@@ -115,5 +122,90 @@ public class LandmarkNavigationServiceTest {
         org.mockito.Mockito.verify(tracking, org.mockito.Mockito.never())
                 .start(org.mockito.ArgumentMatchers.any());
         verify(drive, atLeastOnce()).driveRobotRelative(0, 0, 0);
+    }
+
+    @Test public void diagnosticAdvancesFromTransitDespiteReportedTranslationSpeed() throws Exception {
+        RobotProfile profile = verifiedTestProfile(true);
+        TrackingSubsystem tracking = validTracking();
+        FieldMap.Pose start = new FieldMap.Pose(40, -36, 0);
+        when(tracking.getPose()).thenReturn(start);
+        when(tracking.getSpeedInchesPerSecond()).thenReturn(1.7);
+        LandmarkFieldMap map = new LandmarkFieldMap(profile);
+        LandmarkFieldMap.Destination target = map.parkingDestination(Alliance.BLUE);
+        java.util.List<LandmarkFieldMap.Waypoint> route = map.plan(start, target);
+        assertEquals(LandmarkFieldMap.Segment.TRANSIT, route.get(0).segment);
+        LandmarkNavigationService navigation =
+                new LandmarkNavigationService(mock(DriveSubsystem.class), tracking, profile);
+        assertTrue(navigation.start(target, 0));
+        int remaining = navigation.getRemainingWaypoints();
+        when(tracking.getPose()).thenReturn(route.get(0).pose);
+        when(tracking.getHeadingRateDegreesPerSecond()).thenReturn(6.0);
+        navigation.update(0.1);
+        navigation.update(0.5);
+        assertEquals(remaining, navigation.getRemainingWaypoints());
+        when(tracking.getHeadingRateDegreesPerSecond()).thenReturn(0.2);
+        navigation.update(0.6);
+        navigation.update(0.81);
+        assertTrue(navigation.isActive());
+        assertTrue(navigation.getRemainingWaypoints() < remaining);
+    }
+
+    @Test public void diagnosticStillRejectsInvalidMotionAndRequiresArrivalTolerance() throws Exception {
+        RobotProfile profile = verifiedTestProfile(true);
+        TrackingSubsystem tracking = validTracking();
+        FieldMap.Pose start = tracking.getPose();
+        LandmarkNavigationService navigation =
+                new LandmarkNavigationService(mock(DriveSubsystem.class), tracking, profile);
+        assertTrue(navigation.start(LandmarkFieldMap.Destination.savedHome(start), 0));
+        when(tracking.getPose()).thenReturn(new FieldMap.Pose(start.x + 2, start.y, 0));
+        navigation.update(0.1);
+        assertEquals("Failed", navigation.getPhase());
+
+        when(tracking.getPose()).thenReturn(start);
+        assertTrue(navigation.start(LandmarkFieldMap.Destination.savedHome(start), 1));
+        when(tracking.hasValidMotion()).thenReturn(false);
+        navigation.update(1.1);
+        assertEquals("Failed", navigation.getPhase());
+    }
+
+    @Test public void transitWaypointAlignsAtConfiguredPowerAndRetainsTolerance() throws Exception {
+        RobotProfile profile = verifiedTestProfile(true);
+        TrackingSubsystem tracking = validTracking();
+        FieldMap.Pose start = new FieldMap.Pose(40, -36, 0);
+        when(tracking.getPose()).thenReturn(start);
+        LandmarkFieldMap map = new LandmarkFieldMap(profile);
+        LandmarkFieldMap.Destination target = map.parkingDestination(Alliance.BLUE);
+        java.util.List<LandmarkFieldMap.Waypoint> route = map.plan(start, target);
+        LandmarkFieldMap.Waypoint transit = null;
+        for (LandmarkFieldMap.Waypoint waypoint : route) {
+            if (waypoint.segment == LandmarkFieldMap.Segment.TRANSIT) transit = waypoint;
+        }
+        org.junit.Assert.assertNotNull(transit);
+        DriveSubsystem drive = mock(DriveSubsystem.class);
+        LandmarkNavigationService navigation = new LandmarkNavigationService(drive, tracking, profile);
+        assertTrue(navigation.start(target, 0));
+        int remaining = navigation.getRemainingWaypoints();
+        FieldMap.Pose waypoint = transit.pose;
+        when(tracking.getPose()).thenReturn(new FieldMap.Pose(waypoint.x, waypoint.y,
+                waypoint.headingDegrees + 3.3));
+        navigation.update(0.1);
+        assertEquals("Aligning", navigation.getPhase());
+        assertEquals(0.15, navigation.getPowerLimit(), 0);
+        verify(drive).driveRobotRelative(0, 0, 0.15);
+        assertEquals(remaining, navigation.getRemainingWaypoints());
+        when(tracking.getPose()).thenReturn(new FieldMap.Pose(waypoint.x, waypoint.y,
+                waypoint.headingDegrees - 3.3));
+        navigation.update(0.2);
+        verify(drive).driveRobotRelative(0, 0, -0.15);
+        when(tracking.getPose()).thenReturn(waypoint);
+        navigation.update(0.3);
+        navigation.update(0.51);
+        assertTrue(navigation.getRemainingWaypoints() < remaining);
+    }
+
+    @Test public void competitionProfileEnablesBypass() {
+        RobotProfile competition = RobotProfile.load(new File("../robot-configs"),
+                "biobuzz-competitionbot", "competitionbot");
+        assertTrue(competition.navigation.bypassSettleTranslationSpeed);
     }
 }

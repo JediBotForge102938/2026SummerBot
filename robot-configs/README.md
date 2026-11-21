@@ -13,13 +13,35 @@ profiles to `/sdcard/FIRST/robot-profiles/`. After uploading, select the matchin
 XML in Configure Robot. The active configuration's name must match the JSON
 basename, including case; rename the pair together and re-upload if needed.
 
-StarterBot, CompetitionBot, Configuration Test, and both OTOS tests look up the
-active profile at INIT. StarterBot and CompetitionBot reject a profile for the
-other robot; the field-navigation experiment is restricted to StarterBot's
-18-inch geometry and measured raw OTOS axis convention. Missing, invalid,
-or incompatible profiles stop initialization rather than defaulting.
-Drive-only and teaching/sample OpModes have not been migrated and continue to
-use their existing configuration conventions.
+Every profile-dependent operational/test OpMode looks up the active hardware
+configuration at INIT and displays the selected name using **Robot profile**:
+
+| OpModes | Profile compatibility |
+|---------|-----------------------|
+| BioBuzz StarterBot TeleOp | StarterBot only |
+| BioBuzz CompetitionBot TeleOp | CompetitionBot only |
+| OTOS Field Navigation Test | StarterBot only (fixed 18-inch navigator) |
+| Configuration Test, OTOS Sensor Test | Either robot |
+| Field Tracking Test, Landmark Travel Test | Either robot |
+| Leave & Park, Simple Leave & Park, Auto Shoot | Either robot |
+| All three Limelight tests | Either robot; camera name/pipeline from profile |
+
+Robot-specific modes validate the `robot` field **after loading the active
+configuration's profile**; they do not select a fixed StarterBot/CompetitionBot
+filename. Missing, invalid, or incompatible profiles stop initialization rather
+than silently selecting another robot. The supplied profiles are
+`biobuzz-starterbot` and `biobuzz-competitionbot`; selecting an XML with a
+different name requires an identically named JSON companion.
+
+Teaching lessons and the original goBILDA sample intentionally remain standalone
+examples using their lesson/sample wiring and hard-coded assumptions, not
+profile-aware operational modes. In particular, the IMU lesson assumes logo
+RIGHT/USB UP; use the profile-aware tests for robot-specific sensor behavior.
+
+Both `pushRobotConfigs` and the Windows `push-configs.ps1` script upload paired
+JSON profiles as well as XML files. If INIT reports a missing profile, upload
+the pair to that Control Hub and verify the active name in Configure Robot.
+Reinstalling the APK alone does not install JSON profiles.
 
 The StarterBot profile records the existing hub orientation (logo RIGHT, USB UP),
 Limelight name and pipeline 0, and the approved OTOS measurements: optical
@@ -56,15 +78,18 @@ initially retain the previous values (40, 0, 0, 12.5), which have not been tuned
 for CompetitionBot's launcher. `launcher.feedVelocityMarginTicksPerSecond` is
 the readiness margin below target: 100 for CompetitionBot and 50 for StarterBot.
 CompetitionBot's `launcher.gate` specifies the servo name and open/closed
-positions. Re-upload both version 8 profiles with the updated app; older profiles
+positions. Re-upload both version 9 profiles with the updated app; older profiles
 are rejected.
 
 The current vision algorithm assumes the camera faces the launcher, and the
-field-navigation experiment assumes raw OTOS forward = negative X, right =
-positive Y, and clockwise = negative heading. The profile enforces those
-assumptions; other mounting orientations are not supported yet. Limelight
-mounting measurements are stored but not used to transform observations, and
-general OTOS orientation transforms are not implemented.
+field tracking uses `otos.mountingRotationDegrees` to rotate raw sensor X/Y
+counterclockwise into the StarterBot reference axes: forward = negative X and
+right = positive Y. StarterBot uses 0 degrees; CompetitionBot uses -90 degrees,
+which maps raw forward -Y to reference -X and raw right -X to reference +Y.
+Heading remains relative to the starting orientation. Raw telemetry remains
+unrotated. Verify both axes and heading before attempting autonomous motion;
+the CompetitionBot angle is operator-selected and not yet physically verified.
+Limelight mounting measurements are stored but not used to transform observations.
 Validate IMU, tracking, and drive directions at low speed on the physical robot.
 
 ## Field tracking test
@@ -297,6 +322,33 @@ physical profiles remain blocked until geometry and Pedro tuning are verified;
 simulator experiments remain enabled. The parking target is an approach pose,
 not a claim that the entire 18-inch chassis fits within the 11-inch parking strip.
 
+## Simple Leave & Park
+
+Select **Simple Leave & Park** for a straight-only alternative, on either
+robot. There are no configuration selections or mapped parking coordinates.
+INIT displays how far it will move: one chassis length from the active profile
+(18 inches for StarterBot; 45 cm, about 17.7 inches, for CompetitionBot).
+Face the desired parking target and place the robot one chassis length behind
+its desired final position, measured using the same chassis point at both ends.
+Keep the robot flat and still during INIT.
+
+After START it drives straight forward at the profile's `finalApproachPower`
+until corrected OTOS displacement reaches that chassis length.
+Tracking uses a local starting frame, independent of alliance or field heading.
+Verified profile geometry is required; Pedro tuning is not used.
+All numeric motion limits come from `navigation`: `headingToleranceDegrees`
+and `arrivalToleranceIn` bound heading and sideways drift; `timeoutSeconds` bounds total
+travel time; `progressThresholdIn` and `progressTimeoutSeconds` detect stalls.
+These are the same settings used by landmark navigation, not separate simple
+OpMode limits. The supplied profiles use 3-degree/1-inch drift limits and a
+60-second timeout, with 40% final-approach power for both robots.
+It stops for invalid tracking, excessive heading or sideways drift, no progress,
+or timeout. Driver Station STOP also stops it; gamepad buttons do not cancel this
+autonomous. It makes no turns and has
+no obstacle avoidance; keep the path clear and watch for wall contact. This
+does not determine parking overlap or whether the whole chassis is in the zone;
+that depends on your starting placement.
+
 ## Landmark travel test
 
 Select **Landmark Travel Test** in **2 - (Tests)**. INIT uses the existing
@@ -306,7 +358,9 @@ alliance-agnostic flower, garden, parking, and shooting-start destinations plus
 the separately saved home. The INIT configuration
 table is hidden after START. Navigation status and current/goal poses appear
 above the concise landmark list; long status messages wrap onto short lines so
-simulator telemetry exposes the complete stop reason. Destinations describe robot poses separately from
+simulator telemetry exposes the complete stop reason. Measured motion reports
+robot-center speed and hub-IMU turn rate; OTOS raw velocity reports the sensor's
+untransformed X/Y readings from the same update. Destinations describe robot poses separately from
 flower attachment points, hive objects, and field regions. Routes use the
 profile's chassis geometry, a conservative expanded frame keep-out, and
 heading-aligned straight retreat/final-approach segments, with fixed-heading
@@ -315,6 +369,18 @@ Transit corners use quadratic Pedro Bezier curves only when the entire
 control-point hull clears the expanded keep-out; otherwise they retain the
 checked straight route. Transit paths are chained without stopping at curved
 corners; the robot settles before entering constrained wall corridors.
+Both profiles temporarily set `bypassSettleTranslationSpeed` to true to diagnose
+elevated OTOS velocity readings. Landmark navigation in Landmark Travel Test,
+Leave & Park, and Auto Shoot ignores translation speed when settling.
+The robot can advance while still translating: keep the route clear
+and be ready to press Y. Position, heading, turn-rate, valid-motion, route and
+timeout checks remain enabled. Other stationary checks, including Auto Shoot's
+shooting checks, are unchanged. Set the flag false to restore the speed check.
+At a transit waypoint inside the position tolerance but outside heading
+tolerance, `transitAlignmentPower` commands a rotation in place until the
+heading is within tolerance. StarterBot uses 15% and CompetitionBot uses 40%; boundary and
+timeout checks still apply. Verify physical turn direction and response with
+the route clear and Y ready. This does not change final-approach alignment checks.
 Unsafe, invalid, or
 unsupported routes stop the drive and report why; route selection never changes
 an active target. No launcher, intake, or vision fusion is used.
@@ -323,7 +389,9 @@ Press A once while idle to start; A during motion cancels. B cancels, Y stops
 and cancels with highest priority, and moving either stick beyond its deadband
 cancels navigation and resumes manual driving immediately at the profiled 50%
 transit limit, using the INIT field-/robot-centric selection. Final approaches
-are limited to 20%. X cancels and asks
+are limited to the profiled `finalApproachPower`: 20% for StarterBot and 40%
+for CompetitionBot. This cap also applies within the precision distance of a
+waypoint and during settling. X cancels and asks
 OTOS to recalibrate only while stationary; it does not reset field coordinates.
 Options / Start cancels, stops, and saves the current pose as home only when
 that pose is safe; it does not modify the twelve mapped destinations or reset

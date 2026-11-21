@@ -123,6 +123,31 @@ public class SimulatorTrackingTest {
         assertThrows(UnsupportedOperationException.class, () -> otos.setPosition(p));
     }
 
+    @Test public void competitionMountingProducesRotatedRawReadingsAndCorrectFieldPose() {
+        ActiveRobotProfileSource.select("biobuzz-competitionbot");
+        RobotProfile profile = RobotProfile.loadActive("competitionbot");
+        CommonOdometry odo = CommonOdometry.getInstance();
+        Pose2D zero = pose(0, 0, 0);
+        odo.update(zero, zero, zero);
+        SparkFunOTOSInternal raw = new SparkFunOTOSInternal();
+        raw.update();
+        StarterBotOTOS otos = new StarterBotOTOS(raw, profile);
+        HardwareMap hardware = new HardwareMap();
+        hardware.put("otos", otos);
+        hardware.setActive(true);
+        TrackingSubsystem tracking = new TrackingSubsystem();
+        tracking.init(hardware, profile);
+        tracking.start(new FieldMap.Pose(12, -63, 90));
+        odo.update(pose(0, 10, 0), pose(0, 4, 0), zero);
+        raw.update();
+        tracking.update(90, 0);
+        assertEquals(0, otos.getPosition().x, 1e-8);
+        assertEquals(-10, otos.getPosition().y, 1e-8);
+        assertEquals(12, tracking.getPose().x, 1e-8);
+        assertEquals(-53, tracking.getPose().y, 1e-8);
+        assertEquals(4, tracking.getVelocityY(), 1e-8);
+    }
+
     @Test public void fieldTrackingOpModeInitializesAndRunsWithSimulatedHardware() throws Exception {
         CommonOdometry odo = CommonOdometry.getInstance();
         Pose2D zero = pose(0, 0, 0);
@@ -298,8 +323,10 @@ public class SimulatorTrackingTest {
         }
         int tick = 0;
         for (LandmarkFieldMap.Destination target : targets) {
-            assertTrue(model + " -> " + target.name + ": " + navigation.getStatus(),
-                    navigation.start(target, tick * 0.02));
+            boolean started = navigation.start(target, tick * 0.02);
+            assertTrue(model + " -> " + target.name + ": " + navigation.getStatus()
+                    + " pose=" + tracking.getPose().x + "," + tracking.getPose().y
+                    + "," + tracking.getPose().headingDegrees, started);
             int startedTick = tick;
             while (tick - startedTick < 3000 && navigation.isActive()) {
                 tick++;
@@ -371,8 +398,10 @@ public class SimulatorTrackingTest {
                 assertTrue("Overlap must reach the selected target within arrival tolerance",
                         Math.abs(overlap - targetOverlap) <= profile.navigation.arrivalToleranceIn);
             }
-            assertTrue("Measured translation must be stationary",
-                    tracking.getSpeedInchesPerSecond() <= profile.navigation.stationarySpeedInPerSec);
+            if (!profile.navigation.bypassSettleTranslationSpeed) {
+                assertTrue("Measured translation must be stationary",
+                        tracking.getSpeedInchesPerSecond() <= profile.navigation.stationarySpeedInPerSec);
+            }
             assertTrue("Actual heading must arrive within three degrees",
                     Math.abs(Math.toDegrees(body.getTransform().getRotationAngle()) + 90
                             - target.robotPose.headingDegrees

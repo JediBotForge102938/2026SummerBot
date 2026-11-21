@@ -215,6 +215,12 @@ public final class LandmarkTravelTestTeleOp extends OpMode {
             telemetry.addData("Measured motion", "%.2f in/s, %.1f deg/s",
                     tracking.getSpeedInchesPerSecond(),
                     tracking.getHeadingRateDegreesPerSecond());
+            if (tracking.hasValidMotion()) {
+                telemetry.addData("OTOS raw velocity", "X %.2f Y %.2f in/s",
+                        tracking.getOtosVelocityX(), tracking.getOtosVelocityY());
+            } else {
+                telemetry.addData("OTOS raw velocity", "Unavailable (tracking invalid)");
+            }
         }
         telemetry.update();
     }

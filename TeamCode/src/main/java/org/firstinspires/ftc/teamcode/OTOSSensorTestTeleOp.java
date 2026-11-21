@@ -17,6 +17,8 @@ public class OTOSSensorTestTeleOp extends OpMode {
     private final SparkFunOTOS.Pose2D velocity = new SparkFunOTOS.Pose2D();
     private final SparkFunOTOS.Pose2D acceleration = new SparkFunOTOS.Pose2D();
     private SparkFunOTOS otos;
+    private RobotProfile profile;
+    private double mountingRotationRadians;
     private boolean driveInitialized;
     private int drivePowerPercent = 45;
     private boolean previousUp;
@@ -40,7 +42,8 @@ public class OTOSSensorTestTeleOp extends OpMode {
         returning = false;
         settledSince = Double.NaN;
         driveStatus = "Manual";
-        RobotProfile profile = RobotProfile.loadActive(null);
+        profile = RobotProfile.loadActive(null);
+        mountingRotationRadians = Math.toRadians(profile.otosMountingRotationDegrees);
         drive.init(hardwareMap, profile);
         driveInitialized = true;
         stopDrive();
@@ -173,9 +176,12 @@ public class OTOSSensorTestTeleOp extends OpMode {
         double h = Math.toRadians(position.h);
         double cos = Math.cos(h);
         double sin = Math.sin(h);
-        // Measured mounting: forward = -X, right = +Y, clockwise = negative heading.
-        double fieldX = -0.12 * position.x - 0.02 * velocity.x;
-        double fieldY = -0.12 * position.y - 0.02 * velocity.y;
+        double rawX = -0.12 * position.x - 0.02 * velocity.x;
+        double rawY = -0.12 * position.y - 0.02 * velocity.y;
+        double mountCos = Math.cos(mountingRotationRadians);
+        double mountSin = Math.sin(mountingRotationRadians);
+        double fieldX = rawX * mountCos - rawY * mountSin;
+        double fieldY = rawX * mountSin + rawY * mountCos;
         double forward = -fieldX * cos - fieldY * sin;
         double right = -fieldX * sin + fieldY * cos;
         double magnitude = Math.hypot(forward, right);
@@ -223,6 +229,7 @@ public class OTOSSensorTestTeleOp extends OpMode {
     }
 
     private void publishReadings() {
+        telemetry.addData("Robot profile", profile.name);
         SparkFunOTOS.Status status = otos.getStatus();
         telemetry.addLine("Sticks: drive. A: return home / cancel. Y: stop. B or sticks: cancel.");
         telemetry.addLine("D-pad up / down: adjust drive and return speed by 5%.");

@@ -8,6 +8,7 @@ import org.firstinspires.ftc.teamcode.control.HiveTrackingController;
 import org.firstinspires.ftc.teamcode.control.ImuAimController;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 
 @TeleOp(name = "Limelight Cluster Tracking Test", group = "2 - (Tests)")
 public class LimelightClusterTrackingTestTeleOp extends OpMode {
@@ -19,18 +20,28 @@ public class LimelightClusterTrackingTestTeleOp extends OpMode {
     private BioBuzzLimelightClusterAdapter.Alliance selectedAlliance =
             BioBuzzLimelightClusterAdapter.Alliance.BLUE;
     private boolean driveInitialized;
+    private RobotProfile profile;
 
     @Override
     public void init() {
-        drive.init(hardwareMap);
+        profile = RobotProfile.loadActive(null);
+        drive.init(hardwareMap, profile);
         driveInitialized = true;
-        vision.init(hardwareMap);
+        vision.init(hardwareMap, profile);
+        telemetry.addData("Robot profile", profile.name);
         telemetry.addData("Selected alliance", selectedAlliance);
         telemetry.addLine("OPTIONS: switch alliance");
         telemetry.addLine("Hold A: turn to face nearest cluster");
         telemetry.addLine("Hold B: turn and drive toward nearest cluster");
-        telemetry.addData("Limelight", VisionSubsystem.LIMELIGHT_NAME);
-        telemetry.addData("Pipeline", VisionSubsystem.LIMELIGHT_PIPELINE);
+        telemetry.addData("Limelight", profile.limelightName);
+        telemetry.addData("Pipeline", profile.limelightPipeline);
+    }
+
+    @Override public void init_loop() {
+        telemetry.addData("Robot profile", profile.name);
+        telemetry.addData("Selected alliance", selectedAlliance);
+        telemetry.addLine("OPTIONS: switch alliance | Hold A: track | Hold B: follow");
+        telemetry.update();
     }
 
     @Override

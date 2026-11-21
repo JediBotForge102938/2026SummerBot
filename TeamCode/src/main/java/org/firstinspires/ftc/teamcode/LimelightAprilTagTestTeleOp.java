@@ -7,6 +7,7 @@ import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
+import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -14,10 +15,6 @@ import java.util.Map;
 
 @TeleOp(name = "Limelight AprilTag Test", group = "2 - (Tests)")
 public class LimelightAprilTagTestTeleOp extends OpMode {
-    private static final String LIMELIGHT_NAME = "limelight";
-    // This slot must be configured as an AprilTag pipeline in the Limelight web UI.
-    private static final int LIMELIGHT_PIPELINE = 0;
-
     private enum Alliance {
         BLUE,
         RED;
@@ -48,19 +45,29 @@ public class LimelightAprilTagTestTeleOp extends OpMode {
     };
 
     private Limelight3A limelight;
+    private RobotProfile profile;
     private Alliance selectedAlliance = Alliance.BLUE;
 
     @Override
     public void init() {
-        limelight = hardwareMap.get(Limelight3A.class, LIMELIGHT_NAME);
-        limelight.pipelineSwitch(LIMELIGHT_PIPELINE);
+        profile = RobotProfile.loadActive(null);
+        limelight = hardwareMap.get(Limelight3A.class, profile.limelightName);
+        limelight.pipelineSwitch(profile.limelightPipeline);
         limelight.start();
 
+        telemetry.addData("Robot profile", profile.name);
         telemetry.addData("Selected Team", selectedAlliance);
         telemetry.addData("Controls", "Press OPTIONS to switch alliances");
-        telemetry.addData("Limelight", LIMELIGHT_NAME);
-        telemetry.addData("Pipeline", LIMELIGHT_PIPELINE);
+        telemetry.addData("Limelight", profile.limelightName);
+        telemetry.addData("Pipeline", profile.limelightPipeline);
         telemetry.addData("Status", "Ready");
+    }
+
+    @Override public void init_loop() {
+        telemetry.addData("Robot profile", profile.name);
+        telemetry.addData("Selected Team", selectedAlliance);
+        telemetry.addData("Status", "Ready");
+        telemetry.update();
     }
 
     @Override

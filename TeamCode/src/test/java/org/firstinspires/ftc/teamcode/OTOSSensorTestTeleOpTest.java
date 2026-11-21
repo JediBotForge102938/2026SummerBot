@@ -27,11 +27,14 @@ public class OTOSSensorTestTeleOpTest {
     private final DcMotor[] motors = new DcMotor[4];
     private MockedConstruction<RevHubOrientationOnRobot> orientation;
     private MockedStatic<RobotProfile> profiles;
+    private RobotProfile competition;
     private double time;
 
     @Before
     public void setUp() {
         RobotProfile profile = TestProfiles.starter();
+        competition = RobotProfile.load(new java.io.File("../robot-configs"),
+                "biobuzz-competitionbot", "competitionbot");
         profiles = mockStatic(RobotProfile.class);
         profiles.when(() -> RobotProfile.loadActive(null)).thenReturn(profile);
         orientation = mockConstruction(RevHubOrientationOnRobot.class);
@@ -160,6 +163,7 @@ public class OTOSSensorTestTeleOpTest {
         for (DcMotor motor : motors) {
             assertTrue(latestPower(motor) < 0);
         }
+
         pose.x = 0;
         pose.y = 12;
         opMode.gamepad1.a = false;
@@ -173,6 +177,18 @@ public class OTOSSensorTestTeleOpTest {
         opMode.loop();
         assertTrue(latestPower(motors[0]) < 0);
         assertTrue(latestPower(motors[1]) > 0);
+    }
+
+    @Test
+    public void directReturnCorrectsCompetitionMountingRotation() {
+        profiles.when(() -> RobotProfile.loadActive(null)).thenReturn(competition);
+        opMode.init();
+        pose.y = -12;
+        opMode.gamepad1.a = true;
+        opMode.loop();
+        for (DcMotor motor : motors) {
+            assertTrue(latestPower(motor) < 0);
+        }
     }
 
     @Test

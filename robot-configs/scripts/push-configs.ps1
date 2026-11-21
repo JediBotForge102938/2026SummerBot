@@ -5,9 +5,17 @@ param(
 $ErrorActionPreference = "Stop"
 $configDirectory = Split-Path -Parent $PSScriptRoot
 $configs = @(Get-ChildItem -Path $configDirectory -Filter "*.xml" -File -Recurse)
+$profiles = @(Get-ChildItem -Path $configDirectory -Filter "*.profile.json" -File -Recurse)
 
 if ($configs.Count -eq 0) {
     throw "No XML configuration files found in $configDirectory"
+}
+
+foreach ($profile in $profiles) {
+    $hardwareName = $profile.Name.Replace(".profile.json", ".xml")
+    if (-not ($configs | Where-Object { $_.Name -eq $hardwareName })) {
+        throw "Profile $($profile.Name) has no matching hardware configuration $hardwareName"
+    }
 }
 
 $adbPath = $null
@@ -61,5 +69,19 @@ foreach ($config in $configs) {
     }
 }
 
+& $adbPath -s $DeviceSerial shell mkdir -p /sdcard/FIRST/robot-profiles
+if ($LASTEXITCODE -ne 0) {
+    throw "ADB failed while creating the robot profile directory"
+}
+foreach ($profile in $profiles) {
+    $destination = "/sdcard/FIRST/robot-profiles/$($profile.Name)"
+    Write-Host "Pushing $($profile.Name) to $destination"
+    & $adbPath -s $DeviceSerial push $profile.FullName $destination
+    if ($LASTEXITCODE -ne 0) {
+        throw "ADB failed while pushing $($profile.Name)"
+    }
+}
+
 Write-Host "Pushed $($configs.Count) configuration file(s)."
+Write-Host "Pushed $($profiles.Count) robot profile file(s)."
 Write-Host "Select the desired profile in Driver Station -> Configure Robot."

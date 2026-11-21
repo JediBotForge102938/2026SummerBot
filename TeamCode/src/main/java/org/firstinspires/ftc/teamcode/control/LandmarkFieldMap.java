@@ -351,14 +351,16 @@ public final class LandmarkFieldMap {
     private List<FieldMap.Pose> safeDeparture(FieldMap.Pose start) {
         double angle = Math.toRadians(start.headingDegrees);
         double clearance = departureClearance(start);
+        double limit = transitLimit - profile.navigation.arrivalToleranceIn
+                - APPROACH_ENTRY_DRIFT_MARGIN_IN;
         for (double distance = 0.5; distance <= 72; distance += 0.5) {
             for (int direction : new int[] {1, -1}) {
                 FieldMap.Pose retreat = new FieldMap.Pose(
                         start.x + direction * Math.cos(angle) * distance,
                         start.y + direction * Math.sin(angle) * distance, start.headingDegrees);
                 if (!segmentFootprintClear(start, retreat, start.headingDegrees, clearance)) continue;
-                if (isTransitClear(retreat)) return Collections.singletonList(retreat);
-                double limit = transitLimit - 0.5;
+                if (isTransitClear(retreat) && Math.abs(retreat.x) <= limit
+                        && Math.abs(retreat.y) <= limit) return Collections.singletonList(retreat);
                 FieldMap.Pose entry = new FieldMap.Pose(
                         Math.max(-limit, Math.min(limit, retreat.x)),
                         Math.max(-limit, Math.min(limit, retreat.y)), start.headingDegrees);

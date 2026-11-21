@@ -169,7 +169,7 @@ public class ConfigurationSubsystem {
     public void publish(boolean currentFieldCentric) {
         TelemetryTable.heading(telemetry, "Configuration");
         if (robotProfileName != null) {
-            TelemetryTable.row(telemetry, "Robot profile", robotProfileName);
+            telemetry.addData("Robot profile", robotProfileName);
         }
         menuLine(MenuRow.ALLIANCE, "Alliance", alliance == Alliance.RED ? "Red" : "Blue");
         menuLine(MenuRow.DRIVE_MODE, "Drive mode",

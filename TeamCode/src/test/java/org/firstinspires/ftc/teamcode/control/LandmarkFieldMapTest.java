@@ -57,6 +57,7 @@ public class LandmarkFieldMapTest {
         for (LandmarkFieldMap.Waypoint waypoint : route) {
             if (waypoint.segment == LandmarkFieldMap.Segment.TRANSIT) lastTransit = waypoint;
         }
+
         assertNotNull(lastTransit);
         double radius = Math.hypot(profile.chassisLengthCm / 2 / 2.54,
                 profile.chassisWidthCm / 2 / 2.54);
@@ -64,6 +65,26 @@ public class LandmarkFieldMapTest {
                 - radius - profile.navigation.wallClearanceIn;
         assertTrue(Math.abs(lastTransit.pose.x) <= limit - profile.navigation.arrivalToleranceIn - 1.0);
         assertTrue(Math.abs(lastTransit.pose.y) <= limit - profile.navigation.arrivalToleranceIn - 1.0);
+    }
+
+    @Test public void departureEndsInsideTransitBoundaryWithArrivalBuffer() {
+        org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance alliance =
+                org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance.BLUE;
+        org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem.StartingSpot side =
+                org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem.StartingSpot.AUDIENCE;
+        FieldMap.Pose start = FieldMap.startingPose(alliance, side, profile.chassisLengthCm / 2.54);
+        List<LandmarkFieldMap.Waypoint> route = map.plan(start, map.parkingDestination(alliance, side));
+        LandmarkFieldMap.Waypoint lastDeparture = null;
+        for (LandmarkFieldMap.Waypoint waypoint : route) {
+            if (waypoint.segment == LandmarkFieldMap.Segment.TRANSIT) break;
+            if (waypoint.segment == LandmarkFieldMap.Segment.DEPARTURE) lastDeparture = waypoint;
+        }
+        assertNotNull(lastDeparture);
+        double limit = BioBuzzFieldMap.FIELD_HALF_SIZE - BioBuzzFieldMap.PERIMETER_STRIP
+                - Math.hypot(profile.chassisLengthCm / 2 / 2.54,
+                        profile.chassisWidthCm / 2 / 2.54) - profile.navigation.wallClearanceIn;
+        assertTrue(Math.abs(lastDeparture.pose.x) <= limit - profile.navigation.arrivalToleranceIn - 1);
+        assertTrue(Math.abs(lastDeparture.pose.y) <= limit - profile.navigation.arrivalToleranceIn - 1);
     }
 
     @Test public void menuHasTwelveAllianceAgnosticDestinationsAndSeparateObjects() {

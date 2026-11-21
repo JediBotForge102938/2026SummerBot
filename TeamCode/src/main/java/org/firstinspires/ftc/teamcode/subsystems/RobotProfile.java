@@ -46,6 +46,7 @@ public final class RobotProfile {
     public final String otosName;
     public final double otosBackCm;
     public final double otosLeftCm;
+    public final double otosMountingRotationDegrees;
     public final double otosLinearScalar;
     public final double otosAngularScalar;
     public final NavigationSettings navigation;
@@ -54,7 +55,7 @@ public final class RobotProfile {
         this.name = name;
         requireKnownKeys(root, "schemaVersion", "robot", "chassis", "drive", "intake", "launcher", "imu", "limelight",
                 "otos", "navigation");
-        if (integer(root, "schemaVersion") != 8) {
+        if (integer(root, "schemaVersion") != 9) {
             throw new IllegalArgumentException("Unsupported profile schema version");
         }
         robot = text(root, "robot");
@@ -141,7 +142,7 @@ public final class RobotProfile {
         }
         JsonObject otos = object(root, "otos");
         requireKnownKeys(otos, "name", "rawAxes", "opticalCenterFromBackCm",
-                "opticalCenterFromLeftCm", "linearScalar", "angularScalar");
+                "opticalCenterFromLeftCm", "mountingRotationDegrees", "linearScalar", "angularScalar");
         otosName = text(otos, "name");
         if (!"forward-negative-x-right-positive-y-clockwise-negative"
                 .equals(text(otos, "rawAxes"))) {
@@ -149,6 +150,7 @@ public final class RobotProfile {
         }
         otosBackCm = number(otos, "opticalCenterFromBackCm");
         otosLeftCm = number(otos, "opticalCenterFromLeftCm");
+        otosMountingRotationDegrees = number(otos, "mountingRotationDegrees");
         otosLinearScalar = number(otos, "linearScalar");
         otosAngularScalar = number(otos, "angularScalar");
         if (otosBackCm < 0 || otosBackCm > chassisLengthCm
@@ -195,7 +197,9 @@ public final class RobotProfile {
         public final double arrivalToleranceIn;
         public final double precisionDistanceIn;
         public final double headingToleranceDegrees;
+        public final double transitAlignmentPower;
         public final double stationarySpeedInPerSec;
+        public final boolean bypassSettleTranslationSpeed;
         public final double stationaryTurnRateDegreesPerSec;
         public final double settleSeconds;
         public final double timeoutSeconds;
@@ -216,7 +220,8 @@ public final class RobotProfile {
                     "startWallPlacementToleranceIn",
                     "flowerStandoffIn", "curveInsetIn", "parkingOverlapIn", "transitPower", "finalApproachPower",
                     "arrivalToleranceIn", "precisionDistanceIn", "headingToleranceDegrees",
-                    "stationarySpeedInPerSec",
+                    "transitAlignmentPower",
+                    "stationarySpeedInPerSec", "bypassSettleTranslationSpeed",
                     "stationaryTurnRateDegreesPerSec",
                     "settleSeconds", "timeoutSeconds", "progressTimeoutSeconds",
                     "progressThresholdIn", "translationalP", "translationalD",
@@ -238,7 +243,9 @@ public final class RobotProfile {
             arrivalToleranceIn = positive(settings, "arrivalToleranceIn", false);
             precisionDistanceIn = positive(settings, "precisionDistanceIn", false);
             headingToleranceDegrees = positive(settings, "headingToleranceDegrees", false);
+            transitAlignmentPower = fraction(settings, "transitAlignmentPower");
             stationarySpeedInPerSec = positive(settings, "stationarySpeedInPerSec", false);
+            bypassSettleTranslationSpeed = bool(settings, "bypassSettleTranslationSpeed");
             stationaryTurnRateDegreesPerSec =
                     positive(settings, "stationaryTurnRateDegreesPerSec", false);
             settleSeconds = positive(settings, "settleSeconds", false);
@@ -302,7 +309,9 @@ public final class RobotProfile {
             return read(active, reader, requiredRobot);
         } catch (FileNotFoundException exception) {
             throw new IllegalStateException("Missing profile for active configuration " + active
-                    + ": " + path, exception);
+                    + ": " + path + ". Upload the matching XML and profile with pushRobotConfigs; "
+                    + "select the matching configuration in Driver Station -> Configure Robot.",
+                    exception);
         } catch (IOException | RuntimeException exception) {
             throw new IllegalStateException("Invalid robot profile " + path + ": "
                     + exception.getMessage(), exception);

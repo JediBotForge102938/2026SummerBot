@@ -19,6 +19,8 @@ public class OTOSFieldNavigationTestTeleOp extends OpMode {
     private boolean previousDown;
     private final DriveSubsystem drive = new DriveSubsystem();
     private SparkFunOTOS otos;
+    private RobotProfile profile;
+    private double mountingRotationRadians;
     private boolean previousX;
     private boolean previousOptions;
     private boolean previousA;
@@ -34,7 +36,8 @@ public class OTOSFieldNavigationTestTeleOp extends OpMode {
         drivePowerPercent = 45;
         previousUp = false;
         previousDown = false;
-        RobotProfile profile = RobotProfile.loadActive("starterbot");
+        profile = RobotProfile.loadActive("starterbot");
+        mountingRotationRadians = Math.toRadians(profile.otosMountingRotationDegrees);
         navigator = new OTOSFieldNavigator(
                 BioBuzzFieldMap.ROBOT_HALF_SIZE - profile.otosBackCm / 2.54,
                 profile.otosLeftCm / 2.54 - BioBuzzFieldMap.ROBOT_HALF_SIZE);
@@ -164,8 +167,12 @@ public class OTOSFieldNavigationTestTeleOp extends OpMode {
     }
 
     private void updateFieldPose() {
-        navigator.updatePose(position.x, position.y, position.h,
-                velocity.x, velocity.y, velocity.h);
+        double cos = Math.cos(mountingRotationRadians);
+        double sin = Math.sin(mountingRotationRadians);
+        navigator.updatePose(position.x * cos - position.y * sin,
+                position.x * sin + position.y * cos, position.h,
+                velocity.x * cos - velocity.y * sin,
+                velocity.x * sin + velocity.y * cos, velocity.h);
     }
 
     private boolean stationary() {
@@ -202,6 +209,8 @@ public class OTOSFieldNavigationTestTeleOp extends OpMode {
     }
 
     private void publishReadings() {
+        telemetry.addData("Robot profile", profile.name);
+        telemetry.addLine("StarterBot only: this navigator assumes an 18-inch square chassis.");
         SparkFunOTOS.Status status = otos.getStatus();
 
         telemetry.addLine("Sticks: drive. A: return home / cancel. Y: stop. B or sticks: cancel.");

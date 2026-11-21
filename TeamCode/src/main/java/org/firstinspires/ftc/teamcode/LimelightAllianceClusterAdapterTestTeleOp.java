@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,16 +14,26 @@ import java.util.List;
 @TeleOp(name = "Limelight Alliance Cluster Adapter Test", group = "2 - (Tests)")
 public class LimelightAllianceClusterAdapterTestTeleOp extends OpMode {
     private final VisionSubsystem vision = new VisionSubsystem();
+    private RobotProfile profile;
     private BioBuzzLimelightClusterAdapter.Alliance selectedAlliance =
             BioBuzzLimelightClusterAdapter.Alliance.BLUE;
 
     @Override
     public void init() {
-        vision.init(hardwareMap);
-        telemetry.addData("Limelight", VisionSubsystem.LIMELIGHT_NAME);
-        telemetry.addData("Pipeline", VisionSubsystem.LIMELIGHT_PIPELINE);
+        profile = RobotProfile.loadActive(null);
+        vision.init(hardwareMap, profile);
+        telemetry.addData("Robot profile", profile.name);
+        telemetry.addData("Limelight", profile.limelightName);
+        telemetry.addData("Pipeline", profile.limelightPipeline);
         telemetry.addData("Selected alliance", selectedAlliance);
         telemetry.addLine("Press Options to switch alliance");
+    }
+
+    @Override public void init_loop() {
+        telemetry.addData("Robot profile", profile.name);
+        telemetry.addData("Selected alliance", selectedAlliance);
+        telemetry.addLine("Press Options to switch alliance");
+        telemetry.update();
     }
 
     @Override

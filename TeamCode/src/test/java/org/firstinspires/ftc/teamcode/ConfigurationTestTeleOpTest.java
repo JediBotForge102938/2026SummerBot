@@ -61,8 +61,7 @@ public class ConfigurationTestTeleOpTest {
         opMode.init_loop();
         verify(opMode.telemetry).clearAll();
         verify(opMode.telemetry).addLine("<b>Configuration</b>");
-        verify(opMode.telemetry).addLine(
-                "<tt>&nbsp;&nbsp;Robot&nbsp;profile:&nbsp;biobuzz-starterbot</tt>");
+        verify(opMode.telemetry).addData("Robot profile", "biobuzz-starterbot");
         verify(opMode.telemetry).addLine(allianceRow(true, true));
         verify(opMode.telemetry).addLine(driveRow(false, "Field-centric"));
         verify(opMode.telemetry).addLine(spotRow(false, "Audience"));

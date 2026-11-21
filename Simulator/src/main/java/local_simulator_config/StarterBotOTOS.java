@@ -11,11 +11,13 @@ public final class StarterBotOTOS extends SparkFunOTOS {
     private final SparkFunOTOSInternal sensor;
     private final double forwardCm;
     private final double rightCm;
+    private final double mountingRotationRadians;
 
     public StarterBotOTOS(SparkFunOTOSInternal sensor, RobotProfile profile) {
         this.sensor = sensor;
         forwardCm = profile.otosBackCm - profile.chassisLengthCm / 2;
-        rightCm = profile.chassisWidthCm / 2 - profile.otosLeftCm;
+        rightCm = profile.otosLeftCm - profile.chassisWidthCm / 2;
+        mountingRotationRadians = Math.toRadians(profile.otosMountingRotationDegrees);
     }
 
     @Override public void setLinearUnit(DistanceUnit unit) { sensor.setLinearUnit(unit); }
@@ -88,5 +90,16 @@ public final class StarterBotOTOS extends SparkFunOTOS {
         acc.x = -(a.x * cos - a.y * sin - alpha * oy - omega * omega * ox);
         acc.y = -(a.x * sin + a.y * cos + alpha * ox - omega * omega * oy);
         acc.h = a.h;
+        double mountCos = Math.cos(mountingRotationRadians);
+        double mountSin = Math.sin(mountingRotationRadians);
+        rotateToRaw(pos, mountCos, mountSin);
+        rotateToRaw(vel, mountCos, mountSin);
+        rotateToRaw(acc, mountCos, mountSin);
+    }
+
+    private static void rotateToRaw(Pose2D value, double cos, double sin) {
+        double x = value.x;
+        value.x = x * cos + value.y * sin;
+        value.y = -x * sin + value.y * cos;
     }
 }

@@ -11,6 +11,10 @@ import org.firstinspires.ftc.teamcode.TestProfiles;
 import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem.StartingSpot;
 import org.junit.Before;
 import org.junit.Test;
+import java.io.File;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 public class TrackingSubsystemTest {
     private TrackingSubsystem tracking;
@@ -61,7 +65,7 @@ public class TrackingSubsystemTest {
         FieldMap.Pose start = new FieldMap.Pose(0, 0, 0);
         tracking.start(start);
         double forward = (profile.otosBackCm - profile.chassisLengthCm / 2) / 2.54;
-        double right = (profile.chassisWidthCm / 2 - profile.otosLeftCm) / 2.54;
+        double right = (profile.otosLeftCm - profile.chassisWidthCm / 2) / 2.54;
         // A stationary robot rotates 90 degrees: raw readings report sensor displacement.
         double dx = right - forward;
         double dy = forward + right;
@@ -115,6 +119,8 @@ public class TrackingSubsystemTest {
         vx = -10;
         vy = 2;
         tracking.update(90, 0);
+        assertEquals(-10, tracking.getOtosVelocityX(), 1e-9);
+        assertEquals(2, tracking.getOtosVelocityY(), 1e-9);
         assertEquals(2, tracking.getVelocityX(), 1e-9);
         assertEquals(10, tracking.getVelocityY(), 1e-9);
         assertFalse(tracking.isStationary(1.5, 5));
@@ -123,7 +129,7 @@ public class TrackingSubsystemTest {
 
         tracking.start(new FieldMap.Pose(0, 0, 0));
         double forward = (profile.otosBackCm - profile.chassisLengthCm / 2) / 2.54;
-        double right = (profile.chassisWidthCm / 2 - profile.otosLeftCm) / 2.54;
+        double right = (profile.otosLeftCm - profile.chassisWidthCm / 2) / 2.54;
         double omega = Math.toRadians(30);
         vx = omega * forward;
         vy = -omega * right;
@@ -131,5 +137,60 @@ public class TrackingSubsystemTest {
         assertEquals(0, tracking.getSpeedInchesPerSecond(), 1e-9);
         assertEquals(30, tracking.getHeadingRateDegreesPerSecond(), 0);
         assertFalse(tracking.isStationary(1.5, 5));
+    }
+
+    @Test public void rotatedMountingTransformsPositionVelocityAndLeverArm() throws Exception {
+        String json = new String(Files.readAllBytes(
+                new File("../robot-configs/biobuzz-competitionbot.profile.json").toPath()),
+                StandardCharsets.UTF_8);
+        for (int rotation : new int[] {90, -90}) {
+            RobotProfile rotated = RobotProfile.read("test", new StringReader(
+                    json.replace("\"mountingRotationDegrees\": -90",
+                            "\"mountingRotationDegrees\": " + rotation)), "competitionbot");
+            tracking.init(mockHardware(), rotated);
+            x = 5; y = 7; vx = vy = 0;
+            tracking.start(new FieldMap.Pose(12, -63, 90));
+            double sign = rotation / 90.0;
+            x = 5 + sign * 2;
+            y = 7 + sign * 10;
+            vx = sign * 2;
+            vy = sign * 10;
+            tracking.update(90, 0);
+            assertEquals(14, tracking.getPose().x, 1e-8);
+            assertEquals(-53, tracking.getPose().y, 1e-8);
+            assertEquals(2, tracking.getVelocityX(), 1e-8);
+            assertEquals(10, tracking.getVelocityY(), 1e-8);
+
+            x = y = vx = vy = 0;
+            tracking.start(new FieldMap.Pose(0, 0, 0));
+            double forward = (rotated.otosBackCm - rotated.chassisLengthCm / 2) / 2.54;
+            double right = (rotated.otosLeftCm - rotated.chassisWidthCm / 2) / 2.54;
+            double nominalX = forward - right;
+            double nominalY = -forward - right;
+            x = sign * nominalY;
+            y = -sign * nominalX;
+            double omega = Math.toRadians(30);
+            vx = sign * (-omega * right);
+            vy = -sign * (omega * forward);
+            tracking.update(90, 30);
+            assertEquals(0, tracking.getPose().x, 1e-8);
+            assertEquals(0, tracking.getPose().y, 1e-8);
+            assertEquals(0, tracking.getSpeedInchesPerSecond(), 1e-8);
+        }
+    }
+
+    @Test public void blueAudienceClockwiseTurnUsesPhysicalLeftMountingOffset() {
+        tracking.start(new FieldMap.Pose(12, -38, 90));
+        x = -7.645669291338583;
+        y = 4.448818897637795;
+        tracking.update(0, 0);
+        assertEquals(12, tracking.getPose().x, 1e-8);
+        assertEquals(-38, tracking.getPose().y, 1e-8);
+    }
+
+    private HardwareMap mockHardware() {
+        HardwareMap hardware = mock(HardwareMap.class);
+        when(hardware.get(SparkFunOTOS.class, "otos")).thenReturn(sensor);
+        return hardware;
     }
 }

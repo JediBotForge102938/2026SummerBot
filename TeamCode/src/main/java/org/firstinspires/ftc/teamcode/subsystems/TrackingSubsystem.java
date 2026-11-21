@@ -37,7 +37,7 @@ public final class TrackingSubsystem {
         }
         otos.resetTracking();
         sensorForward = (profile.otosBackCm - profile.chassisLengthCm / 2) / 2.54;
-        sensorRight = (profile.chassisWidthCm / 2 - profile.otosLeftCm) / 2.54;
+        sensorRight = (profile.otosLeftCm - profile.chassisWidthCm / 2) / 2.54;
     }
 
     public void start(FieldMap.Pose initial) {
@@ -76,8 +76,15 @@ public final class TrackingSubsystem {
         if (lost) return;
         double h0 = Math.toRadians(start.headingDegrees);
         double h = Math.toRadians(imuHeadingDegrees);
-        double dx = position.x - initialX;
-        double dy = position.y - initialY;
+        double rotation = Math.toRadians(profile.otosMountingRotationDegrees);
+        double cos = Math.cos(rotation);
+        double sin = Math.sin(rotation);
+        double rawDx = position.x - initialX;
+        double rawDy = position.y - initialY;
+        double dx = rawDx * cos - rawDy * sin;
+        double dy = rawDx * sin + rawDy * cos;
+        double vx = velocity.x * cos - velocity.y * sin;
+        double vy = velocity.x * sin + velocity.y * cos;
         headingRateDegreesPerSecond = Double.isFinite(imuRateDegreesPerSecond)
                 ? imuRateDegreesPerSecond : velocity.h;
         double initialOffsetX = sensorForward * Math.cos(h0) + sensorRight * Math.sin(h0);
@@ -89,9 +96,9 @@ public final class TrackingSubsystem {
                 start.y - dx * Math.sin(h0) - dy * Math.cos(h0)
                 + initialOffsetY - offsetY, normalize(imuHeadingDegrees));
         double omega = Math.toRadians(headingRateDegreesPerSecond);
-        centerVx = -velocity.x * Math.cos(h0) + velocity.y * Math.sin(h0)
+        centerVx = -vx * Math.cos(h0) + vy * Math.sin(h0)
                 - omega * (-sensorForward * Math.sin(h) + sensorRight * Math.cos(h));
-        centerVy = -velocity.x * Math.sin(h0) - velocity.y * Math.cos(h0)
+        centerVy = -vx * Math.sin(h0) - vy * Math.cos(h0)
                 - omega * (sensorForward * Math.cos(h) + sensorRight * Math.sin(h));
         status = "Estimated; OTOS + IMU";
     }
@@ -99,6 +106,8 @@ public final class TrackingSubsystem {
     public FieldMap.Pose getPose() { return pose; }
     public String getStatus() { return status; }
     public double getOtosHeading() { return position.h; }
+    public double getOtosVelocityX() { return velocity.x; }
+    public double getOtosVelocityY() { return velocity.y; }
     public double getVelocityX() { return centerVx; }
     public double getVelocityY() { return centerVy; }
     public double getSpeedInchesPerSecond() { return Math.hypot(centerVx, centerVy); }

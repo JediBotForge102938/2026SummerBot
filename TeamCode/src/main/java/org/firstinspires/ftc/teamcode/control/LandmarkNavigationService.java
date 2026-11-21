@@ -24,6 +24,7 @@ import java.util.Locale;
 /** Reusable, guarded Pedro autonomous follower using the established OTOS + hub-IMU pose. */
 public final class LandmarkNavigationService {
     private final RobotProfile profile;
+    private final DriveSubsystem drive;
     private final TrackingSubsystem tracking;
     private final LandmarkFieldMap map;
     private final Follower follower;
@@ -32,6 +33,7 @@ public final class LandmarkNavigationService {
     private int waypointIndex;
     private boolean active;
     private boolean awaitingSettle;
+    private boolean aligningTransit;
     private double startedAt;
     private double progressAt;
     private double bestError;
@@ -55,6 +57,7 @@ public final class LandmarkNavigationService {
             throw new IllegalArgumentException("Heading response scale must be finite and positive");
         }
         this.profile = profile;
+        this.drive = drive;
         this.tracking = tracking;
         map = new LandmarkFieldMap(profile);
         Localizer localizer = new PedroTrackingLocalizer(tracking);
@@ -172,6 +175,28 @@ public final class LandmarkNavigationService {
             return;
         }
 
+        double headingError = angleDifference(waypoint.pose.headingDegrees, pose.headingDegrees);
+        if (waypoint.segment == LandmarkFieldMap.Segment.TRANSIT
+                && distance(pose, waypoint.pose) <= profile.navigation.arrivalToleranceIn
+                && Math.abs(headingError) > profile.navigation.headingToleranceDegrees) {
+            if (!aligningTransit) {
+                follower.breakFollowing();
+                aligningTransit = true;
+            }
+            awaitingSettle = false;
+            settledAt = Double.NaN;
+            powerLimit = profile.navigation.transitAlignmentPower;
+            drive.driveRobotRelative(0, 0, -Math.copySign(powerLimit, headingError));
+            phase = "Aligning";
+            status = "Aligning at transit waypoint";
+            return;
+        }
+        if (aligningTransit) {
+            follower.holdPoint(pedroPose(waypoint.pose));
+            awaitingSettle = true;
+            aligningTransit = false;
+            phase = waypoint.segment.name();
+        }
         if (withinArrival(pose, waypoint.pose)) {
             if (!awaitingSettle) {
                 follower.holdPoint(pedroPose(waypoint.pose));
@@ -180,8 +205,7 @@ public final class LandmarkNavigationService {
             powerLimit = Math.min(powerFor(waypoint.segment), profile.navigation.finalApproachPower);
             follower.setMaxPowerScaling(powerLimit);
             follower.update();
-            if (!tracking.isStationary(profile.navigation.stationarySpeedInPerSec,
-                    profile.navigation.stationaryTurnRateDegreesPerSec)) {
+            if (!isSettledMotion()) {
                 settledAt = Double.NaN;
             } else if (Double.isNaN(settledAt)) {
                 beginSettle(pose, nowSeconds);
@@ -214,6 +238,7 @@ public final class LandmarkNavigationService {
     public void cancel(String reason) {
         active = false;
         awaitingSettle = false;
+        aligningTransit = false;
         settledAt = Double.NaN;
         powerLimit = 0;
         if (follower != null) {
@@ -284,8 +309,7 @@ public final class LandmarkNavigationService {
             return;
         }
         stopDrive();
-        if (!tracking.isStationary(profile.navigation.stationarySpeedInPerSec,
-                profile.navigation.stationaryTurnRateDegreesPerSec)) {
+        if (!isSettledMotion()) {
             settledAt = Double.NaN;
         } else if (Double.isNaN(settledAt)) {
             beginSettle(pose, nowSeconds);
@@ -298,6 +322,16 @@ public final class LandmarkNavigationService {
         return distance(pose, goal) <= profile.navigation.arrivalToleranceIn
                 && Math.abs(angleDifference(pose.headingDegrees, goal.headingDegrees))
                         <= profile.navigation.headingToleranceDegrees;
+    }
+
+    private boolean isSettledMotion() {
+        if (profile.navigation.bypassSettleTranslationSpeed) {
+            return tracking.hasValidMotion()
+                    && Math.abs(tracking.getHeadingRateDegreesPerSecond())
+                            <= profile.navigation.stationaryTurnRateDegreesPerSec;
+        }
+        return tracking.isStationary(profile.navigation.stationarySpeedInPerSec,
+                profile.navigation.stationaryTurnRateDegreesPerSec);
     }
 
     private void resetProgress(double nowSeconds) {
