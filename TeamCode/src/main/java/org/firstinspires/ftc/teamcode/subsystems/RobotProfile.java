@@ -53,11 +53,12 @@ public final class RobotProfile {
     public final double otosLinearScalar;
     public final double otosAngularScalar;
     public final NavigationSettings navigation;
+    public final JsonObject tuning;
 
     private RobotProfile(String name, JsonObject root) {
         this.name = name;
         requireKnownKeys(root, "schemaVersion", "robot", "chassis", "drive", "intake", "launcher", "imu", "limelight",
-                "otos", "navigation");
+                "otos", "navigation", "tuning");
         if (integer(root, "schemaVersion") != 9) {
             throw new IllegalArgumentException("Unsupported profile schema version");
         }
@@ -174,6 +175,21 @@ public final class RobotProfile {
             throw new IllegalArgumentException("OTOS scalars must be between 0.872 and 1.127");
         }
         navigation = root.has("navigation") ? new NavigationSettings(object(root, "navigation")) : null;
+        tuning = root.has("tuning") ? object(root, "tuning") : new JsonObject();
+        requireKnownKeys(tuning, "testPower", "testDistanceIn", "testAngleDegrees",
+                "measurementPoweredSeconds");
+        for (String key : new String[] {"testPower", "testDistanceIn", "testAngleDegrees",
+                "measurementPoweredSeconds"}) {
+            if (!tuning.has(key)) continue;
+            double value = number(tuning, key);
+            double min = key.equals("testPower") ? 0.05 : key.equals("testAngleDegrees") ? 5
+                    : key.equals("measurementPoweredSeconds") ? 0.5 : 1;
+            double max = key.equals("testPower") ? 1 : key.equals("testAngleDegrees") ? 90
+                    : key.equals("measurementPoweredSeconds") ? 2 : 24;
+            if (value < min || value > max) {
+                throw new IllegalArgumentException(key + " outside tuner range");
+            }
+        }
     }
 
     public static final class GateConfig {
@@ -225,6 +241,12 @@ public final class RobotProfile {
         public final double driveD;
         public final double forwardVelocity;
         public final double lateralVelocity;
+        public final double translationalF;
+        public final double headingF;
+        public final double driveF;
+        public final double massKg;
+        public final double forwardZeroPowerAcceleration;
+        public final double lateralZeroPowerAcceleration;
 
         private NavigationSettings(JsonObject settings) {
             requireKnownKeys(settings, "geometryVerified", "pedroTuningVerified",
@@ -238,7 +260,8 @@ public final class RobotProfile {
                     "settleSeconds", "timeoutSeconds", "progressTimeoutSeconds",
                     "progressThresholdIn", "translationalP", "translationalD",
                     "headingP", "headingD", "driveP", "driveD", "forwardVelocity",
-                    "lateralVelocity");
+                    "lateralVelocity", "translationalF", "headingF", "driveF", "massKg",
+                    "forwardZeroPowerAcceleration", "lateralZeroPowerAcceleration");
             geometryVerified = bool(settings, "geometryVerified");
             pedroTuningVerified = bool(settings, "pedroTuningVerified");
             simulatorEnabled = bool(settings, "simulatorEnabled");
@@ -272,6 +295,17 @@ public final class RobotProfile {
             driveD = positive(settings, "driveD", true);
             forwardVelocity = positive(settings, "forwardVelocity", false);
             lateralVelocity = positive(settings, "lateralVelocity", false);
+            translationalF = feedforward(settings, "translationalF");
+            headingF = feedforward(settings, "headingF");
+            driveF = feedforward(settings, "driveF");
+            massKg = settings.has("massKg") ? positive(settings, "massKg", false) : 10.65;
+            forwardZeroPowerAcceleration = settings.has("forwardZeroPowerAcceleration")
+                    ? number(settings, "forwardZeroPowerAcceleration") : -41.278;
+            lateralZeroPowerAcceleration = settings.has("lateralZeroPowerAcceleration")
+                    ? number(settings, "lateralZeroPowerAcceleration") : -59.7819;
+            if (forwardZeroPowerAcceleration >= 0 || lateralZeroPowerAcceleration >= 0) {
+                throw new IllegalArgumentException("Zero-power accelerations must be negative in/s^2");
+            }
             if (finalApproachPower > transitPower) {
                 throw new IllegalArgumentException(
                         "Final-approach power must not exceed transit power");
@@ -296,6 +330,12 @@ public final class RobotProfile {
             if (value <= 0 || value > 1) {
                 throw new IllegalArgumentException(key + " must be in (0, 1]");
             }
+            return value;
+        }
+
+        private static double feedforward(JsonObject settings, String key) {
+            double value = settings.has(key) ? positive(settings, key, true) : 0;
+            if (value > 1) throw new IllegalArgumentException(key + " must be in [0, 1]");
             return value;
         }
     }

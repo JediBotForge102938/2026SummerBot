@@ -395,6 +395,114 @@ no obstacle avoidance; keep the path clear and watch for wall contact. This
 does not determine parking overlap or whether the whole chassis is in the zone;
 that depends on your starting placement.
 
+## Pedro chassis tuning
+
+Select **Pedro Chassis Tuning** in **2 - (Tests)** with the desired robot's
+hardware configuration and paired profile active. It needs only drive motors,
+the hub IMU, and OTOS; no intake, launcher, or camera is initialized.
+The tuner shares Leave & Park's Pedro follower factory, OTOS + hub-IMU
+localizer, chassis mixer, rotation priority, and endpoint-hold scaling.
+It intentionally bypasses `geometryVerified` / `pedroTuningVerified` so an
+unverified chassis can be measured. It does not change either evidence flag.
+
+Keep the robot flat and still in INIT. START establishes a local X-forward,
+Y-left, counterclockwise-positive frame, without moving the robot. This is
+not a field-map start; localization remains continuous between trials.
+Reserve at least 48 inches of unobstructed travel in the selected direction,
+plus braking margin and the chassis footprint. No mapped obstacle avoidance
+is provided. Keep people clear and Driver Station STOP ready.
+
+| Control | Action |
+|---|---|
+| D-pad up/down, while idle | Next/previous test |
+| Right/left bumper, while idle | Next/previous adjustable parameter |
+| D-pad right/left, while idle | Increase/decrease selected value by displayed step |
+| X, while idle | Reverse trial direction (forward/back, left/right, CCW/CW) |
+| A, after release, after START | Run one trial from the current pose |
+| B or Y | Cancel and zero the drive; another A press is required to restart |
+| Driver Station STOP | Stop all drive outputs |
+
+Settings may be selected in INIT. Held A at START does not launch a trial.
+Parameter/test changes are ignored during motion: cancel, adjust, then rerun.
+The default test power is 20%, target distance 12 inches, and heading step
+30 degrees. Power can be deliberately increased up to 100%; do not begin there.
+Every trial requires measured stationarity, stops on invalid tracking, and has
+a 10-second, 48-inch displacement, and 120-degree relative-heading envelope.
+These are software checks, not a guarantee of physical stopping distance.
+
+Tune each robot separately, on field tiles with normal robot weight:
+
+1. **LOCALIZATION:** push the robot by hand; this mode never commands motors.
+   Compare displacement to a tape measure, check all signs, and verify that
+   turning in place does not move the corrected robot-center estimate.
+2. **POWER_FORWARD / POWER_LEFT / POWER_TURN:** two-second fixed-power pulses.
+   Test both directions to find reliable starting/sustained movement and
+   investigate stalled or asymmetric wheels before tuning PID response.
+3. **MEASURE_FORWARD / MEASURE_LEFT:** by default 1.5 seconds of powered motion followed
+   by up to two seconds at zero power with the normal **BRAKE** behavior.
+   `measurementPoweredSeconds` adjusts the powered duration from 0.5 to 2 seconds;
+   shorten it for faster drivetrains to stay inside the travel envelope.
+   Telemetry retains mean velocity over the final powered third (at most half a second) and
+   the fitted signed deceleration in in/s². Trials reject more than 5 degrees
+   of heading drift, inadequate samples, nonpositive speed, nonnegative deceleration, or
+   a speed range exceeding 15% of its mean. Insufficient clearance, acceleration
+   time, or loop rate can prevent a valid measurement. Only measurements at
+   100% are labelled full-power speeds; never extrapolate a low-power result
+   into `forwardVelocity` or `lateralVelocity`. Repeat measurements in both
+   directions; a single fitted deceleration is not a complete braking model.
+4. **HEADING:** a relative heading step with translation correction disabled.
+   Adjust `headingP`, `headingD`, and `headingF`; test small and large errors
+   in both directions, seeking reliable correction without oscillation.
+5. **POSITION_FORWARD / POSITION_LEFT:** hold a point at the selected relative
+   distance, with heading correction disabled to isolate translational P/D/F.
+   Use short distances first, then test both axes and directions.
+6. **PATH_FORWARD / PATH_LEFT:** straight Pedro paths with heading and
+   translation correction enabled; tune drive P/D/F and braking response.
+   Hold/straight-path trials stop after the profile's position/heading
+   tolerances and actual stationarity are maintained for `settleSeconds`.
+   The diagnostic `bypassSettleTranslationSpeed` flag is not used by the tuner.
+   Finish by exercising actual Leave & Park routes from all four mapped starts.
+
+Telemetry includes corrected pose/velocity, target error, Pedro's stuck/busy
+state and remaining distance, and all four applied wheel powers.
+Every adjustable parameter is listed by its JSON key during INIT and after
+START, with the selected row marked `>`. Each idle value adjustment immediately
+patches the active `/sdcard/FIRST/robot-profiles/<active-config>.profile.json`.
+Navigation gains and chassis constants go in `navigation`; the four trial
+controls (`testPower`, `testDistanceIn`, `testAngleDegrees`,
+`measurementPoweredSeconds`) go in an optional top-level `tuning` object.
+INIT reloads those saved values, including the last test power; check it before
+starting a trial. Profiles without `tuning` retain the initial 20%/12-in/30-degree/
+1.5-second defaults. Test selection and direction are not persisted.
+
+Writes validate the complete profile, preserve unrelated settings, and replace
+the file atomically. Telemetry reports `Saved` or `NOT SAVED` on each edit.
+On failure, the edited value remains in RAM for the current tuning session,
+but the disk profile remains unchanged. P must remain positive in a deployed
+profile; setting it to zero for an isolated experiment explicitly reports
+`NOT SAVED`. Simulator bundled profiles are read-only and report save failures.
+Measured results are still not automatically applied; enter accepted measurements
+into the adjustable settings to save them. No verification flags are changed.
+
+Saved navigation edits also affect subsequent autonomous runs. They persist
+across OpMode restarts, but a future profile upload overwrites them. Pull/copy
+the controller JSON back into the paired source file before uploading again.
+The tuner does not synchronize changes to the repository.
+Measure `massKg` with a scale, not a motion trial.
+
+Version 9 profiles now support optional `translationalF`, `headingF`, `driveF`
+(each in [0, 1]), `massKg` (positive kg), and
+`forwardZeroPowerAcceleration` / `lateralZeroPowerAcceleration` (negative
+in/s²). Missing values retain the prior behavior: F = 0, mass = 10.65 kg,
+forward acceleration = -41.278, lateral acceleration = -59.7819.
+Those inherited Pedro defaults are **not chassis measurements**.
+Integral gains remain zero. Upload the updated app before adding these new
+keys or the top-level `tuning` object to deployed profiles; older apps reject
+unknown profile fields.
+Feedforward is applied through Pedro, not a blanket minimum on every wheel.
+Tune it carefully to avoid jitter; combined translation/rotation can still
+reduce an individual wheel command through the shared mixer.
+
 ## Landmark travel test
 
 Select **Landmark Travel Test** in **2 - (Tests)**. INIT uses the existing

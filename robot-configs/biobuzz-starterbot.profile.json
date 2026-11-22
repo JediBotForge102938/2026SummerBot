@@ -49,10 +49,13 @@
     "progressThresholdIn": 0.1,
     "translationalP": 0.2,
     "translationalD": 0.0,
+    "translationalF": 0.0,
     "headingP": 1.0,
     "headingD": 0.0,
+    "headingF": 0.0,
     "driveP": 0.05,
     "driveD": 0.0,
+    "driveF": 0.0,
     "forwardVelocity": 25.0,
     "lateralVelocity": 20.0
   }

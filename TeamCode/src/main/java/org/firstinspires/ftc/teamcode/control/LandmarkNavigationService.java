@@ -1,16 +1,11 @@
 package org.firstinspires.ftc.teamcode.control;
 
-import com.pedropathing.control.FilteredPIDFCoefficients;
-import com.pedropathing.control.PIDFCoefficients;
 import com.pedropathing.follower.Follower;
-import com.pedropathing.follower.FollowerConstants;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathBuilder;
-import com.pedropathing.localization.Localizer;
-import com.pedropathing.paths.PathConstraints;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
 import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
@@ -60,29 +55,7 @@ public final class LandmarkNavigationService {
         this.drive = drive;
         this.tracking = tracking;
         map = new LandmarkFieldMap(profile);
-        Localizer localizer = new PedroTrackingLocalizer(tracking);
-        PedroDriveOutput output = new PedroDriveOutput(drive);
-        FollowerConstants constants = new FollowerConstants();
-        constants.defaults();
-        RobotProfile.NavigationSettings settings = profile.navigation;
-        constants.setCoefficientsTranslationalPIDF(
-                new PIDFCoefficients(settings.translationalP, 0,
-                        settings.translationalD, 0));
-        constants.setCoefficientsHeadingPIDF(
-                new PIDFCoefficients(settings.headingP * headingResponseScale,
-                        0, settings.headingD, 0));
-        constants.setCoefficientsDrivePIDF(
-                new FilteredPIDFCoefficients(settings.driveP, 0,
-                        settings.driveD, 0, 0));
-        constants.setAutomaticHoldEnd(true);
-        output.setXVelocity(settings.forwardVelocity);
-        output.setYVelocity(settings.lateralVelocity);
-        PathConstraints constraints = PathConstraints.defaultConstraints.copy();
-        constraints.setTranslationalConstraint(settings.arrivalToleranceIn);
-        constraints.setHeadingConstraint(Math.toRadians(settings.headingToleranceDegrees));
-        constraints.setVelocityConstraint(settings.stationarySpeedInPerSec);
-        follower = new Follower(constants, localizer, output, constraints);
-        follower.setMaxPowerScaling(settings.transitPower);
+        follower = ProfiledPedroFollower.create(drive, tracking, profile, headingResponseScale);
     }
 
     public boolean start(LandmarkFieldMap.Destination destination, double nowSeconds) {
