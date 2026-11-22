@@ -17,6 +17,7 @@ import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter;
 import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
 import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.ClusterDetection;
 import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
 import org.junit.Before;
 import org.junit.Test;
@@ -24,6 +25,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.io.File;
 
 public class HiveTrackingControllerTest {
     private Limelight3A camera;
@@ -78,6 +80,33 @@ public class HiveTrackingControllerTest {
         tracking.publishTelemetry(output);
         verify(output).value("Hive target", "BLUE SCORING");
         verify(output).status("Hive tracking", "LOCKED IN", RobotTelemetry.Level.SUCCESS);
+    }
+
+    @Test
+    public void invertedProfileNormalizesTagsAndAimingDirection() {
+        HardwareMap hardware = mock(HardwareMap.class);
+        when(hardware.get(Limelight3A.class, "limelight")).thenReturn(camera);
+        vision = new VisionSubsystem();
+        RobotProfile profile = RobotProfile.load(new File("../robot-configs"),
+                "biobuzz-competitionbot", "competitionbot");
+        vision.init(hardware, profile);
+        tracking = new HiveTrackingController(vision, preferences, () -> 0);
+        addInvertedTag(38, -35);
+        addInvertedTag(39, -45);
+        assertTrue(tracking.update(true) > 0);
+        assertTrue(tracking.hasTarget());
+        tags.clear();
+        addInvertedTag(39, -45);
+        assertTrue(tracking.update(true) > 0);
+    }
+
+    private void addInvertedTag(int id, double x) {
+        LLResultTypes.FiducialResult tag = mock(LLResultTypes.FiducialResult.class);
+        when(tag.getFiducialId()).thenReturn(id);
+        when(tag.getTargetPoseCameraSpace()).thenReturn(new Pose3D(
+                new Position(DistanceUnit.INCH, x, 0, 100, 0),
+                new YawPitchRollAngles(AngleUnit.DEGREES, 180, 0, -54, 0)));
+        tags.add(tag);
     }
 
     @Test

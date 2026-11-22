@@ -35,10 +35,13 @@ public class LimelightClusterTrackingTestTeleOp extends OpMode {
         telemetry.addLine("Hold B: turn and drive toward nearest cluster");
         telemetry.addData("Limelight", profile.limelightName);
         telemetry.addData("Pipeline", profile.limelightPipeline);
+        telemetry.addData("Camera mounting", "pitch up %.1f deg, lens roll %.1f deg, inverted %s",
+                profile.limelightPitchUpDegrees, profile.limelightRollDegrees, profile.limelightInverted);
     }
 
     @Override public void init_loop() {
         telemetry.addData("Robot profile", profile.name);
+        telemetry.addData("Camera pitch up", "%.1f deg", profile.limelightPitchUpDegrees);
         telemetry.addData("Selected alliance", selectedAlliance);
         telemetry.addLine("OPTIONS: switch alliance | Hold A: track | Hold B: follow");
         telemetry.update();
@@ -98,15 +101,23 @@ public class LimelightClusterTrackingTestTeleOp extends OpMode {
             telemetry.addData("Turn power", "%.2f", rotate);
             telemetry.addData(
                     "Cell status",
-                    "%s (ascending IDs and negative roll)",
+                    "%s (ascending IDs and all opening normals up)",
                     VisionSubsystem.classifyCell(target));
             telemetry.addData(
-                    "Cluster roll (diagnostic)",
+                    "Mount-compensated roll",
                     "%.1f deg",
                     VisionSubsystem.getClusterRollDegrees(target));
+            telemetry.addData("Camera-space roll", "%.1f deg",
+                    VisionSubsystem.getCameraSpaceRollDegrees(target));
+            telemetry.addData("Opening normal up (verify sign)", "%.3f; tag range %.3f to %.3f",
+                    target.openingNormalUp, target.minOpeningNormalUp, target.maxOpeningNormalUp);
+            telemetry.addLine("Known raised cell: expect positive opening-up; assumes tag +Z outward");
+            telemetry.addLine("Opening-up > 0: scorable; < 0: down; horizontal/disagreement: unknown");
         }
 
         telemetry.addData("Selected alliance", selectedAlliance);
+        telemetry.addData("Robot profile", profile.name);
+        telemetry.addData("Camera pitch up", "%.1f deg", profile.limelightPitchUpDegrees);
         telemetry.addData("Mode", mode);
         telemetry.addLine("OPTIONS: switch alliance | Hold A: track | Hold B: follow");
         telemetry.update();

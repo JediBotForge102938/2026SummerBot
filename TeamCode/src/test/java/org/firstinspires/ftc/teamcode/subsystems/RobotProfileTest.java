@@ -115,6 +115,8 @@ public class RobotProfileTest {
         assertEquals(0.15, starter.navigation.transitAlignmentPower, 0);
         assertEquals(0.4, competition.navigation.transitAlignmentPower, 0);
         assertEquals("limelight", starter.limelightName);
+        assertFalse(starter.limelightInverted);
+        assertTrue(competition.limelightInverted);
         assertEquals("competitionbot", competition.robot);
         assertEquals(DcMotorSimple.Direction.FORWARD, starter.intakeMotorDirection);
         assertEquals(DcMotorSimple.Direction.REVERSE, competition.intakeMotorDirection);
@@ -178,6 +180,7 @@ public class RobotProfileTest {
                 VALID.replace("\"motors\":[{\"name\":\"launcher\",\"direction\":\"FORWARD\"}]", "\"motors\":[null]"),
                 VALID.replace("\"pipeline\":3", "\"pipeline\":11"),
                 VALID.replace("\"pipeline\":3", "\"pipeline\":\"3\""),
+                VALID.replace("\"pipeline\":3", "\"pipeline\":3,\"inverted\":\"true\""),
                 VALID.replace("\"usbFacing\":\"FORWARD\"", "\"usbFacing\":\"DOWN\""),
                 VALID.replace("\"linearScalar\":1.02", "\"linearScalar\":2"),
                 VALID.replace("\"lengthCm\":45.72", "\"lengthCm\":0"),

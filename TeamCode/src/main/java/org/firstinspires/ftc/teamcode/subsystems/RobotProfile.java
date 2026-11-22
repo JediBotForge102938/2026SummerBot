@@ -39,6 +39,7 @@ public final class RobotProfile {
     public final RevHubOrientationOnRobot.UsbFacingDirection imuUsb;
     public final String limelightName;
     public final int limelightPipeline;
+    public final boolean limelightInverted;
     public final double limelightFromBackCm;
     public final double limelightFromLeftCm;
     public final double limelightHeightCm;
@@ -131,9 +132,11 @@ public final class RobotProfile {
         }
         JsonObject limelight = object(root, "limelight");
         requireKnownKeys(limelight, "name", "pipeline", "aimDirection", "lensFromBackCm",
-                "lensFromLeftCm", "lensHeightCm", "yawDegrees", "pitchUpDegrees", "rollDegrees");
+                "lensFromLeftCm", "lensHeightCm", "yawDegrees", "pitchUpDegrees", "rollDegrees",
+                "inverted");
         limelightName = text(limelight, "name");
         limelightPipeline = integer(limelight, "pipeline");
+        limelightInverted = limelight.has("inverted") && bool(limelight, "inverted");
         limelightFromBackCm = number(limelight, "lensFromBackCm");
         limelightFromLeftCm = number(limelight, "lensFromLeftCm");
         limelightHeightCm = number(limelight, "lensHeightCm");

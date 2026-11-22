@@ -5,6 +5,9 @@ import static org.mockito.Mockito.*;
 
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Arrays;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
@@ -16,9 +19,13 @@ import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
 import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.ClusterDetection;
 import org.firstinspires.ftc.teamcode.TestProfiles;
 import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
+import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 import org.junit.Test;
+import org.junit.Rule;
+import org.junit.rules.TemporaryFolder;
 
 public class ApproximateVisionPositionTest {
+    @Rule public TemporaryFolder folder = new TemporaryFolder();
     private ClusterDetection cluster(int first, double roll) {
         LLResult result = mock(LLResult.class);
         when(result.isValid()).thenReturn(true);
@@ -68,5 +75,37 @@ public class ApproximateVisionPositionTest {
     @Test public void rejectsNonScorableOrInvalidHeading() {
         assertNull(ApproximateVisionPosition.estimate(cluster(34, 10), TestProfiles.starter(), 0));
         assertNull(ApproximateVisionPosition.estimate(cluster(34, -10), TestProfiles.starter(), Double.NaN));
+    }
+
+    @Test public void normalizedInversionDoesNotDoubleApplyProfileRoll() throws Exception {
+        String json = new String(Files.readAllBytes(
+                new File("../robot-configs/biobuzz-starterbot.profile.json").toPath()),
+                StandardCharsets.UTF_8);
+        Files.write(new File(folder.getRoot(), "inverted.profile.json").toPath(),
+                json.replace("\"inverted\": false", "\"inverted\": true")
+                        .replace("\"rollDegrees\": 0", "\"rollDegrees\": 180")
+                        .getBytes(StandardCharsets.UTF_8));
+        RobotProfile invertedProfile = RobotProfile.load(folder.getRoot(), "inverted", "starterbot");
+        LLResult result = mock(LLResult.class);
+        when(result.isValid()).thenReturn(true);
+        LLResultTypes.FiducialResult first = mock(LLResultTypes.FiducialResult.class);
+        LLResultTypes.FiducialResult second = mock(LLResultTypes.FiducialResult.class);
+        when(first.getFiducialId()).thenReturn(34);
+        when(second.getFiducialId()).thenReturn(35);
+        when(first.getTargetPoseCameraSpace()).thenReturn(new Pose3D(
+                new Position(DistanceUnit.INCH, 5, -3, 60, 0),
+                new YawPitchRollAngles(AngleUnit.DEGREES, 180, 0, -10, 0)));
+        when(second.getTargetPoseCameraSpace()).thenReturn(new Pose3D(
+                new Position(DistanceUnit.INCH, -5, -3, 60, 0),
+                new YawPitchRollAngles(AngleUnit.DEGREES, 180, 0, -10, 0)));
+        when(result.getFiducialResults()).thenReturn(Arrays.asList(first, second));
+        ClusterDetection inverted = new BioBuzzLimelightClusterAdapter()
+                .detect(result, Alliance.BOTH, true).get(0);
+        FieldMap.Pose expected = ApproximateVisionPosition.estimate(cluster(34, -10),
+                TestProfiles.starter(), 45);
+        FieldMap.Pose actual = ApproximateVisionPosition.estimate(inverted, invertedProfile, 45);
+        assertNotNull(actual);
+        assertEquals(expected.x, actual.x, 1e-8);
+        assertEquals(expected.y, actual.y, 1e-8);
     }
 }

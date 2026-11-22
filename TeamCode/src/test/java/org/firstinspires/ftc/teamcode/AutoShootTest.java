@@ -479,10 +479,13 @@ public class AutoShootTest {
                 LLResultTypes.FiducialResult tag = mock(LLResultTypes.FiducialResult.class);
                 when(tag.getFiducialId()).thenReturn(firstId + i);
                 when(tag.getTargetPoseCameraSpace()).thenReturn(new Pose3D(
-                        new Position(DistanceUnit.INCH, x + (i == 0 ? -6.5 : -2.75), 0, 100, 0),
+                        new Position(DistanceUnit.INCH,
+                                (profile.limelightInverted ? -1 : 1)
+                                        * (x + (i == 0 ? -6.5 : -2.75)), 0, 100, 0),
                         new YawPitchRollAngles(
                                 org.firstinspires.ftc.robotcore.external.navigation.AngleUnit.DEGREES,
-                                0, 0, roll, 0)));
+                                profile.limelightInverted ? 180 : 0, 0,
+                                roll - profile.limelightPitchUpDegrees, 0)));
                 tags.add(tag);
             }
         }

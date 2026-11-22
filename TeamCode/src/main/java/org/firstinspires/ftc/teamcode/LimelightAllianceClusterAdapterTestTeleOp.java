@@ -25,12 +25,15 @@ public class LimelightAllianceClusterAdapterTestTeleOp extends OpMode {
         telemetry.addData("Robot profile", profile.name);
         telemetry.addData("Limelight", profile.limelightName);
         telemetry.addData("Pipeline", profile.limelightPipeline);
+        telemetry.addData("Camera mounting", "pitch up %.1f deg, lens roll %.1f deg, inverted %s",
+                profile.limelightPitchUpDegrees, profile.limelightRollDegrees, profile.limelightInverted);
         telemetry.addData("Selected alliance", selectedAlliance);
         telemetry.addLine("Press Options to switch alliance");
     }
 
     @Override public void init_loop() {
         telemetry.addData("Robot profile", profile.name);
+        telemetry.addData("Camera pitch up", "%.1f deg", profile.limelightPitchUpDegrees);
         telemetry.addData("Selected alliance", selectedAlliance);
         telemetry.addLine("Press Options to switch alliance");
         telemetry.update();
@@ -46,7 +49,10 @@ public class LimelightAllianceClusterAdapterTestTeleOp extends OpMode {
 
         telemetry.addData("Selected alliance", selectedAlliance);
         telemetry.addLine("Press Options to switch alliance");
-        telemetry.addLine("Roll check assumes camera optical axis aligns with launcher");
+        telemetry.addData("Robot profile", profile.name);
+        telemetry.addData("Camera pitch up", "%.1f deg", profile.limelightPitchUpDegrees);
+        telemetry.addLine("Opening-up > 0: scorable; < 0: down; horizontal/disagreement: unknown");
+        telemetry.addLine("Mount compensation assumes robot is level");
 
         VisionSubsystem.DetectionSnapshot snapshot = vision.update(selectedAlliance);
         if (!snapshot.hasValidResult) {
@@ -84,7 +90,7 @@ public class LimelightAllianceClusterAdapterTestTeleOp extends OpMode {
                     pose.getPosition().y,
                     pose.getPosition().z);
             telemetry.addData(
-                    "Limelight yaw / pitch / roll (deg)",
+                    "Camera-space yaw / pitch / roll (deg)",
                     "%6.1f / %6.1f / %6.1f",
                     pose.getOrientation().getYaw(AngleUnit.DEGREES),
                     pose.getOrientation().getPitch(AngleUnit.DEGREES),
@@ -94,9 +100,12 @@ public class LimelightAllianceClusterAdapterTestTeleOp extends OpMode {
             VisionSubsystem.CellStatus cellStatus = VisionSubsystem.classifyCell(cluster);
             telemetry.addData(
                     "Cell status",
-                    "%s (ascending IDs and negative roll)",
+                    "%s (ascending IDs and all opening normals up)",
                     cellStatus);
-            telemetry.addData("Cluster roll (diagnostic)", "%.1f deg", clusterRoll);
+            telemetry.addData("Mount-compensated roll", "%.1f deg", clusterRoll);
+            telemetry.addData("Opening normal up (verify sign)", "%.3f; tag range %.3f to %.3f",
+                    cluster.openingNormalUp, cluster.minOpeningNormalUp, cluster.maxOpeningNormalUp);
+            telemetry.addLine("Known raised cell: expect positive opening-up; assumes tag +Z outward");
             if (cellStatus == VisionSubsystem.CellStatus.UNKNOWN_POSE) {
                 unknownPoseCells.add(cluster.name);
             } else if (cellStatus == VisionSubsystem.CellStatus.NOT_SCORABLE) {

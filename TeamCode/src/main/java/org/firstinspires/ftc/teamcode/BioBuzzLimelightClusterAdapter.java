@@ -37,8 +37,8 @@ public final class BioBuzzLimelightClusterAdapter {
     }
 
     /**
-     * The pose is the cell-opening origin in Limelight camera space, in inches:
-     * X points right, Y down, and Z forward.
+     * The pose is the cell-opening origin in camera space, in inches, normalized
+     * for an inverted mounting: X points right, Y down, and Z forward.
      */
     public static final class ClusterDetection {
         public final String name;
@@ -48,6 +48,12 @@ public final class BioBuzzLimelightClusterAdapter {
         public final List<Integer> visibleTagIdsLeftToRight;
         public final int percentClusterFound;
         public final Pose3D poseCameraSpace;
+        /** Tag roll in a level frame aligned with the camera heading; robot assumed level. */
+        public final double mountCompensatedRollDegrees;
+        /** Assumes tag +Z faces outward from the bottom; +1 means the opening faces straight up. */
+        public final double openingNormalUp;
+        public final double minOpeningNormalUp;
+        public final double maxOpeningNormalUp;
 
         private ClusterDetection(
                 String name,
@@ -56,7 +62,11 @@ public final class BioBuzzLimelightClusterAdapter {
                 List<Integer> visibleTagIds,
                 List<Integer> visibleTagIdsLeftToRight,
                 int percentClusterFound,
-                Pose3D poseCameraSpace) {
+                Pose3D poseCameraSpace,
+                double mountCompensatedRollDegrees,
+                double openingNormalUp,
+                double minOpeningNormalUp,
+                double maxOpeningNormalUp) {
             this.name = name;
             this.alliance = alliance;
             this.audienceSide = audienceSide;
@@ -65,6 +75,10 @@ public final class BioBuzzLimelightClusterAdapter {
                     Collections.unmodifiableList(new ArrayList<>(visibleTagIdsLeftToRight));
             this.percentClusterFound = percentClusterFound;
             this.poseCameraSpace = poseCameraSpace;
+            this.mountCompensatedRollDegrees = mountCompensatedRollDegrees;
+            this.openingNormalUp = openingNormalUp;
+            this.minOpeningNormalUp = minOpeningNormalUp;
+            this.maxOpeningNormalUp = maxOpeningNormalUp;
         }
 
         public boolean hasPose() {
@@ -73,8 +87,20 @@ public final class BioBuzzLimelightClusterAdapter {
     }
 
     public List<ClusterDetection> detect(LLResult result, Alliance alliance) {
+        return detect(result, alliance, false);
+    }
+
+    public List<ClusterDetection> detect(LLResult result, Alliance alliance, boolean inverted) {
+        return detect(result, alliance, inverted, 0, inverted ? 180 : 0);
+    }
+
+    public List<ClusterDetection> detect(LLResult result, Alliance alliance, boolean inverted,
+            double pitchUpDegrees, double mountingRollDegrees) {
         if (alliance == null) {
             throw new IllegalArgumentException("alliance must not be null");
+        }
+        if (!Double.isFinite(pitchUpDegrees) || !Double.isFinite(mountingRollDegrees)) {
+            throw new IllegalArgumentException("Camera mounting angles must be finite");
         }
         if (result == null || !result.isValid()) {
             return Collections.emptyList();
@@ -95,7 +121,8 @@ public final class BioBuzzLimelightClusterAdapter {
 
             List<Integer> visibleTagIds = new ArrayList<>();
             List<TagObservation> posedTags = new ArrayList<>();
-            PoseAccumulator poseAccumulator = new PoseAccumulator();
+            PoseAccumulator poseAccumulator = new PoseAccumulator(inverted, pitchUpDegrees,
+                    mountingRollDegrees);
             for (int memberIndex = 0; memberIndex < TAGS_PER_CLUSTER; memberIndex++) {
                 int tagId = cluster.firstTagId + memberIndex;
                 LLResultTypes.FiducialResult fiducial = resultsByTagId.get(tagId);
@@ -107,7 +134,7 @@ public final class BioBuzzLimelightClusterAdapter {
                 Pose3D tagPose = fiducial.getTargetPoseCameraSpace();
                 if (hasUsablePose(tagPose)) {
                     Position tagPosition = tagPose.getPosition().toUnit(DistanceUnit.INCH);
-                    posedTags.add(new TagObservation(tagId, tagPosition.x));
+                    posedTags.add(new TagObservation(tagId, inverted ? -tagPosition.x : tagPosition.x));
                     poseAccumulator.add(tagPose, TAG_X_INCHES[memberIndex], TAG_Y_INCHES, TAG_Z_INCHES);
                 }
             }
@@ -126,10 +153,31 @@ public final class BioBuzzLimelightClusterAdapter {
                         visibleTagIds,
                         visibleTagIdsLeftToRight,
                         percentFound,
-                        poseAccumulator.build()));
+                        normalizePose(poseAccumulator.build(), inverted),
+                        poseAccumulator.buildCompensatedRollDegrees(),
+                        poseAccumulator.buildOpeningNormalUp(),
+                        poseAccumulator.count == 0 ? Double.NaN : poseAccumulator.minOpeningNormalUp,
+                        poseAccumulator.count == 0 ? Double.NaN : poseAccumulator.maxOpeningNormalUp));
             }
         }
         return Collections.unmodifiableList(clusters);
+    }
+
+    private static Pose3D normalizePose(Pose3D pose, boolean inverted) {
+        if (pose == null || !inverted) {
+            return pose;
+        }
+        Position position = pose.getPosition();
+        YawPitchRollAngles orientation = pose.getOrientation();
+        double yaw = orientation.getYaw(AngleUnit.RADIANS) + Math.PI;
+        return new Pose3D(
+                new Position(position.unit, -position.x, -position.y, position.z,
+                        position.acquisitionTime),
+                new YawPitchRollAngles(AngleUnit.RADIANS,
+                        Math.atan2(Math.sin(yaw), Math.cos(yaw)),
+                        orientation.getPitch(AngleUnit.RADIANS),
+                        orientation.getRoll(AngleUnit.RADIANS),
+                        orientation.getAcquisitionTime()));
     }
 
     private static boolean hasUsablePose(Pose3D pose) {
@@ -138,9 +186,13 @@ public final class BioBuzzLimelightClusterAdapter {
         }
 
         Position position = pose.getPosition();
+        YawPitchRollAngles orientation = pose.getOrientation();
         return Double.isFinite(position.x)
                 && Double.isFinite(position.y)
                 && Double.isFinite(position.z)
+                && Double.isFinite(orientation.getYaw(AngleUnit.RADIANS))
+                && Double.isFinite(orientation.getPitch(AngleUnit.RADIANS))
+                && Double.isFinite(orientation.getRoll(AngleUnit.RADIANS))
                 && (position.x != 0.0 || position.y != 0.0 || position.z != 0.0);
     }
 
@@ -167,6 +219,9 @@ public final class BioBuzzLimelightClusterAdapter {
     }
 
     private static final class PoseAccumulator {
+        private final boolean inverted;
+        private final double mountingPitch;
+        private final double residualMountingRoll;
         private int count;
         private double x;
         private double y;
@@ -177,7 +232,18 @@ public final class BioBuzzLimelightClusterAdapter {
         private double pitchCos;
         private double rollSin;
         private double rollCos;
+        private double compensatedRollSin;
+        private double compensatedRollCos;
+        private double openingNormalUpSum;
+        private double minOpeningNormalUp = Double.POSITIVE_INFINITY;
+        private double maxOpeningNormalUp = Double.NEGATIVE_INFINITY;
         private long acquisitionTime;
+
+        PoseAccumulator(boolean inverted, double pitchUpDegrees, double mountingRollDegrees) {
+            this.inverted = inverted;
+            mountingPitch = Math.toRadians(pitchUpDegrees);
+            residualMountingRoll = Math.toRadians(mountingRollDegrees - (inverted ? 180 : 0));
+        }
 
         void add(Pose3D tagPose, double tagX, double tagY, double tagZ) {
             Position tagPosition = tagPose.getPosition().toUnit(DistanceUnit.INCH);
@@ -197,8 +263,44 @@ public final class BioBuzzLimelightClusterAdapter {
             pitchCos += Math.cos(pitch);
             rollSin += Math.sin(roll);
             rollCos += Math.cos(roll);
+            YawPitchRollAngles normalized = normalizePose(tagPose, inverted).getOrientation();
+            // Compose Rx(camera elevation) * Rz(residual lens roll) * R(tag).
+            // Transform basis vectors rather than subtracting coupled Euler angles.
+            double[] tagYAxis = rotateTagOffsetToCamera(0, 1, 0, normalized);
+            double[] tagZAxis = rotateTagOffsetToCamera(0, 0, 1, normalized);
+            double down = Math.sin(residualMountingRoll) * tagZAxis[0]
+                    + Math.cos(residualMountingRoll) * tagZAxis[1];
+            // Level Y points down. Negating the outward tag normal makes opening-up equal tag-down.
+            double openingUp = Math.cos(mountingPitch) * down
+                    - Math.sin(mountingPitch) * tagZAxis[2];
+            openingNormalUpSum += openingUp;
+            minOpeningNormalUp = Math.min(minOpeningNormalUp, openingUp);
+            maxOpeningNormalUp = Math.max(maxOpeningNormalUp, openingUp);
+            double levelZY = levelForwardComponent(tagYAxis);
+            double levelZZ = levelForwardComponent(tagZAxis);
+            double compensatedRoll = Math.hypot(levelZY, levelZZ) < 1e-8
+                    ? Double.NaN : Math.atan2(levelZY, levelZZ);
+            compensatedRollSin += Math.sin(compensatedRoll);
+            compensatedRollCos += Math.cos(compensatedRoll);
             acquisitionTime = orientation.getAcquisitionTime();
             count++;
+        }
+
+        private double levelForwardComponent(double[] vector) {
+            double down = Math.sin(residualMountingRoll) * vector[0]
+                    + Math.cos(residualMountingRoll) * vector[1];
+            return Math.sin(mountingPitch) * down + Math.cos(mountingPitch) * vector[2];
+        }
+
+        double buildCompensatedRollDegrees() {
+            if (count == 0 || Math.hypot(compensatedRollSin, compensatedRollCos) < 1e-8) {
+                return Double.NaN;
+            }
+            return Math.toDegrees(Math.atan2(compensatedRollSin, compensatedRollCos));
+        }
+
+        double buildOpeningNormalUp() {
+            return count == 0 ? Double.NaN : openingNormalUpSum / count;
         }
 
         Pose3D build() {

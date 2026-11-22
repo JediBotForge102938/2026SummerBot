@@ -16,13 +16,16 @@ import java.util.List;
  *
  * <p>The scorable check assumes the camera faces the cell in the same direction as the robot's
  * launcher. It compares member-tag IDs from left to right: ascending IDs are upright, while
- * descending IDs are upside down. A cell is scorable only when the IDs ascend and cluster roll
- * is negative. At least two posed tags are needed to determine orientation.</p>
+ * descending IDs are upside down. A cell is scorable only when the IDs ascend and every posed
+ * tag indicates an upward-facing opening after mounting compensation. Tag +Z is assumed
+ * outward from the cell bottom. At least two posed tags are needed; robot assumed level.</p>
  */
 public class VisionSubsystem {
     public static final String LIMELIGHT_NAME = "limelight";
     public static final int LIMELIGHT_PIPELINE = 0;
     public static final long MAX_RESULT_AGE_MS = 250;
+    /** Numerical tolerance at the horizontal boundary, not a calibrated confidence margin. */
+    public static final double OPENING_NORMAL_ZERO_TOLERANCE = 1e-6;
 
     public enum CellStatus {
         SCORABLE,
@@ -53,22 +56,30 @@ public class VisionSubsystem {
     private boolean started;
     private String cameraName = LIMELIGHT_NAME;
     private int pipeline = LIMELIGHT_PIPELINE;
+    private boolean inverted;
+    private double pitchUpDegrees;
+    private double mountingRollDegrees;
 
     public void init(HardwareMap hardwareMap) {
-        init(hardwareMap, LIMELIGHT_NAME, LIMELIGHT_PIPELINE);
+        init(hardwareMap, LIMELIGHT_NAME, LIMELIGHT_PIPELINE, false, 0, 0);
     }
 
     public void init(HardwareMap hardwareMap, RobotProfile profile) {
-        init(hardwareMap, profile.limelightName, profile.limelightPipeline);
+        init(hardwareMap, profile.limelightName, profile.limelightPipeline, profile.limelightInverted,
+                profile.limelightPitchUpDegrees, profile.limelightRollDegrees);
     }
 
-    private void init(HardwareMap hardwareMap, String name, int pipeline) {
+    private void init(HardwareMap hardwareMap, String name, int pipeline, boolean inverted,
+            double pitchUpDegrees, double mountingRollDegrees) {
         if (limelight != null) {
             throw new IllegalStateException("VisionSubsystem has already been initialized");
         }
 
         cameraName = name;
         this.pipeline = pipeline;
+        this.inverted = inverted;
+        this.pitchUpDegrees = pitchUpDegrees;
+        this.mountingRollDegrees = mountingRollDegrees;
         limelight = hardwareMap.get(Limelight3A.class, name);
         limelight.pipelineSwitch(pipeline);
         limelight.start();
@@ -107,7 +118,8 @@ public class VisionSubsystem {
                 || observationAgeMs > MAX_RESULT_AGE_MS) {
             return new DetectionSnapshot(false, 0, Collections.emptyList());
         }
-        return new DetectionSnapshot(true, observationAgeMs, clusterAdapter.detect(result, alliance));
+        return new DetectionSnapshot(true, observationAgeMs, clusterAdapter.detect(result, alliance,
+                inverted, pitchUpDegrees, mountingRollDegrees));
     }
 
     public void stop() {
@@ -129,11 +141,6 @@ public class VisionSubsystem {
             return CellStatus.UNKNOWN_POSE;
         }
 
-        double clusterRollDegrees = getClusterRollDegrees(cluster);
-        if (!Double.isFinite(clusterRollDegrees)) {
-            return CellStatus.UNKNOWN_POSE;
-        }
-
         boolean ascending = true;
         boolean descending = true;
         for (int index = 1; index < leftToRightIds.size(); index++) {
@@ -143,11 +150,26 @@ public class VisionSubsystem {
             descending &= previousId > currentId;
         }
         if (ascending) {
-            return clusterRollDegrees < 0.0
-                    ? CellStatus.SCORABLE
-                    : CellStatus.NOT_SCORABLE;
+            return classifyOpeningNormal(cluster);
         }
         if (descending) {
+            return CellStatus.NOT_SCORABLE;
+        }
+        return CellStatus.UNKNOWN_POSE;
+    }
+
+    public static CellStatus classifyOpeningNormal(
+            BioBuzzLimelightClusterAdapter.ClusterDetection cluster) {
+        if (!hasForwardPose(cluster)
+                || !Double.isFinite(cluster.openingNormalUp)
+                || !Double.isFinite(cluster.minOpeningNormalUp)
+                || !Double.isFinite(cluster.maxOpeningNormalUp)) {
+            return CellStatus.UNKNOWN_POSE;
+        }
+        if (cluster.minOpeningNormalUp > OPENING_NORMAL_ZERO_TOLERANCE) {
+            return CellStatus.SCORABLE;
+        }
+        if (cluster.maxOpeningNormalUp < -OPENING_NORMAL_ZERO_TOLERANCE) {
             return CellStatus.NOT_SCORABLE;
         }
         return CellStatus.UNKNOWN_POSE;
@@ -159,7 +181,14 @@ public class VisionSubsystem {
             return Double.NaN;
         }
 
-        return cluster.poseCameraSpace.getOrientation().getRoll(AngleUnit.DEGREES);
+        return cluster.mountCompensatedRollDegrees;
+    }
+
+    public static double getCameraSpaceRollDegrees(
+            BioBuzzLimelightClusterAdapter.ClusterDetection cluster) {
+        return hasForwardPose(cluster)
+                ? cluster.poseCameraSpace.getOrientation().getRoll(AngleUnit.DEGREES)
+                : Double.NaN;
     }
 
     private static boolean hasForwardPose(

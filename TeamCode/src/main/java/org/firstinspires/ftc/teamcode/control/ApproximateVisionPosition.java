@@ -25,7 +25,9 @@ public final class ApproximateVisionPosition {
         }
         FieldMap.Pose landmark = FieldMap.hiveCell(cell.alliance,
                 cell.audienceSide ? StartingSpot.AUDIENCE : StartingSpot.SCORING);
-        double roll = Math.toRadians(profile.limelightRollDegrees);
+        // The adapter has already removed 180 degrees for an inverted camera.
+        double roll = Math.toRadians(profile.limelightRollDegrees
+                - (profile.limelightInverted ? 180 : 0));
         double right = p.x * Math.cos(roll) - p.y * Math.sin(roll);
         double down = p.x * Math.sin(roll) + p.y * Math.cos(roll);
         double pitch = Math.toRadians(profile.limelightPitchUpDegrees);

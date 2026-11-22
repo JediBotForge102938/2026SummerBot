@@ -51,10 +51,9 @@ the OTOS hardware offset at zero and subtracts the rotating lever arm in the
 navigator exactly once. The direct-return OTOS test intentionally uses zero
 hardware offset and raw sensor coordinates.
 
-The CompetitionBot JSON currently copies StarterBot's sensor settings. These
-are placeholders, not CompetitionBot measurements; update and upload the
-profile when its mounting details are known. Inspect the active configuration
-name shown on the configuration screen before driving.
+The CompetitionBot profile has its own mounting measurements. Its camera optical
+axis points 44 degrees above horizontal, faces rearward, and is inverted.
+Inspect the active configuration name shown on the configuration screen before driving.
 
 The profiles also store chassis length and width, and the Limelight lens
 position and orientation: 9.5 cm from the back, centered left-to-right,
@@ -63,6 +62,49 @@ zero roll for StarterBot. Yaw is measured counterclockwise from robot forward;
 pitch is positive upward; roll is clockwise looking in the camera's forward
 direction. The field-tracking test uses these values for a provisional diagnostic
 position, but Limelight observations are not fused into the field pose.
+Set `limelight.inverted` to `true` when the camera is mounted upside down
+(rotated 180 degrees around its lens axis); use `false` for an upright camera.
+The flag normalizes observations for hive classification and aiming. Keep
+`rollDegrees` as the physical mounting roll (180 degrees for an inverted
+camera); the field-tracking diagnostic avoids applying that rotation twice.
+Profiles without the flag retain the upright behavior. Limelight's stream
+orientation is display-only and must not be used as an observation correction.
+Verify hive classification and aiming direction on the physical robot.
+Cell classification now uses a separate mount-compensated roll in a level frame
+aligned with the camera heading (+X right, +Y down, +Z horizontally forward).
+Each tag's rotation is composed with the camera elevation and residual lens roll
+before averaging; this is not subtraction of Euler angles. Mounting yaw selects
+the frame's horizontal heading and does not change its roll. The robot is assumed
+level: this correction does not compensate chassis tilt or AprilTag pose ambiguity.
+The inversion-corrected camera-space pose remains unchanged for aiming and the
+approximate position diagnostic, so those consumers do not double-apply elevation.
+
+Both cluster Limelight tests display camera-space roll, mount-compensated roll,
+and the active profile/pitch. Classification no longer uses an Euler-roll cutoff.
+It requires ascending spatial tag IDs and an upward-facing opening normal from
+every posed tag. All downward normals mean NOT_SCORABLE; horizontal or conflicting
+normals mean UNKNOWN_POSE. A numerical tolerance of 0.000001 at zero handles
+floating-point boundary noise; it is not a calibrated confidence band.
+The same opening-normal gate retains a confirmed target with one visible tag,
+but one tag alone cannot establish a new scorable target.
+The [official Competition Manual](https://ftc-resources.firstinspires.org/ftc/game/manual?season=biobuzz)
+Figure 9-10 (page 71) labels a 30-degree nominal hive tilt. Sections 9.6.2 and
+10.5.1 describe upward-facing cells and stable states/damper contact, not a
+numeric vision-roll threshold. The nominal tilt can inform expected orientations
+once the tag-to-cell rotation/sign is verified; it is not itself the cutoff.
+SDK cluster offsets locate the opening relative to the tags, but do not supply
+the stable-state orientation. Do not derive a scoring cutoff from those offsets alone.
+
+The cluster tests also display **Opening normal up (verify sign)** and its
+minimum/maximum across posed tags. This transforms tag +Z through the same mounting
+rotation and assumes it faces outward from the cell bottom, making the opening
+normal its negative. Values range from -1 (opening down) to +1 (opening up).
+Check that a known upward-facing cell is positive and the same cell after tipping
+is negative, on a level robot. A bottom plane 30 degrees from horizontal predicts
+an upward-component magnitude near 0.866. The per-tag range reveals disagreement
+that a mean could hide. This documented outward-normal convention now drives the
+gate; verify it on known raised/down cells before relying on shooting or Auto Shoot.
+An upward normal does not certify damper contact or a fully settled hive.
 Each profile also specifies the intake motor direction: FORWARD for StarterBot
 and REVERSE for CompetitionBot. TeleOp intake defaults are 100% and 75%,
 respectively. StarterBot's `intake.leftServoDirection` is REVERSE and

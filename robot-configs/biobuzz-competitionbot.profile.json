@@ -14,9 +14,9 @@
   },
   "imu": { "name": "imu", "logoFacing": "RIGHT", "usbFacing": "UP" },
   "limelight": {
-    "name": "limelight", "pipeline": 0, "aimDirection": "launcher",
-    "lensFromBackCm": 9.5, "lensFromLeftCm": 22.86, "lensHeightCm": 31.8,
-    "yawDegrees": 180, "pitchUpDegrees": 37, "rollDegrees": 0
+    "name": "limelight", "pipeline": 0, "aimDirection": "launcher", "inverted": true,
+    "lensFromBackCm": 10.5, "lensFromLeftCm": 24.5, "lensHeightCm": 34.5,
+    "yawDegrees": 180, "pitchUpDegrees": 44, "rollDegrees": 180
   },
   "otos": {
     "name": "otos",

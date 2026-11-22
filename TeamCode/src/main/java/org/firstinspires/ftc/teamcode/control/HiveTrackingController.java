@@ -198,10 +198,9 @@ public class HiveTrackingController implements TelemetrySource {
             return true;
         }
         // One tag cannot establish scorability, but can maintain the same confirmed target.
-        double roll = VisionSubsystem.getClusterRollDegrees(cluster);
         return cluster.name.equals(confirmedScorableCluster)
                 && cluster.visibleTagIdsLeftToRight.size() == 1
-                && Double.isFinite(roll) && roll < 0;
+                && VisionSubsystem.classifyOpeningNormal(cluster) == VisionSubsystem.CellStatus.SCORABLE;
     }
 
     public static double getTurnPower(double horizontalAngleDegrees) {

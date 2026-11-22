@@ -89,7 +89,7 @@ public class FieldTrackingTestTeleOpTest {
         when(tag.getFiducialId()).thenReturn(id);
         when(tag.getTargetPoseCameraSpace()).thenReturn(new Pose3D(
                 new Position(DistanceUnit.INCH, x, 0, 60, 0),
-                new YawPitchRollAngles(AngleUnit.DEGREES, 0, 0, -10, 0)));
+                new YawPitchRollAngles(AngleUnit.DEGREES, 0, 0, -47, 0)));
         return tag;
     }
 }
