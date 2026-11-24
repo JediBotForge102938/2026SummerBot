@@ -12,7 +12,6 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 
-import org.firstinspires.ftc.teamcode.control.OTOSFieldNavigator;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -244,10 +243,6 @@ public class RobotProfileTest {
         assertEquals("optical", profile.otosName);
         assertEquals(1.02, profile.otosLinearScalar, 0);
         assertEquals(0.98, profile.otosAngularScalar, 0);
-        OTOSFieldNavigator navigator = new OTOSFieldNavigator(-1, -2);
-        navigator.updatePose(0, 0, 90, 0, 0, 0);
-        assertEquals(OTOSFieldNavigator.START_X + 3, navigator.getCenter().x, 1e-9);
-        assertEquals(1, navigator.getCenter().y, 1e-9);
     }
 
     @Test

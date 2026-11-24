@@ -20,11 +20,10 @@ configuration at INIT and displays the selected name using **Robot profile**:
 |---------|-----------------------|
 | BioBuzz StarterBot TeleOp | StarterBot only |
 | BioBuzz CompetitionBot TeleOp | CompetitionBot only |
-| OTOS Field Navigation Test | StarterBot only (fixed 18-inch navigator) |
 | Configuration Test, OTOS Sensor Test | Either robot |
 | Field Tracking Test, Landmark Travel Test | Either robot |
 | Leave & Park, Simple Leave & Park, Auto Shoot | Either robot |
-| All three Limelight tests | Either robot; camera name/pipeline from profile |
+| Both Limelight cluster tests | Either robot; camera name/pipeline from profile |
 
 Robot-specific modes validate the `robot` field **after loading the active
 configuration's profile**; they do not select a fixed StarterBot/CompetitionBot
@@ -259,88 +258,6 @@ STOP zeros drive power. Motors remain stopped before START.
 Options / Start sets home once per press; these are SDK aliases. A rear paddle
 mapped to Y now stops rather than resets home. Disable unwanted rear mappings
 on the controller.
-
-## OTOS field navigation test
-
-Select **OTOS Field Navigation Test** in the Sensor Tests group for the separate
-dimension-aware arena experiment. It uses the same configured hardware as the
-original sensor test; the behavior below applies only to this field version.
-The test also requires the four named drive motors and `imu` used by the shared
-drive subsystem. Before INIT, place the 18 x 18 inch robot with its **back
-against the red alliance wall, facing inward, center aligned with the red hive
-pivot** (the midpoint along that wall). Keep it flat and completely still:
-the test calibrates the OTOS IMU and zeros raw tracking. Motors remain stopped
-before START. This placement establishes field coordinates; INIT somewhere else
-invalidates the map. Do not lift or reposition the robot without reinitializing
-at this same starting location.
-
-Readings are displayed before and after START: X/Y position in inches, heading
-in degrees, velocity, acceleration, and sensor warnings/errors. After START,
-use the left stick for robot-relative translation and right stick X to turn,
-with a default wheel power limit of 45%. D-pad up / down increases / decreases
-the limit by 5 percentage points per press (10%-100%), for both manual driving
-and return-to-home. The current limit is shown in telemetry and resets to 45%
-when the OpMode is reinitialized. Translate a measured
-distance and rotate it to confirm position and heading change; stationary zero
-readings alone do not establish that optical tracking works. Heading wraps at
-180 degrees. Raw readings retain the measured sensor axes: forward is negative
-X, right is positive Y, clockwise decreases heading. Separately, the navigator
-compensates the sensor optical-center position measured 18.8 cm from the back and
-7.5 cm from the left: 3.86 cm behind and 15.36 cm left of robot center. Raw
-sensor position and velocity are transformed to robot-center field coordinates,
-including the rotating offset. Unit scalars are still uncalibrated.
-
-Field coordinates are inches from arena center: +X toward the blue alliance
-wall and +Y away from the audience. The initial robot center is (-63, 0), facing
-+X. Field pose, distance to home and remaining waypoints appear in telemetry.
-
-Press **A / cross** to plan a return to the initial robot-center position and
-heading, or the most recent saved home. Routes go **around the entire hive frame,
-never under it or over its bars**. The map uses the official 144-inch field and
-49.46 x 38.95 inch centered frame from the
-[FIRST competition manual](https://ftc-resources.firstinspires.org/ftc/game/manual),
-section 9.6.1 / figure 9-8, pp. 69-70 (TU08), with placement from the
-[field setup guide](https://ftc-resources.firstinspires.org/ftc/archive/2027/field/eventfieldguide),
-section 9.2. The simulator's older approximated collision bars are not used.
-
-The planner expands the frame by the 18-inch square robot's half-diagonal
-(12.73 inches) plus 2 inches of clearance so rotation is also covered. It
-reserves a conservative 6-inch strip along all walls for flower structures,
-plus the same robot/clearance allowance. This deliberately sacrifices some
-usable space rather than assuming exact flower locations. The sole exception
-is a narrow, straight approach to the red-wall starting bay at field Y = 0.
-The robot aligns in clear space before entering that lane, does not turn/strafe
-there, limits approach command to 25% before the selected power multiplier,
-and targets 1 inch short of the wall (with a 0.5-inch position tolerance).
-
-Other waypoints require a stop within 0.5 inch; final heading tolerance is
-3 degrees, held stationary for 0.2 seconds before declaring home.
-Press A again, B / circle, or move either drive stick to cancel; stick input
-immediately resumes manual driving. OTOS tracking/tilt warnings cancel a return;
-sensor errors or non-finite readings stop all driving. Route deviation, inadequate
-clearance or docking misalignment also stop a return. A return times out after
-60 seconds, or 4 seconds without progress. If starting outside mapped clear
-space, it refuses the return rather than guessing an escape route: manually
-move inward/away from obstacles and retry. Watch drive-status telemetry.
-
-**Manual driving is unchanged and is not obstacle-limited.** No camera, distance
-sensor or other-robot avoidance is implemented. A static map cannot correct
-OTOS drift or detect a misplaced structure. First test short moves at low power,
-then verify frame clearance and docking on the real arena with B ready; the map
-and controller are not a physical collision guarantee.
-
-Y / triangle stops the motors and cancels return without changing home, with
-priority over A, Options and sticks. Options / Start stops the motors, cancels
-any return, and saves the current robot-center
-position and heading as home **without resetting OTOS or field coordinates**.
-It refuses unsafe home locations, preserving the previous home. In the red-wall
-starting bay, it preserves the straight, heading-zero approach and wall standoff.
-To re-establish field localization, return to the starting placement and INIT
-again; do not use Options / Start to compensate for a lost field position.
-Press X / square to stop and recalibrate the IMU
-only while flat and stationary; calibration is refused if the sensor reports
-motion. Release the sticks and wait for the robot to stop before pressing X.
-Each action runs once per button press. STOP always zeros drive power.
 
 ## Leave & Park autonomous
 
