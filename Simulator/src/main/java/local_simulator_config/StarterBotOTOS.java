@@ -12,6 +12,7 @@ public final class StarterBotOTOS extends SparkFunOTOS {
     private final double forwardCm;
     private final double rightCm;
     private final double mountingRotationRadians;
+    private boolean pedroMode;
 
     public StarterBotOTOS(SparkFunOTOSInternal sensor, RobotProfile profile) {
         this.sensor = sensor;
@@ -34,10 +35,13 @@ public final class StarterBotOTOS extends SparkFunOTOS {
         sensor.getVersionInfo(hardware, firmware);
     }
     @Override public void setOffset(Pose2D offset) {
-        if (offset.x != 0 || offset.y != 0 || offset.h != 0) {
+        pedroMode = offset.x == 0 && offset.y == 0
+                && Math.abs(AngleUnit.RADIANS.fromUnit(getAngularUnit(), offset.h)
+                - Math.PI / 2) < 1e-9;
+        if (!pedroMode && (offset.x != 0 || offset.y != 0 || offset.h != 0)) {
             throw new IllegalArgumentException("Simulator OTOS supports only zero hardware offset");
         }
-        sensor.setOffset(offset);
+        sensor.setOffset(new Pose2D(0, 0, 0));
     }
     @Override public void resetTracking() {
         sensor.resetTracking();
@@ -45,7 +49,12 @@ public final class StarterBotOTOS extends SparkFunOTOS {
     }
 
     @Override public void setPosition(Pose2D position) {
-        throw new UnsupportedOperationException("Simulator OTOS does not support setting position");
+        if (!pedroMode) {
+            throw new UnsupportedOperationException("Simulator OTOS does not support setting position");
+        }
+        sensor.setPosition(new Pose2D(position.x, position.y,
+                position.h - getAngularUnit().fromRadians(Math.PI / 2)));
+        sensor.update();
     }
 
     @Override public Pose2D getPosition() {
@@ -67,6 +76,23 @@ public final class StarterBotOTOS extends SparkFunOTOS {
     }
 
     @Override public synchronized void getPosVelAcc(Pose2D pos, Pose2D vel, Pose2D acc) {
+        if (pedroMode) {
+            Pose2D p = sensor.getPosition();
+            Pose2D v = sensor.getVelocity();
+            Pose2D a = sensor.getAcceleration();
+            double heading = AngleUnit.RADIANS.fromUnit(getAngularUnit(), p.h);
+            double cos = Math.cos(heading);
+            double sin = Math.sin(heading);
+            pos.set(p);
+            pos.h += getAngularUnit().fromRadians(Math.PI / 2);
+            vel.x = v.x * cos - v.y * sin;
+            vel.y = v.x * sin + v.y * cos;
+            vel.h = v.h;
+            acc.x = a.x * cos - a.y * sin;
+            acc.y = a.x * sin + a.y * cos;
+            acc.h = a.h;
+            return;
+        }
         Pose2D p = new Pose2D();
         Pose2D v = new Pose2D();
         Pose2D a = new Pose2D();

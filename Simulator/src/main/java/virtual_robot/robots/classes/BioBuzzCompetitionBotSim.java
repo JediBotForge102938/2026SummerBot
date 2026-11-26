@@ -14,6 +14,10 @@ import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 import virtual_robot.controller.BotConfig;
 import virtual_robot.controller.VirtualField;
 import org.dyn4j.geometry.Transform;
+import org.dyn4j.geometry.MassType;
+import org.dyn4j.geometry.Rectangle;
+import org.firstinspires.ftc.teamcode.control.BioBuzzFieldMap;
+import virtual_robot.controller.Filters;
 import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
 import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem.StartingSpot;
 import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
@@ -30,8 +34,9 @@ public class BioBuzzCompetitionBotSim extends MecanumPhysicsBase {
     @Override
     public void initialize() {
         super.initialize();
-        FieldMap.Pose start = FieldMap.startingPose(Alliance.RED, StartingSpot.AUDIENCE,
-                RobotProfile.loadActive("competitionbot").chassisLengthCm / 2.54);
+        RobotProfile profile = RobotProfile.loadActive("competitionbot");
+        FieldMap.Pose start = new BioBuzzFieldMap(profile.chassisLengthCm / 2.54,
+                profile.chassisWidthCm / 2.54).startingPose(Alliance.RED, StartingSpot.AUDIENCE);
         x = start.x * 0.0254 * VirtualField.PIXELS_PER_METER;
         y = start.y * 0.0254 * VirtualField.PIXELS_PER_METER;
         headingRadians = Math.toRadians(start.headingDegrees - 90);
@@ -42,6 +47,18 @@ public class BioBuzzCompetitionBotSim extends MecanumPhysicsBase {
         chassisBody.setTransform(transform);
         chassisBody.setLinearVelocity(0, 0);
         chassisBody.setAngularVelocity(0);
+    }
+
+    @Override
+    public void setUpChassisBody() {
+        super.setUpChassisBody();
+        RobotProfile profile = RobotProfile.loadActive("competitionbot");
+        chassisBody.removeFixture(chassisFixture);
+        chassisFixture = chassisBody.addFixture(new Rectangle(
+                profile.chassisWidthCm / 100, profile.chassisLengthCm / 100), 71.76, 0, 0);
+        chassisRectangle = (Rectangle) chassisFixture.getShape();
+        chassisFixture.setFilter(Filters.CHASSIS_FILTER);
+        chassisBody.setMass(MassType.NORMAL);
     }
 
     @Override

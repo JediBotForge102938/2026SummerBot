@@ -1,170 +1,181 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.pedropathing.api.Paths;
+import com.pedropathing.drivetrain.DrivePowers;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.follower.ManualDrive;
+import com.pedropathing.math.Pose;
+import com.pedropathing.math.Velocity;
+import com.pedropathing.paths.Path;
+import com.qualcomm.hardware.sparkfun.SparkFunOTOS;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import org.firstinspires.ftc.teamcode.control.DriveModePreferences;
-import org.firstinspires.ftc.teamcode.control.LandmarkFieldMap;
-import org.firstinspires.ftc.teamcode.control.LandmarkNavigationService;
-import org.firstinspires.ftc.teamcode.control.LandmarkTravelControls;
-import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem;
-import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
-import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
-import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
-import org.firstinspires.ftc.teamcode.subsystems.TrackingSubsystem;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.control.BioBuzzFieldMap;
+import org.firstinspires.ftc.teamcode.control.BioBuzzFieldMap.Destination;
+import org.firstinspires.ftc.teamcode.control.DriveModePreferences;
+import org.firstinspires.ftc.teamcode.control.LandmarkTravelControls;
+import org.firstinspires.ftc.teamcode.pedro.PedroConstants;
+import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
+import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 
-/** Autonomous-only landmark navigation experiment with the existing manual drive as fallback. */
 @TeleOp(name = "Landmark Travel Test", group = "2 - (Tests)")
 public final class LandmarkTravelTestTeleOp extends OpMode {
-    private final DriveSubsystem drive = new DriveSubsystem();
+    private static final double MANUAL_POWER = 0.5;
+    private static final double STATIONARY_SPEED_IN_PER_SEC = 1.5;
+    private static final double STATIONARY_TURN_DEG_PER_SEC = 5;
+
     private final ConfigurationSubsystem configuration = new ConfigurationSubsystem();
-    private final TrackingSubsystem tracking = new TrackingSubsystem();
     private final LandmarkTravelControls controls = new LandmarkTravelControls();
+    private final List<Destination> destinations = new ArrayList<>();
     private RobotProfile profile;
-    private DriveModePreferences preferences;
-    private LandmarkFieldMap fieldMap;
-    private LandmarkNavigationService navigation;
-    private final List<LandmarkFieldMap.Destination> destinations = new ArrayList<>();
-    private FieldMap.Pose savedHome;
+    private Follower follower;
+    private SparkFunOTOS otos;
+    private BioBuzzFieldMap field;
+    private Destination target;
+    private String routeStatus = "Ready";
+    private String controlStatus = "Initialize the robot";
+    private double peakEstimatedPathError;
     private int selected;
     private boolean started;
-    private boolean driveReady;
-    private String controlStatus = "Initialize the robot";
 
     @Override public void init() {
         profile = RobotProfile.loadActive(null);
-        fieldMap = new LandmarkFieldMap(profile);
-        drive.init(hardwareMap, profile);
-        driveReady = true;
-        drive.driveRobotRelative(0, 0, 0);
-        tracking.init(hardwareMap, profile);
         configuration.init(telemetry, gamepad1, new DriveModePreferences(hardwareMap.appContext));
-        preferences = new DriveModePreferences(hardwareMap.appContext);
         configuration.setRobotProfileName(profile.name);
-        destinations.addAll(fieldMap.destinations());
-        savedHome = loadSafeHome();
-        if (savedHome != null) destinations.add(LandmarkFieldMap.Destination.savedHome(savedHome));
-        navigation = new LandmarkNavigationService(drive, tracking, profile);
-        publish(null);
+        follower = PedroConstants.create(hardwareMap);
+        otos = hardwareMap.get(SparkFunOTOS.class, PedroConstants.otosConfig(profile).name.get());
+        field = new BioBuzzFieldMap(profile.chassisLengthCm / 2.54, profile.chassisWidthCm / 2.54);
+        destinations.addAll(field.destinations());
+        publish();
     }
 
     @Override public void init_loop() {
         configuration.updateInit(gamepad1, gamepad2);
-        publish(null);
+        publish();
     }
 
     @Override public void start() {
-        if (navigation == null) return;
         configuration.lock();
-        FieldMap.Pose initial = FieldMap.startingPose(configuration.getAlliance(),
-                configuration.getStartingSpot(), profile.chassisLengthCm / 2.54);
-        drive.resetHeading(initial.headingDegrees,
-                configuration.getFieldForwardHeadingDegrees());
-        tracking.start(initial);
-        LandmarkTravelControls.Input input = readControls();
-        controls.seed(input);
+        follower.setPose(pose(field.startingPose(configuration.getAlliance(),
+                configuration.getStartingSpot())));
+        controls.seed(input());
         started = true;
-        controlStatus = profile.isAutonomousReady()
-                ? "Autonomous ready; manual driving available"
-                : "Physical autonomous blocked until geometry and Pedro tuning are verified";
+        controlStatus = "Autonomous ready; manual driving available";
     }
 
     @Override public void loop() {
-        if (!started) return;
-        tracking.update(drive.getHeadingDegrees(), drive.getYawRateDegreesPerSecond());
-        LandmarkTravelControls.Actions actions = controls.update(readControls(), navigation.isActive());
+        LandmarkTravelControls.Actions actions = controls.update(input(), follower.following());
         if (actions.selectionDelta != 0) {
             selected = (selected + actions.selectionDelta + destinations.size()) % destinations.size();
         }
-
         if (actions.stop) {
-            navigation.cancel(gamepad1.y ? "Stopped by Y" : gamepad1.b ? "Stopped by B"
-                    : actions.calibrate ? "Calibration requested" : "Home saved");
-            stopDrive();
+            follower.stop();
+            follower.drivetrain.stop();
+            routeStatus = gamepad1.y ? "Stopped by Y" : gamepad1.b ? "Stopped by B"
+                    : actions.calibrate ? "Calibration requested" : "Home saved";
             if (actions.calibrate) {
-                boolean calibrated = tracking.calibrateImuIfStationary(
-                        profile.navigation.stationarySpeedInPerSec,
-                        profile.navigation.stationaryTurnRateDegreesPerSec);
-                controlStatus = calibrated ? "OTOS IMU calibrated; field coordinates unchanged"
-                        : "Calibration refused: tracking must be valid and stationary";
+                Velocity motion = follower.velocity();
+                if (!finite(motion) || Math.hypot(motion.vx, motion.vy) > STATIONARY_SPEED_IN_PER_SEC
+                        || Math.abs(Math.toDegrees(motion.omega)) > STATIONARY_TURN_DEG_PER_SEC) {
+                    controlStatus = "Calibration refused: tracking must be valid and stationary";
+                } else {
+                    controlStatus = otos.calibrateImu()
+                            ? "OTOS IMU calibrated; field coordinates unchanged"
+                            : "OTOS IMU calibration failed";
+                }
             } else if (actions.saveHome) {
                 saveHome();
             } else {
-                controlStatus = gamepad1.y ? "Stopped by Y" : "Stopped by B";
-            }
-        } else if (actions.toggleRoute) {
-            if (navigation.isActive()) {
-                navigation.cancel("Route cancelled by A");
-                stopDrive();
-            } else {
-                boolean accepted = navigation.start(destinations.get(selected), getRuntime());
-                controlStatus = accepted ? "Route started" : navigation.getStatus();
+                controlStatus = routeStatus;
             }
         } else if (actions.manual) {
-            navigation.cancel("Manual override");
-            if (!Double.isFinite(drive.getHeadingDegrees())) {
-                stopDrive();
-                controlStatus = "Manual drive stopped: IMU heading unavailable";
-                publish(tracking.getPose());
-                return;
-            }
+            DrivePowers powers = new DrivePowers(-gamepad1.left_stick_y * MANUAL_POWER,
+                    gamepad1.left_stick_x * MANUAL_POWER, gamepad1.right_stick_x * MANUAL_POWER);
             if (configuration.isFieldCentric()) {
-                drive.driveFieldRelative(-gamepad1.left_stick_y, gamepad1.left_stick_x,
-                        gamepad1.right_stick_x, profile.navigation.transitPower);
-            } else {
-                drive.driveRobotRelative(-gamepad1.left_stick_y, gamepad1.left_stick_x,
-                        gamepad1.right_stick_x, profile.navigation.transitPower);
+                powers = ManualDrive.fieldCentric(powers, follower.pose().heading());
             }
-            controlStatus = String.format(Locale.US, "Manual drive at %.0f%%",
-                    profile.navigation.transitPower * 100);
-        } else if (navigation.isActive()) {
-            navigation.update(getRuntime());
-            controlStatus = navigation.getStatus();
-        } else {
-            stopDrive();
+            follower.manual(powers);
+            routeStatus = "Manual override";
+            controlStatus = "Manual drive at 50%";
+        } else if (actions.toggleRoute) {
+            if (follower.following()) {
+                follower.stop();
+                routeStatus = "Route cancelled by A";
+                controlStatus = routeStatus;
+            } else {
+                follow(destinations.get(selected));
+            }
+        } else if (follower.manual()) {
+            follower.stop();
         }
-        publish(tracking.getPose());
+        follower.update();
+        if (follower.following()) {
+            Pose current = follower.pose();
+            Pose closest = follower.closestPose();
+            peakEstimatedPathError = Math.max(peakEstimatedPathError,
+                    Math.hypot(current.x() - closest.x(), current.y() - closest.y()));
+        } else if (routeStatus.equals("Following planned route")) {
+            routeStatus = follower.holding() ? "Holding destination; verify pose"
+                    : "Route ended; verify pose";
+        }
+        publish();
     }
 
-    @Override public void stop() {
-        if (navigation != null) navigation.cancel("OpMode stopped");
-        stopDrive();
+    private void follow(Destination destination) {
+        Pose from = follower.pose();
+        try {
+            List<FieldMap.Pose> waypoints = field.plan(fieldPose(from), destination.pose);
+            target = destination;
+            if (waypoints.isEmpty()) {
+                routeStatus = "Already at destination";
+            } else {
+                List<Path> segments = new ArrayList<>();
+                for (FieldMap.Pose waypoint : waypoints) {
+                    Pose to = pose(waypoint);
+                    segments.add(Paths.line(from, to).linear(from, to));
+                    from = to;
+                }
+                peakEstimatedPathError = 0;
+                follower.follow(Paths.path(segments.toArray(new Path[0])));
+                routeStatus = "Following planned route";
+            }
+            controlStatus = routeStatus;
+        } catch (IllegalArgumentException exception) {
+            follower.stop();
+            follower.drivetrain.stop();
+            routeStatus = "Route refused: " + exception.getMessage();
+            controlStatus = routeStatus;
+        }
     }
 
     private void saveHome() {
-        FieldMap.Pose pose = tracking.getPose();
-        if (!tracking.hasValidPose() || pose == null || !fieldMap.isSafeHome(pose)) {
-            controlStatus = "Home refused: tracked pose is invalid or outside safe mapped space";
-            return;
-        }
         try {
-            fieldMap.plan(pose, LandmarkFieldMap.Destination.savedHome(pose));
-            preferences.saveNavigationHome(pose);
-            savedHome = pose;
-            if (destinations.size() == 12) {
-                destinations.add(LandmarkFieldMap.Destination.savedHome(savedHome));
-            } else {
-                destinations.set(12, LandmarkFieldMap.Destination.savedHome(savedHome));
-            }
+            FieldMap.Pose home = fieldPose(follower.pose());
+            field.plan(home, home);
+            Destination saved = new Destination("Saved home", home);
+            if (destinations.size() == 12) destinations.add(saved);
+            else destinations.set(12, saved);
             controlStatus = String.format(Locale.US, "Saved safe home at X %.1f Y %.1f H %.1f",
-                    pose.x, pose.y, pose.headingDegrees);
-        } catch (IllegalArgumentException | IllegalStateException exception) {
-            controlStatus = "Home refused: " + exception.getMessage();
+                    home.x, home.y, home.headingDegrees);
+        } catch (IllegalArgumentException exception) {
+            routeStatus = "Home refused: " + exception.getMessage();
+            controlStatus = routeStatus;
         }
     }
 
-    private FieldMap.Pose loadSafeHome() {
-        FieldMap.Pose candidate = preferences.getNavigationHome();
-        if (candidate == null) return null;
-        if (fieldMap.isSafeHome(candidate)) return candidate;
-        controlStatus = "Saved home ignored: profile geometry marks it unsafe";
-        return null;
+    @Override public void stop() {
+        if (follower != null) {
+            follower.stop();
+            follower.drivetrain.stop();
+        }
     }
 
-    private LandmarkTravelControls.Input readControls() {
+    private LandmarkTravelControls.Input input() {
         LandmarkTravelControls.Input input = new LandmarkTravelControls.Input();
         input.a = gamepad1.a;
         input.b = gamepad1.b;
@@ -180,47 +191,65 @@ public final class LandmarkTravelTestTeleOp extends OpMode {
         return input;
     }
 
-    private void publish(FieldMap.Pose pose) {
+    private static Pose pose(FieldMap.Pose p) {
+        return new Pose(p.x, p.y, Math.toRadians(p.headingDegrees));
+    }
+
+    private static FieldMap.Pose fieldPose(Pose p) {
+        return new FieldMap.Pose(p.x(), p.y(), Math.toDegrees(p.heading()));
+    }
+
+    private static boolean finite(Velocity motion) {
+        return motion != null && Double.isFinite(motion.vx)
+                && Double.isFinite(motion.vy) && Double.isFinite(motion.omega);
+    }
+
+    private void publish() {
         telemetry.clearAll();
         if (!started) {
             configuration.publish();
+            telemetry.addData("Place robot at", pose(field.startingPose(
+                    configuration.getAlliance(), configuration.getStartingSpot())).toString());
             telemetry.addLine("");
         }
         telemetry.addLine("Navigation");
-        telemetry.addData("Target", navigation == null || navigation.getTarget() == null
-                ? "None" : navigation.getTarget().name);
-        telemetry.addData("Phase", navigation == null ? "Not initialized" : navigation.getPhase());
-        telemetry.addData("Pose", pose == null ? "Unavailable"
+        telemetry.addData("Target", target == null ? "None" : target.name);
+        telemetry.addData("Phase", follower.mode().toString());
+        Pose current = follower.pose();
+        telemetry.addData("Pose", !started ? "Unavailable"
                 : String.format(Locale.US, "X %.1f Y %.1f H %.1f",
-                        pose.x, pose.y, pose.headingDegrees));
-        if (navigation != null && navigation.getTarget() != null) {
-            FieldMap.Pose goal = navigation.getTarget().robotPose;
+                        current.x(), current.y(), Math.toDegrees(current.heading())));
+        if (target != null) {
             telemetry.addData("Goal", "X %.1f Y %.1f H %.1f",
-                    goal.x, goal.y, goal.headingDegrees);
+                    target.pose.x, target.pose.y, target.pose.headingDegrees);
         }
-        telemetry.addData("Power", navigation == null ? "0%"
-                : String.format(Locale.US, "%.0f%%", navigation.getPowerLimit() * 100));
+        telemetry.addData("Power", follower.following() ? "Pedro controlled"
+                : follower.manual() ? "50% manual" : "0%");
         telemetry.addLine("Status");
-        publishWrapped(navigation == null ? "Not initialized" : navigation.getStatus());
+        publishWrapped(routeStatus);
         telemetry.addLine("");
         telemetry.addLine("Landmarks");
         for (int row = 0; row < destinations.size(); row++) {
             telemetry.addLine((row == selected ? "> " : "  ") + destinations.get(row).name);
         }
         telemetry.addLine("");
-        publishWrapped(readiness());
+        publishWrapped(profile.isSimulatorRuntime() ? "Simulator experiment enabled"
+                : "Physical tuning required; verify clearance");
         publishWrapped(controlStatus);
-        if (tracking != null && started) {
-            telemetry.addData("Tracking", tracking.getStatus());
-            telemetry.addData("Measured motion", "%.2f in/s, %.1f deg/s",
-                    tracking.getSpeedInchesPerSecond(),
-                    tracking.getHeadingRateDegreesPerSecond());
-            if (tracking.hasValidMotion()) {
+        if (started) {
+            Velocity motion = follower.velocity();
+            telemetry.addData("Tracking", finite(motion) ? "OTOS" : "Motion unavailable");
+            if (finite(motion)) {
+                telemetry.addData("Measured motion", "%.2f in/s, %.1f deg/s",
+                        Math.hypot(motion.vx, motion.vy), Math.toDegrees(motion.omega));
+                SparkFunOTOS.Pose2D raw = otos.getVelocity();
                 telemetry.addData("OTOS raw velocity", "X %.2f Y %.2f in/s",
-                        tracking.getOtosVelocityX(), tracking.getOtosVelocityY());
+                        DistanceUnit.INCH.fromUnit(otos.getLinearUnit(), raw.x),
+                        DistanceUnit.INCH.fromUnit(otos.getLinearUnit(), raw.y));
             } else {
                 telemetry.addData("OTOS raw velocity", "Unavailable (tracking invalid)");
             }
+            telemetry.addData("Peak estimated path error (in)", "%.2f", peakEstimatedPathError);
         }
         telemetry.update();
     }
@@ -234,19 +263,5 @@ public final class LandmarkTravelTestTeleOp extends OpMode {
             text = text.substring(split).trim();
         }
         telemetry.addLine(text);
-    }
-
-    private String readiness() {
-        if (profile == null) return "Profile unavailable";
-        if (profile.isSimulatorRuntime()) {
-            return profile.isAutonomousReady() ? "Simulator experiment enabled"
-                    : "Simulator experiment disabled by profile";
-        }
-        return profile.isAutonomousReady() ? "Physical geometry and Pedro tuning marked verified"
-                : "Blocked: physical geometry and Pedro tuning are unverified";
-    }
-
-    private void stopDrive() {
-        if (driveReady) drive.driveRobotRelative(0, 0, 0);
     }
 }

@@ -17,6 +17,7 @@ import local_simulator_config.StarterBotOTOS;
 import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 import org.firstinspires.ftc.teamcode.subsystems.ActiveRobotProfileSource;
 import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
+import org.firstinspires.ftc.teamcode.control.BioBuzzFieldMap;
 import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem.StartingSpot;
 import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
 import org.dyn4j.geometry.Transform;
@@ -114,8 +115,10 @@ public class BioBuzzStarterBotSim extends MecanumPhysicsBase {
     public void initialize() {
         super.initialize();
 
-        FieldMap.Pose start = FieldMap.startingPose(Alliance.RED, StartingSpot.AUDIENCE,
-                RobotProfile.loadActive("starterbot").chassisLengthCm / 2.54);
+        RobotProfile profile = RobotProfile.loadActive("starterbot");
+        FieldMap.Pose start = new BioBuzzFieldMap(
+                profile.chassisLengthCm / 2.54, profile.chassisWidthCm / 2.54)
+                .startingPose(Alliance.RED, StartingSpot.AUDIENCE);
         x = start.x * 0.0254 * VirtualField.PIXELS_PER_METER;
         y = start.y * 0.0254 * VirtualField.PIXELS_PER_METER;
         headingRadians = Math.toRadians(start.headingDegrees - 90);

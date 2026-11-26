@@ -1,7 +1,6 @@
 package local_simulator_config;
 
 import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.qualcomm.hardware.CommonOdometry;
@@ -9,36 +8,38 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.sparkfun.SparkFunOTOS;
 import com.qualcomm.hardware.sparkfun.SparkFunOTOSInternal;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.Gamepad;
-import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.pedropathing.math.Pose;
+import com.pedropathing.api.Paths;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.paths.Path;
+import com.pedropathing.revhub.localizers.OTOSLocalizer;
+import java.util.ArrayList;
+import java.util.List;
+import org.firstinspires.ftc.teamcode.control.BioBuzzFieldMap;
+import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
+import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem.StartingSpot;
+import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
+import org.firstinspires.ftc.teamcode.pedro.PedroConstants;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
-import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
-import org.firstinspires.ftc.teamcode.FieldTrackingTestTeleOp;
 import org.firstinspires.ftc.teamcode.LandmarkTravelTestTeleOp;
-import org.firstinspires.ftc.teamcode.control.LandmarkFieldMap;
-import org.firstinspires.ftc.teamcode.control.LandmarkNavigationService;
-import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
-import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
 import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
-import org.firstinspires.ftc.teamcode.subsystems.TrackingSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.ActiveRobotProfileSource;
-import org.firstinspires.ftc.teamcode.BioBuzzLimelightClusterAdapter.Alliance;
-import org.firstinspires.ftc.teamcode.subsystems.ConfigurationSubsystem.StartingSpot;
 import org.junit.Before;
 import org.junit.Assume;
 import org.junit.Test;
 import virtual_robot.controller.VirtualRobotController;
 import virtual_robot.controller.VirtualBot;
-import virtual_robot.controller.VirtualField;
+import virtual_robot.controller.Game;
+import virtual_robot.games.BioBuzz;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.layout.Pane;
 import org.dyn4j.dynamics.Body;
+import org.dyn4j.geometry.Transform;
 import org.dyn4j.world.World;
 
 public class SimulatorTrackingTest {
@@ -65,7 +66,7 @@ public class SimulatorTrackingTest {
         camera.stop();
     }
 
-    @Test public void trackingFollowsTranslationAndRotationOfSimulatedCenter() {
+    @Test public void pedroLocalizerCanSetPoseAndTrackTranslation() {
         CommonOdometry odo = CommonOdometry.getInstance();
         Pose2D zero = pose(0, 0, 0);
         odo.update(zero, zero, zero);
@@ -74,29 +75,332 @@ public class SimulatorTrackingTest {
         HardwareMap hardware = new HardwareMap();
         hardware.put("otos", new StarterBotOTOS(raw, RobotProfile.loadActive("starterbot")));
         hardware.setActive(true);
-        TrackingSubsystem tracking = new TrackingSubsystem();
-        tracking.init(hardware, RobotProfile.loadActive("starterbot"));
-        tracking.start(new FieldMap.Pose(0, 0, 0));
-        odo.update(pose(0, 10, 0), zero, zero);
+        OTOSLocalizer localizer = PedroConstants.localizer(hardware);
+        localizer.setPose(new Pose(10, 20, 0));
+        localizer.update();
+        assertEquals(10, localizer.pose().x(), 1e-8);
+        assertEquals(20, localizer.pose().y(), 1e-8);
+        assertEquals(0, localizer.pose().heading(), 1e-8);
+        odo.update(pose(0, 10, 0), pose(0, 4, 0), zero);
         raw.update();
-        tracking.update(0);
-        assertEquals(10, tracking.getPose().x, 1e-8);
-        assertEquals(0, tracking.getPose().y, 1e-8);
-        odo.update(pose(2, 10, 0), zero, zero);
+        localizer.update();
+        assertEquals(20, localizer.pose().x(), 1e-8);
+        assertEquals(20, localizer.pose().y(), 1e-8);
+        assertEquals(4, localizer.velocity().vx, 1e-8);
+        assertEquals(0, localizer.velocity().vy, 1e-8);
+
+        odo.update(pose(0, 10, 90), pose(0, 4, 30), zero);
         raw.update();
-        tracking.update(0);
-        assertEquals(10, tracking.getPose().x, 1e-8);
-        assertEquals(-2, tracking.getPose().y, 1e-8);
-        odo.update(pose(2, 10, -90), zero, zero);
-        raw.update();
-        tracking.update(-90);
-        assertEquals(10, tracking.getPose().x, 1e-8);
-        assertEquals(-2, tracking.getPose().y, 1e-8);
-        odo.update(pose(2, 10, 90), zero, zero);
-        raw.update();
-        tracking.update(90);
-        assertEquals(10, tracking.getPose().x, 1e-8);
-        assertEquals(-2, tracking.getPose().y, 1e-8);
+        localizer.update();
+        assertEquals(Math.PI / 2, localizer.pose().heading(), 1e-8);
+        assertEquals(4, localizer.velocity().vx, 1e-8);
+        assertEquals(0, localizer.velocity().vy, 1e-8);
+        assertEquals(Math.PI / 6, localizer.velocity().omega, 1e-8);
+        localizer.setPose(new Pose(-5, 6, Math.PI));
+        localizer.update();
+        assertEquals(-5, localizer.pose().x(), 1e-8);
+        assertEquals(6, localizer.pose().y(), 1e-8);
+        assertEquals(Math.PI, localizer.pose().heading(), 1e-8);
+    }
+
+    @Test public void pedroFollowerMovesBothSimulatedRobots() throws Exception {
+        Assume.assumeTrue("A graphical display is required",
+                System.getenv("DISPLAY") != null || System.getProperty("os.name").startsWith("Windows")
+                        || System.getProperty("os.name").startsWith("Mac"));
+        Platform.startup(() -> { });
+        try {
+            for (String model : new String[] {"biobuzz_starterbot", "biobuzz_competitionbot"}) {
+                VirtualRobotController controller = new VirtualRobotController();
+                java.lang.reflect.Field pane = VirtualRobotController.class.getDeclaredField("fieldPane");
+                pane.setAccessible(true);
+                pane.set(controller, new Pane());
+                java.lang.reflect.Field halfWidth = VirtualRobotController.class.getDeclaredField("halfFieldWidth");
+                halfWidth.setAccessible(true);
+                halfWidth.setDouble(controller, 324);
+                java.lang.reflect.Method setController = VirtualBot.class.getDeclaredMethod(
+                        "setController", VirtualRobotController.class);
+                setController.setAccessible(true);
+                setController.invoke(null, controller);
+                FXMLLoader loader = new FXMLLoader(getClass().getResource(
+                        "/virtual_robot/robots/fxml/" + model + ".fxml"));
+                loader.load();
+                VirtualBot robot = loader.getController();
+                HardwareMap hardware = robot.getHardwareMap();
+                hardware.setActive(true);
+                robot.updateStateAndSensors(20);
+                java.lang.reflect.Field bodyField = VirtualBot.class.getDeclaredField("chassisBody");
+                bodyField.setAccessible(true);
+                Body body = (Body) bodyField.get(robot);
+                double initialX = body.getTransform().getTranslationX() / 0.0254;
+                double initialY = body.getTransform().getTranslationY() / 0.0254;
+                Follower follower = PedroConstants.create(hardware);
+                follower.setPose(new Pose(0, 0, Math.PI / 2));
+                Pose start = follower.pose();
+                Pose end = new Pose(0, 12, Math.PI / 2);
+                follower.follow(Paths.line(start, end).constant(end));
+                World<Body> world = controller.getWorld();
+                world.setGravity(World.ZERO_GRAVITY);
+                for (int tick = 0; tick < 1000 && follower.following(); tick++) {
+                    follower.update(0.02);
+                    world.updatev(0.02);
+                    robot.updateStateAndSensors(20);
+                    double traveled = body.getTransform().getTranslationY() / 0.0254 - initialY;
+                    if (traveled > 1 && traveled < 12.5) {
+                        assertTrue(model + " forward path reverses at " + traveled
+                                        + " with speed " + body.getLinearVelocity().y / 0.0254,
+                                body.getLinearVelocity().y / 0.0254 > -1);
+                    }
+                }
+                assertEquals(model + " endpoint", 12, follower.pose().y(), 2);
+                assertEquals(model + " sideways drift", 0, follower.pose().x(), 2);
+                assertEquals(model + " actual forward", 12,
+                        body.getTransform().getTranslationY() / 0.0254 - initialY, 2);
+                assertEquals(model + " actual sideways", 0,
+                        body.getTransform().getTranslationX() / 0.0254 - initialX, 2);
+                assertSettledHold(model + " forward", follower, robot, body, world);
+
+                start = follower.pose();
+                end = new Pose(12, 12, Math.PI / 2);
+                follower.follow(Paths.line(start, end).constant(end));
+                for (int tick = 0; tick < 1000 && follower.following(); tick++) {
+                    follower.update(0.02);
+                    world.updatev(0.02);
+                    robot.updateStateAndSensors(20);
+                }
+                assertEquals(model + " strafe endpoint", 12, follower.pose().x(), 2);
+                assertEquals(model + " actual strafe", 12,
+                        body.getTransform().getTranslationX() / 0.0254 - initialX, 2);
+                assertSettledHold(model + " strafe", follower, robot, body, world);
+
+                start = follower.pose();
+                end = new Pose(12, 18, 0);
+                follower.follow(Paths.line(start, end).linear(start, end));
+                for (int tick = 0; tick < 1000 && follower.following(); tick++) {
+                    follower.update(0.02);
+                    world.updatev(0.02);
+                    robot.updateStateAndSensors(20);
+                }
+                for (int tick = 0; tick < 100 && follower.holding(); tick++) {
+                    follower.update(0.02);
+                    world.updatev(0.02);
+                    robot.updateStateAndSensors(20);
+                }
+                assertEquals(model + " turning endpoint", 18, follower.pose().y(), 2);
+                assertEquals(model + " actual turning endpoint", 18,
+                        body.getTransform().getTranslationY() / 0.0254 - initialY, 2);
+                assertEquals(model + " heading", 0,
+                        Math.atan2(Math.sin(follower.pose().heading()),
+                                Math.cos(follower.pose().heading())), 0.15);
+                assertEquals(model + " actual heading", 0,
+                        Math.atan2(Math.sin(body.getTransform().getRotationAngle() + Math.PI / 2),
+                                Math.cos(body.getTransform().getRotationAngle() + Math.PI / 2)), 0.15);
+                assertSettledHold(model + " turn", follower, robot, body, world);
+                assertHoldWithOffsetTiming(model, follower, robot, body, world);
+                follower.drivetrain.stop();
+
+                java.lang.reflect.Field mapField = VirtualRobotController.class.getDeclaredField("hardwareMap");
+                mapField.setAccessible(true);
+                mapField.set(controller, hardware);
+                OpMode.setVirtualRobotController(controller);
+                LandmarkTravelTestTeleOp op = new LandmarkTravelTestTeleOp();
+                op.telemetry = mock(Telemetry.class);
+                op.init();
+                op.init_loop();
+                op.start();
+                for (BioBuzzFieldMap.Destination destination : new BioBuzzFieldMap(18, 18).destinations()) {
+                    verify(op.telemetry, atLeastOnce()).addLine(contains(destination.name));
+                }
+                op.gamepad1.options = true;
+                op.loop();
+                op.gamepad1.options = false;
+                body.setLinearVelocity(0, 0.2);
+                robot.updateStateAndSensors(20);
+                op.loop();
+                op.gamepad1.x = true;
+                op.loop();
+                verify(op.telemetry, atLeastOnce()).addLine("Calibration refused: tracking must be");
+                op.gamepad1.x = false;
+                body.setLinearVelocity(0, 0);
+                body.setAngularVelocity(0);
+                body.clearAccumulatedForce();
+                body.clearAccumulatedTorque();
+                world.updatev(0.02);
+                robot.updateStateAndSensors(20);
+                op.loop();
+                op.gamepad1.x = true;
+                op.loop();
+                verify(op.telemetry, atLeastOnce()).addLine("OTOS IMU calibrated; field coordinates");
+                op.gamepad1.x = false;
+                op.gamepad1.dpad_up = true;
+                op.loop();
+                verify(op.telemetry, atLeastOnce()).addLine("> Saved home");
+                op.gamepad1.dpad_up = false;
+                op.gamepad1.dpad_down = true;
+                op.loop();
+                op.gamepad1.dpad_down = false;
+                op.loop();
+                java.lang.reflect.Field followerField =
+                        LandmarkTravelTestTeleOp.class.getDeclaredField("follower");
+                followerField.setAccessible(true);
+                Follower landmarkFollower = (Follower) followerField.get(op);
+                if (landmarkFollower.pose().y() < 0) {
+                    op.gamepad1.dpad_down = true;
+                    op.loop();
+                    op.gamepad1.dpad_down = false;
+                    op.loop();
+                }
+                op.gamepad1.a = true;
+                op.loop();
+                assertTrue(model + " landmark route started", landmarkFollower.following());
+                op.gamepad1.a = false;
+                op.gamepad1.b = true;
+                op.loop();
+                assertFalse(model + " landmark route stopped", landmarkFollower.following());
+                op.stop();
+
+                Game.setController(controller);
+                new BioBuzz().initialize();
+                List<Body> obstacles = new ArrayList<>(world.getBodies());
+                obstacles.remove(body);
+                java.lang.reflect.Method setupWorld =
+                        VirtualRobotController.class.getDeclaredMethod("setupPhysicsWorld");
+                setupWorld.setAccessible(true);
+                setupWorld.invoke(controller);
+                RobotProfile profile = RobotProfile.loadActive(null);
+                BioBuzzFieldMap map = new BioBuzzFieldMap(
+                        profile.chassisLengthCm / 2.54, profile.chassisWidthCm / 2.54);
+                for (Alliance alliance : new Alliance[] {Alliance.RED, Alliance.BLUE}) {
+                    for (StartingSpot side : StartingSpot.values()) {
+                        FieldMap.Pose routeStart = map.startingPose(alliance, side);
+                        for (BioBuzzFieldMap.Destination destination : map.destinations()) {
+                            String label = model + " " + alliance + " " + side + " to " + destination.name;
+                            assertSimulatedRoute(label, map, routeStart, destination.pose,
+                                    follower, robot, body, world, obstacles);
+                        }
+                    }
+                }
+                follower.drivetrain.stop();
+                Transform collisionProbe = new Transform();
+                collisionProbe.translate(24 * 0.0254, -68 * 0.0254);
+                body.setTransform(collisionProbe);
+                body.setLinearVelocity(0, 0);
+                body.setAngularVelocity(0);
+                world.updatev(0.02);
+                assertTrue(model + " flower contact detection",
+                        obstacles.stream().anyMatch(obstacle -> world.isInContact(body, obstacle)));
+            }
+        } finally {
+            Platform.exit();
+        }
+    }
+
+    private static void assertSettledHold(String label, Follower follower, VirtualBot robot,
+            Body body, World<Body> world) {
+        assertTrue(label + " enters hold", follower.holding());
+        for (int tick = 0; tick < 200; tick++) {
+            follower.update(0.02);
+            world.updatev(0.02);
+            robot.updateStateAndSensors(20);
+            if (tick >= 100) {
+                assertTrue(label + " hold linear speed " + body.getLinearVelocity().getMagnitude() / 0.0254,
+                        body.getLinearVelocity().getMagnitude() / 0.0254 < 0.05);
+                assertTrue(label + " hold angular speed",
+                        Math.abs(body.getAngularVelocity()) < 0.05);
+            }
+        }
+    }
+
+    private static void assertHoldWithOffsetTiming(String label, Follower follower, VirtualBot robot,
+            Body body, World<Body> world) {
+        Pose start = follower.pose();
+        Pose end = new Pose(start.x(), start.y() + 24, start.heading());
+        follower.follow(Paths.line(start, end).constant(end));
+        double[] loopIntervals = {0.016, 0.026, 0.020, 0.024, 0.018};
+        double nextPhysics = 0.02;
+        double nextLoop = 0;
+        double previousLoop = 0;
+        double holdStart = -1;
+        int loops = 0;
+        while (nextPhysics < 15) {
+            if (nextLoop <= nextPhysics) {
+                follower.update(nextLoop - previousLoop);
+                previousLoop = nextLoop;
+                nextLoop += loopIntervals[loops++ % loopIntervals.length];
+                if (follower.holding() && holdStart < 0) holdStart = previousLoop;
+            } else {
+                world.updatev(0.02);
+                robot.updateStateAndSensors(20);
+                if (holdStart >= 0 && nextPhysics >= holdStart + 2) {
+                    assertTrue(label + " offset-timing hold linear speed",
+                            body.getLinearVelocity().getMagnitude() / 0.0254 < 0.05);
+                    assertTrue(label + " offset-timing hold angular speed",
+                            Math.abs(body.getAngularVelocity()) < 0.05);
+                }
+                nextPhysics += 0.02;
+            }
+        }
+        assertTrue(label + " offset-timing path reached hold", holdStart >= 0 && holdStart < 13);
+        assertEquals(label + " offset-timing endpoint x", end.x(), follower.pose().x(), 2);
+        assertEquals(label + " offset-timing endpoint y", end.y(), follower.pose().y(), 2);
+    }
+
+    private static void assertSimulatedRoute(String label, BioBuzzFieldMap map,
+            FieldMap.Pose start, FieldMap.Pose goal, Follower follower, VirtualBot robot,
+            Body body, World<Body> world, List<Body> obstacles) {
+        List<FieldMap.Pose> waypoints = map.plan(start, goal);
+        if (waypoints.isEmpty()) return;
+        follower.stop();
+        follower.drivetrain.stop();
+        Transform transform = new Transform();
+        transform.rotate(Math.toRadians(start.headingDegrees - 90));
+        transform.translate(start.x * 0.0254, start.y * 0.0254);
+        body.setTransform(transform);
+        body.setLinearVelocity(0, 0);
+        body.setAngularVelocity(0);
+        robot.updateStateAndSensors(20);
+        Pose from = new Pose(start.x, start.y, Math.toRadians(start.headingDegrees));
+        follower.setPose(from);
+        List<Path> segments = new ArrayList<>();
+        for (FieldMap.Pose waypoint : waypoints) {
+            Pose to = new Pose(waypoint.x, waypoint.y, Math.toRadians(waypoint.headingDegrees));
+            segments.add(Paths.line(from, to).linear(from, to));
+            from = to;
+        }
+        follower.follow(Paths.path(segments.toArray(new Path[0])));
+        for (int tick = 0; tick < 6000 && follower.following(); tick++) {
+            follower.update(0.02);
+            world.updatev(0.02);
+            robot.updateStateAndSensors(20);
+            for (Body obstacle : obstacles) {
+                assertFalse(label + " collided with field geometry at "
+                        + body.getTransform().getTranslation() + " velocity "
+                        + body.getLinearVelocity(), world.isInContact(body, obstacle));
+            }
+        }
+        assertFalse(label + " route did not finish", follower.following());
+        assertTrue(label + " enters hold", follower.holding());
+        for (int tick = 0; tick < 200; tick++) {
+            follower.update(0.02);
+            world.updatev(0.02);
+            robot.updateStateAndSensors(20);
+            for (Body obstacle : obstacles) {
+                assertFalse(label + " collided while settling", world.isInContact(body, obstacle));
+            }
+            if (tick >= 100) {
+                assertTrue(label + " hold linear speed " + body.getLinearVelocity().getMagnitude() / 0.0254,
+                        body.getLinearVelocity().getMagnitude() / 0.0254 < 0.05);
+                assertTrue(label + " hold angular speed " + body.getAngularVelocity(),
+                        Math.abs(body.getAngularVelocity()) < 0.05);
+            }
+        }
+        assertEquals(label + " actual landmark x", goal.x,
+                body.getTransform().getTranslationX() / 0.0254, 2);
+        assertEquals(label + " actual landmark y", goal.y,
+                body.getTransform().getTranslationY() / 0.0254, 2);
+        double headingError = body.getTransform().getRotationAngle() + Math.PI / 2
+                - Math.toRadians(goal.headingDegrees);
+        assertEquals(label + " actual landmark heading", 0,
+                Math.atan2(Math.sin(headingError), Math.cos(headingError)), 0.2);
     }
 
     @Test public void otosIndividualReadingsUseSameDataAsBurstRead() {
@@ -123,294 +427,4 @@ public class SimulatorTrackingTest {
         assertThrows(UnsupportedOperationException.class, () -> otos.setPosition(p));
     }
 
-    @Test public void competitionMountingProducesRotatedRawReadingsAndCorrectFieldPose() {
-        ActiveRobotProfileSource.select("biobuzz-competitionbot");
-        RobotProfile profile = RobotProfile.loadActive("competitionbot");
-        CommonOdometry odo = CommonOdometry.getInstance();
-        Pose2D zero = pose(0, 0, 0);
-        odo.update(zero, zero, zero);
-        SparkFunOTOSInternal raw = new SparkFunOTOSInternal();
-        raw.update();
-        StarterBotOTOS otos = new StarterBotOTOS(raw, profile);
-        HardwareMap hardware = new HardwareMap();
-        hardware.put("otos", otos);
-        hardware.setActive(true);
-        TrackingSubsystem tracking = new TrackingSubsystem();
-        tracking.init(hardware, profile);
-        tracking.start(new FieldMap.Pose(12, -63, 90));
-        odo.update(pose(0, 10, 0), pose(0, 4, 0), zero);
-        raw.update();
-        tracking.update(90, 0);
-        assertEquals(0, otos.getPosition().x, 1e-8);
-        assertEquals(-10, otos.getPosition().y, 1e-8);
-        assertEquals(12, tracking.getPose().x, 1e-8);
-        assertEquals(-53, tracking.getPose().y, 1e-8);
-        assertEquals(4, tracking.getVelocityY(), 1e-8);
-    }
-
-    @Test public void fieldTrackingOpModeInitializesAndRunsWithSimulatedHardware() throws Exception {
-        CommonOdometry odo = CommonOdometry.getInstance();
-        Pose2D zero = pose(0, 0, 0);
-        odo.update(zero, zero, zero);
-        SparkFunOTOSInternal raw = new SparkFunOTOSInternal();
-        raw.update();
-        HardwareMap hardware = new HardwareMap();
-        for (String name : new String[] {"left_front_drive", "right_front_drive",
-                "left_back_drive", "right_back_drive"}) {
-            hardware.put(name, mock(DcMotor.class));
-        }
-        IMU imu = mock(IMU.class);
-        when(imu.initialize(any())).thenReturn(true);
-        when(imu.getRobotYawPitchRollAngles()).thenReturn(
-                new YawPitchRollAngles(AngleUnit.DEGREES, 0, 0, 0, 0));
-        when(imu.getRobotAngularVelocity(AngleUnit.DEGREES)).thenReturn(
-                new org.firstinspires.ftc.robotcore.external.navigation.AngularVelocity(
-                        AngleUnit.DEGREES, 0, 0, 0, 0));
-        hardware.put("imu", imu);
-        hardware.put("otos", new StarterBotOTOS(raw, RobotProfile.loadActive("starterbot")));
-        hardware.put("limelight", new Limelight3A());
-        hardware.setActive(true);
-        VirtualRobotController controller = mock(VirtualRobotController.class);
-        java.lang.reflect.Field mapField = VirtualRobotController.class.getDeclaredField("hardwareMap");
-        mapField.setAccessible(true);
-        mapField.set(controller, hardware);
-        for (String fieldName : new String[] {"gamePad1", "gamePad2"}) {
-            java.lang.reflect.Field gamepadField = VirtualRobotController.class.getDeclaredField(fieldName);
-            gamepadField.setAccessible(true);
-            gamepadField.set(controller, new Gamepad());
-        }
-        OpMode.setVirtualRobotController(controller);
-        FieldTrackingTestTeleOp op = new FieldTrackingTestTeleOp();
-        op.telemetry = mock(Telemetry.class);
-        op.init();
-        op.init_loop();
-        op.start();
-        op.loop();
-        verify(op.telemetry, atLeastOnce()).addLine("Configuration");
-        verify(op.telemetry, atLeastOnce()).addLine("Field tracking");
-        verify(op.telemetry, atLeastOnce()).addLine(contains("Estimated; OTOS + IMU"));
-        verify(op.telemetry, atLeastOnce()).addLine(contains("Searching; not fused"));
-        op.stop();
-
-        LandmarkTravelTestTeleOp travel = new LandmarkTravelTestTeleOp();
-        travel.telemetry = mock(Telemetry.class);
-        travel.init();
-        travel.init_loop();
-        verify(travel.telemetry, atLeastOnce()).addLine("Configuration");
-        clearInvocations(travel.telemetry);
-        travel.gamepad1.a = true;
-        travel.start();
-        travel.loop();
-        verify(travel.telemetry, never()).addLine("Configuration");
-        verify(travel.telemetry, atLeastOnce()).addLine("Landmarks");
-        verify(travel.telemetry, never()).addLine(contains("d-pad up/down select"));
-        org.mockito.InOrder display = inOrder(travel.telemetry);
-        display.verify(travel.telemetry).addLine("Navigation");
-        display.verify(travel.telemetry).addLine("Ready");
-        display.verify(travel.telemetry).addLine("Landmarks");
-        verify(travel.telemetry, atLeastOnce()).addLine("> Red wall flower");
-        verify(travel.telemetry, atLeastOnce()).addLine("  Blue scoring shooting start");
-        travel.gamepad1.a = false;
-        travel.gamepad1.dpad_down = true;
-        travel.loop();
-        verify(travel.telemetry, atLeastOnce()).addLine("> Blue wall flower");
-        travel.gamepad1.dpad_down = false;
-        travel.gamepad1.left_stick_y = -1;
-        travel.loop();
-        verify(travel.telemetry, atLeastOnce()).addLine("Manual drive at 50%");
-        travel.gamepad1.y = true;
-        travel.loop();
-        verify(travel.telemetry, atLeastOnce()).addLine("Stopped by Y");
-        travel.stop();
-    }
-
-    @Test public void pedroNavigationDrivesSimulatedRobotToLandmarkWithoutVision() throws Exception {
-        Assume.assumeTrue("A graphical display is required",
-                System.getenv("DISPLAY") != null || System.getProperty("os.name").startsWith("Windows")
-                        || System.getProperty("os.name").startsWith("Mac"));
-        Platform.startup(() -> { });
-        try {
-            for (String model : new String[] {"biobuzz_starterbot", "biobuzz_competitionbot"}) {
-                assertSimulatedTrips(model, false, false);
-                assertSimulatedTrips(model, true, false);
-                assertSimulatedTrips(model, true, true);
-                for (Alliance alliance : new Alliance[] {Alliance.RED, Alliance.BLUE}) {
-                    for (StartingSpot side : StartingSpot.values()) {
-                        assertSimulatedTrips(model, false, false, alliance, side);
-                    }
-                }
-            }
-        } finally {
-            Platform.exit();
-        }
-    }
-
-    private void assertSimulatedTrips(String model, boolean gardenRegression, boolean realtimeImu)
-            throws Exception {
-        assertSimulatedTrips(model, gardenRegression, realtimeImu, Alliance.RED, null);
-    }
-
-    private void assertSimulatedTrips(String model, boolean gardenRegression, boolean realtimeImu,
-            Alliance alliance, StartingSpot parkingStart) throws Exception {
-        VirtualRobotController controller = new VirtualRobotController();
-        java.lang.reflect.Field pane = VirtualRobotController.class.getDeclaredField("fieldPane");
-        pane.setAccessible(true);
-        pane.set(controller, new Pane());
-        java.lang.reflect.Field halfWidth = VirtualRobotController.class.getDeclaredField("halfFieldWidth");
-        halfWidth.setAccessible(true);
-        halfWidth.setDouble(controller, 324);
-        java.lang.reflect.Method setController = VirtualBot.class.getDeclaredMethod(
-                "setController", VirtualRobotController.class);
-        setController.setAccessible(true);
-        setController.invoke(null, controller);
-
-        FXMLLoader loader = new FXMLLoader(getClass().getResource(
-                "/virtual_robot/robots/fxml/" + model + ".fxml"));
-        loader.load();
-        VirtualBot robot = loader.getController();
-        HardwareMap hardware = robot.getHardwareMap();
-        hardware.setActive(true);
-        RobotProfile profile = RobotProfile.loadActive(null);
-        FieldMap.Pose start = parkingStart != null ? FieldMap.startingPose(alliance, parkingStart,
-                profile.chassisLengthCm / 2.54)
-                : gardenRegression ? FieldMap.startingPose(Alliance.RED, StartingSpot.AUDIENCE,
-                profile.chassisLengthCm / 2.54)
-                : new FieldMap.Pose(50, -45, 0);
-        java.lang.reflect.Field bodyField = VirtualBot.class.getDeclaredField("chassisBody");
-        bodyField.setAccessible(true);
-        Body body = (Body) bodyField.get(robot);
-        if (gardenRegression) {
-            assertEquals(start.x, body.getTransform().getTranslationX() / 0.0254, 1e-9);
-            assertEquals(start.y, body.getTransform().getTranslationY() / 0.0254, 1e-9);
-            assertEquals(start.headingDegrees,
-                    Math.toDegrees(body.getTransform().getRotationAngle()) + 90, 1e-9);
-        } else {
-            org.dyn4j.geometry.Transform transform = new org.dyn4j.geometry.Transform();
-            transform.rotate(Math.toRadians(start.headingDegrees - 90));
-            transform.translate(start.x * 0.0254, start.y * 0.0254);
-            body.setTransform(transform);
-            body.setLinearVelocity(0, 0);
-            body.setAngularVelocity(0);
-        }
-        robot.updateStateAndSensors(20);
-
-        DriveSubsystem drive = new DriveSubsystem();
-        drive.init(hardware, profile);
-        drive.resetHeading(start.headingDegrees);
-        TrackingSubsystem tracking = new TrackingSubsystem();
-        tracking.init(hardware, profile);
-        LandmarkFieldMap map = new LandmarkFieldMap(profile);
-        LandmarkNavigationService navigation = new LandmarkNavigationService(drive, tracking, profile);
-        tracking.start(start);
-        assertTrue(profile.isSimulatorRuntime());
-        assertTrue(profile.isAutonomousReady());
-        double initialX = robot.getX();
-        double initialY = robot.getY();
-        World<Body> world = controller.getWorld();
-        world.setGravity(World.ZERO_GRAVITY);
-        boolean sawNoVision = hardware.get(Limelight3A.class, "limelight")
-                .getLatestResult().getFiducialResults().isEmpty();
-        java.util.List<LandmarkFieldMap.Destination> targets = new java.util.ArrayList<>();
-        if (parkingStart != null) {
-            targets.add(map.parkingDestination(alliance, parkingStart));
-        } else if (gardenRegression) {
-            for (int index : realtimeImu ? new int[] {4} : new int[] {4, 10, 4, 9, 4, 5, 4}) {
-                targets.add(map.destinations().get(index));
-            }
-        } else {
-            targets.add(LandmarkFieldMap.Destination.savedHome(new FieldMap.Pose(55, -45, 0)));
-            targets.addAll(map.destinations());
-        }
-        int tick = 0;
-        for (LandmarkFieldMap.Destination target : targets) {
-            boolean started = navigation.start(target, tick * 0.02);
-            assertTrue(model + " -> " + target.name + ": " + navigation.getStatus()
-                    + " pose=" + tracking.getPose().x + "," + tracking.getPose().y
-                    + "," + tracking.getPose().headingDegrees, started);
-            int startedTick = tick;
-            while (tick - startedTick < 3000 && navigation.isActive()) {
-                tick++;
-                if (realtimeImu) Thread.sleep(20);
-                world.updatev(0.02);
-                robot.updateStateAndSensors(20);
-                // The simulated IMU is wall-time throttled; use measured body motion for this physics-time loop.
-                if (realtimeImu) {
-                    tracking.update(drive.getHeadingDegrees(), drive.getYawRateDegreesPerSecond());
-                } else {
-                    tracking.update(Math.toDegrees(body.getTransform().getRotationAngle()) + 90,
-                            Math.toDegrees(body.getAngularVelocity()));
-                    assertEquals("Tracked field X velocity", body.getLinearVelocity().x / 0.0254,
-                            tracking.getVelocityX(), 0.01);
-                    assertEquals("Tracked field Y velocity", body.getLinearVelocity().y / 0.0254,
-                            tracking.getVelocityY(), 0.01);
-                }
-                navigation.update(tick * 0.02);
-                if (parkingStart != null) {
-                    double angle = body.getTransform().getRotationAngle() + Math.PI / 2;
-                    double halfLength = profile.chassisLengthCm / 2 / 2.54;
-                    double chassisHalfWidth = profile.chassisWidthCm / 2 / 2.54;
-                    double ex = Math.abs(Math.cos(angle)) * halfLength
-                            + Math.abs(Math.sin(angle)) * chassisHalfWidth;
-                    double ey = Math.abs(Math.sin(angle)) * halfLength
-                            + Math.abs(Math.cos(angle)) * chassisHalfWidth;
-                    double actualX = body.getTransform().getTranslationX() / 0.0254;
-                    double actualY = body.getTransform().getTranslationY() / 0.0254;
-                    FieldMap.Region box = target.region;
-                    assertTrue("Actual chassis must not occupy the partner's middle",
-                            actualX + ex < box.minX || actualX - ex > box.maxX
-                                    || actualY + ey < box.minY + (box.maxY - box.minY) / 4
-                                    || actualY - ey > box.maxY - (box.maxY - box.minY) / 4);
-                }
-                for (double power : new double[] {drive.getLeftFrontPower(), drive.getRightFrontPower(),
-                        drive.getLeftBackPower(), drive.getRightBackPower()}) {
-                    assertTrue("Each wheel must respect the reported power limit",
-                            Math.abs(power) <= navigation.getPowerLimit() + 1e-9);
-                }
-                sawNoVision &= hardware.get(Limelight3A.class, "limelight")
-                        .getLatestResult().getFiducialResults().isEmpty();
-            }
-            assertTrue("No target vision was used or fabricated", sawNoVision);
-            assertTrue("Simulator robot traveled; nav=" + navigation.getStatus()
-                    + ", tracked=" + tracking.getPose() + ", actual="
-                    + robot.getX() + "," + robot.getY(), Math.hypot(
-                    robot.getX() - initialX, robot.getY() - initialY) > 5);
-            assertFalse("Navigation stopped with telemetry failure: " + navigation.getStatus(),
-                    navigation.isActive());
-            assertTrue("Expected arrival; status=" + navigation.getStatus()
-                            + " model=" + model + " target=" + target.name
-                            + " pose=" + tracking.getPose().x + "," + tracking.getPose().y
-                            + " heading=" + tracking.getPose().headingDegrees
-                            + " speed=" + tracking.getSpeedInchesPerSecond(),
-                    navigation.getStatus().startsWith("Arrived"));
-            double pixelsPerInch = VirtualField.PIXELS_PER_METER * 0.0254;
-            assertTrue("Actual robot center must arrive within one inch",
-                    Math.hypot(target.robotPose.x - robot.getX() / pixelsPerInch,
-                            target.robotPose.y - robot.getY() / pixelsPerInch) <= 1.0);
-            if (parkingStart != null) {
-                double actualY = robot.getY() / pixelsPerInch;
-                double overlap = parkingStart == StartingSpot.AUDIENCE
-                        ? actualY + profile.chassisWidthCm / 2 / 2.54 - target.region.minY
-                        : target.region.maxY - (actualY - profile.chassisWidthCm / 2 / 2.54);
-                assertTrue("Chassis must overlap the end, not just touch its boundary", overlap > 0);
-                double targetOverlap = profile.navigation.parkingOverlapIn
-                        + (alliance == Alliance.RED
-                        ? (parkingStart == StartingSpot.SCORING ? 2.0 : 0.0) : 1.0);
-                assertTrue("Overlap must reach the selected target within arrival tolerance",
-                        Math.abs(overlap - targetOverlap) <= profile.navigation.arrivalToleranceIn);
-            }
-            if (!profile.navigation.bypassSettleTranslationSpeed) {
-                assertTrue("Measured translation must be stationary",
-                        tracking.getSpeedInchesPerSecond() <= profile.navigation.stationarySpeedInPerSec);
-            }
-            assertTrue("Actual heading must arrive within three degrees",
-                    Math.abs(Math.toDegrees(body.getTransform().getRotationAngle()) + 90
-                            - target.robotPose.headingDegrees
-                            - 360 * Math.floor((Math.toDegrees(body.getTransform().getRotationAngle()) + 90
-                            - target.robotPose.headingDegrees + 180) / 360)) <= 3.0);
-            assertEquals(0, drive.getLeftFrontPower(), 0);
-            assertEquals(0, drive.getRightFrontPower(), 0);
-            assertEquals(0, drive.getLeftBackPower(), 0);
-            assertEquals(0, drive.getRightBackPower(), 0);
-        }
-    }
 }

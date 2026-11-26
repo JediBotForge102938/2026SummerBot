@@ -35,12 +35,10 @@ public class LandmarkTravelControlsTest {
 
         input.a = false;
         input.y = true;
-        input.x = true;
         input.leftY = 0;
         LandmarkTravelControls.Actions stopped = controls.update(input, true);
         assertTrue(stopped.stop);
         assertTrue(stopped.cancel);
-        assertFalse(stopped.calibrate);
         assertFalse(stopped.manual);
     }
 
@@ -75,7 +73,7 @@ public class LandmarkTravelControlsTest {
         assertFalse(controls.update(input, false).manual);
     }
 
-    @Test public void dpadEdgesSelectAndSaveCalibrationEdgesAreRisingOnly() {
+    @Test public void dpadAndSaveEdgesAreRisingOnly() {
         LandmarkTravelControls controls = new LandmarkTravelControls();
         LandmarkTravelControls.Input input = new LandmarkTravelControls.Input();
         controls.seed(input);
@@ -87,10 +85,21 @@ public class LandmarkTravelControlsTest {
         input.options = true;
         assertTrue(controls.update(input, false).saveHome);
         assertFalse(controls.update(input, false).saveHome);
-        input.options = false;
+    }
+
+    @Test public void calibrationStopsOnRisingEdgeAndStopButtonsTakePriority() {
+        LandmarkTravelControls controls = new LandmarkTravelControls();
+        LandmarkTravelControls.Input input = new LandmarkTravelControls.Input();
+        controls.seed(input);
+        input.x = true;
+        LandmarkTravelControls.Actions calibration = controls.update(input, true);
+        assertTrue(calibration.stop);
+        assertTrue(calibration.calibrate);
+        assertFalse(controls.update(input, false).calibrate);
+        input.x = false;
         controls.update(input, false);
         input.x = true;
-        assertTrue(controls.update(input, false).calibrate);
-        assertFalse(controls.update(input, false).calibrate);
+        input.b = true;
+        assertFalse(controls.update(input, true).calibrate);
     }
 }

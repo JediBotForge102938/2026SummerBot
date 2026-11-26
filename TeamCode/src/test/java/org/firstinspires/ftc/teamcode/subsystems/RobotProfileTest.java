@@ -88,18 +88,6 @@ public class RobotProfileTest {
         assertEquals(2.5, load(VALID.replace("\"i\":0", "\"i\":2.5")).launcherPidf.i, 0);
     }
 
-    @Test public void legacyProfilesRemainUsableButCannotEnableLandmarkTravel() throws Exception {
-        com.google.gson.JsonObject legacy = new com.google.gson.Gson()
-                .fromJson(VALID, com.google.gson.JsonObject.class);
-        legacy.remove("navigation");
-        RobotProfile profile = load(legacy.toString());
-        assertEquals("starterbot", profile.robot);
-        assertNull(profile.navigation);
-        assertFalse(profile.isAutonomousReady());
-        assertThrows(IllegalStateException.class,
-                () -> new org.firstinspires.ftc.teamcode.control.LandmarkFieldMap(profile));
-    }
-
     @Test
     public void currentProfilesArePaired() {
         File directory = new File("../robot-configs");
@@ -109,10 +97,6 @@ public class RobotProfileTest {
         assertEquals(7.5, starter.otosLeftCm, 0);
         assertEquals(0, starter.otosMountingRotationDegrees, 0);
         assertEquals(-90, competition.otosMountingRotationDegrees, 0);
-        assertTrue(starter.navigation.bypassSettleTranslationSpeed);
-        assertTrue(competition.navigation.bypassSettleTranslationSpeed);
-        assertEquals(0.15, starter.navigation.transitAlignmentPower, 0);
-        assertEquals(0.4, competition.navigation.transitAlignmentPower, 0);
         assertEquals("limelight", starter.limelightName);
         assertFalse(starter.limelightInverted);
         assertTrue(competition.limelightInverted);
@@ -129,13 +113,6 @@ public class RobotProfileTest {
         assertEquals(180, starter.limelightYawDegrees, 0);
         assertEquals(37, starter.limelightPitchUpDegrees, 0);
         assertEquals(0, starter.limelightRollDegrees, 0);
-        assertTrue(starter.navigation.geometryVerified);
-        assertTrue(starter.navigation.pedroTuningVerified);
-        assertTrue(starter.navigation.simulatorEnabled);
-        assertEquals(0.5, starter.navigation.transitPower, 0);
-        assertEquals(0.4, starter.navigation.finalApproachPower, 0);
-        assertEquals(0.4, competition.navigation.finalApproachPower, 0);
-        assertEquals(60, starter.navigation.timeoutSeconds, 0);
         assertThrows(IllegalStateException.class,
                 () -> RobotProfile.load(directory, "biobuzz-starterbot", "competitionbot"));
     }
@@ -151,10 +128,6 @@ public class RobotProfileTest {
                 VALID.replace("\"schemaVersion\":9", "\"schemaVersion\":8"),
                 VALID.replace("\"mountingRotationDegrees\":0,", ""),
                 VALID.replace("\"mountingRotationDegrees\":0", "\"mountingRotationDegrees\":\"90\""),
-                VALID.replace("\"bypassSettleTranslationSpeed\":false,", ""),
-                VALID.replace("\"bypassSettleTranslationSpeed\":false", "\"bypassSettleTranslationSpeed\":\"true\""),
-                VALID.replace("\"transitAlignmentPower\":0.15,", ""),
-                VALID.replace("\"transitAlignmentPower\":0.15", "\"transitAlignmentPower\":1.1"),
                 VALID.replace("\"drive\":{\"mirrorStrafe\":false},", ""),
                 VALID.replace("\"mirrorStrafe\":false", "\"mirrorStrafe\":\"false\""),
                 VALID.replace("\"defaultSpeedPercent\":100", "\"defaultSpeedPercent\":101"),

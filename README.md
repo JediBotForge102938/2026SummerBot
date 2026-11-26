@@ -143,48 +143,6 @@ robot before full-speed use. OTOS-based position prediction remains a separate s
 requiring calibrated sensor and rear-camera mounting offsets; OTOS is not required
 by these TeleOps.
 
-### Auto Shoot autonomous
-
-Select **Auto Shoot** under **1 - (Autonomous)** with the active
-`biobuzz-starterbot` or `biobuzz-competitionbot` configuration. During INIT select
-the alliance and starting spot, place the robot at that preset facing inward,
-and load four pollen. START locks those selections. The routine first moves into
-clear turning space with the rear-facing launcher aimed toward the selected hive.
-The preload batch uses the mapped shooting position, stationary checks, and
-launcher velocity readiness; it does not require AprilTags. It then drives
-directly to its alliance garden with the
-intake facing the audience/scoring wall and aligned alongside the red/blue wall.
-The approach stops with the front 3 inches from the garden strip's outside edge
-and the side at the configured wall clearance. No post-preload AprilTag observation
-is required to reach the garden. After collection it checks AprilTags from the
-garden. If no fresh, scorable alliance hive is visible, it drives to its alliance
-parking edge for the selected starting spot. Otherwise it travels to the confirmed
-hive's shooting position, aims, shoots the collected batch, and then parks.
-Missing or unscorable tags during the second shooting attempt also cause parking,
-not a search for another hive. Navigation/tracking failures still stop all motion.
-
-Feeding and collection are **timed estimates, not measured ball counts**. Calibrate
-`AutoShoot.BATCH_FEED_SECONDS` (currently 2.6 seconds of enabled feeding per batch),
-`COLLECTION_SECONDS` (2 seconds at the garden), and the launcher's default velocity
-on the actual robot. Collection uses a straight 15% forward-power wall press
-with the intake running for at most 2 seconds, then stops the drive before the
-AprilTag check. Tracking loss, heading/lateral drift, or leaving the collection
-corridor aborts the press. Contact is timed, not confirmed by a wall sensor;
-verify contact power and duration on hardware. Navigation permits a straight
-departure from this garden-wall contact without turning against the wall.
-Auto Shoot uses 1.5x the profile's navigation heading proportional gain for a
-quicker turning response, retaining existing drive power limits; other OpModes
-keep their existing gains.
-Launcher-speed interruptions pause feeding. Missing vision
-after collection sends the robot to park. The competition gate opens when the
-routine permits feeding and closes when feeding stops; intake provides feed
-assist. This routine makes one garden visit, not an unlimited collection loop.
-It stops on navigation/tracking failure, vision/aim timeout, B/Y, STOP, or the
-30-second autonomous deadline, and leaves all drive/mechanism outputs stopped.
-Existing profile geometry/Pedro verification gates remain enforced on hardware;
-the checked-in profiles are not yet fully verified for physical autonomous use.
-Simulator route execution does not verify physical ball collection or shot count.
-
 ## Requirements
 
 To use this Android Studio project, you will need Android Studio Narwhal 3 Feature Drop or later.

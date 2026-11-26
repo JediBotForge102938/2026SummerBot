@@ -59,7 +59,7 @@ public final class FieldMap {
                 side == StartingSpot.AUDIENCE ? -CELL_Y : CELL_Y, 0);
     }
 
-    /** Approximate wall attachment points, not obstacle clearance or robot targets. */
+    /** Wall attachment points, not obstacle clearance or robot targets. */
     public static final List<Pose> FLOWER_WALL_POINTS = Collections.unmodifiableList(Arrays.asList(
             new Pose(-72, -24, 0), new Pose(72, 24, 0),
             new Pose(24, -72, 0), new Pose(-24, 72, 0)

@@ -44,6 +44,9 @@ sourceSets {
             exclude 'org/firstinspires/ftc/teamcode/control/TouchpadInput.java'
             exclude 'org/firstinspires/ftc/teamcode/subsystems/ActiveRobotProfileSource.java'
             exclude 'org/firstinspires/ftc/teamcode/telemetry/TelemetryMarkup.java'
+            exclude 'org/firstinspires/ftc/teamcode/pedro/Tuning.java'
+            exclude 'org/firstinspires/ftc/teamcode/pedro/procedures/**'
+            exclude 'org/firstinspires/ftc/teamcode/pedroPathing/**'
         }
         resources {
             srcDirs = [
@@ -72,7 +75,10 @@ tasks.named('processResources') {
 }
 
 dependencies {
-    implementation fileTree(dir: '../third_party/virtual_robot/lib', include: ['*.jar'])
+    implementation fileTree(dir: '../third_party/virtual_robot/lib', include: ['*.jar'],
+            exclude: ['Pedropathing.jar'])
+    // Pedro 3 simulator jar from Beta8397/virtual_robot commit 7105cfa53402.
+    implementation files('lib/Pedropathing.jar')
     implementation 'com.google.code.gson:gson:2.10.1'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.mockito:mockito-core:4.11.0'

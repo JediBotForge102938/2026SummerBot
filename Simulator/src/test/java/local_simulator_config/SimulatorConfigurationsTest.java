@@ -18,7 +18,6 @@ import org.dyn4j.world.World;
 import org.firstinspires.ftc.teamcode.subsystems.RobotProfile;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.FieldMap;
-import org.firstinspires.ftc.teamcode.subsystems.TrackingSubsystem;
 import org.firstinspires.ftc.teamcode.CompetitionBotTeleOp;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.junit.Test;
@@ -33,15 +32,15 @@ import virtual_robot.robots.classes.StarterBotConfigurationExerciseSim;
 import virtual_robot.robots.classes.StarterBotMecanumSim;
 
 public class SimulatorConfigurationsTest {
-    @Test public void leaveAndParkIsDiscoveredAsAutonomous() {
+    @Test public void landmarkTravelIsDiscoveredAsTeleOp() {
         java.util.Set<Class<?>> discovered = new Reflections("org.firstinspires.ftc.teamcode")
-                .getTypesAnnotatedWith(com.qualcomm.robotcore.eventloop.opmode.Autonomous.class);
-        Class<?> autonomous = org.firstinspires.ftc.teamcode.LeaveAndParkAuto.class;
-        assertTrue(discovered.contains(autonomous));
-        assertTrue(OpMode.class.isAssignableFrom(autonomous));
-        assertNull(autonomous.getAnnotation(com.qualcomm.robotcore.eventloop.opmode.Disabled.class));
-        assertEquals("Leave & Park",
-                autonomous.getAnnotation(com.qualcomm.robotcore.eventloop.opmode.Autonomous.class).name());
+                .getTypesAnnotatedWith(com.qualcomm.robotcore.eventloop.opmode.TeleOp.class);
+        Class<?> test = org.firstinspires.ftc.teamcode.LandmarkTravelTestTeleOp.class;
+        assertTrue(discovered.contains(test));
+        assertTrue(OpMode.class.isAssignableFrom(test));
+        assertNull(test.getAnnotation(com.qualcomm.robotcore.eventloop.opmode.Disabled.class));
+        assertEquals("Landmark Travel Test",
+                test.getAnnotation(com.qualcomm.robotcore.eventloop.opmode.TeleOp.class).name());
     }
 
     @Test public void configurationNamesAndResourcesMatchXmlFiles() {
@@ -203,9 +202,6 @@ public class SimulatorConfigurationsTest {
         DriveSubsystem drive = new DriveSubsystem();
         drive.init(hardware, RobotProfile.loadActive(null));
         drive.resetHeading();
-        TrackingSubsystem tracking = new TrackingSubsystem();
-        tracking.init(hardware, RobotProfile.loadActive(null));
-        tracking.start(new FieldMap.Pose(0, 0, 0));
         if (fieldRelative) drive.driveFieldRelative(forward, strafe, rotate);
         else drive.driveRobotRelative(forward, strafe, rotate);
         double x = robot.getX(), y = robot.getY(), heading = robot.getHeadingRadians();
@@ -216,16 +212,12 @@ public class SimulatorConfigurationsTest {
         double dx = robot.getX() - x;
         double dy = robot.getY() - y;
         double dh = robot.getHeadingRadians() - heading;
-        tracking.update(drive.getHeadingDegrees());
-        assertNotNull(tracking.getPose());
         if (axis == 0) {
             assertTrue(model + " strafe " + strafe + " dx=" + dx, dx * strafe > 1);
-            assertTrue(model + " tracked strafe", tracking.getPose().y * strafe < -0.1);
             assertTrue(model + " strafe dx=" + dx + " dy=" + dy, Math.abs(dy) < Math.abs(dx) * 0.25);
             assertEquals(0, dh, 0.001);
         } else if (axis == 1) {
             assertTrue(model + " forward " + forward + " dy=" + dy, dy * forward > 1);
-            assertTrue(model + " tracked forward", tracking.getPose().x * forward > 0.1);
             assertTrue(model + " forward dx=" + dx + " dy=" + dy, Math.abs(dx) < Math.abs(dy) * 0.25);
             assertEquals(0, dh, 0.001);
         } else {
