@@ -58,7 +58,7 @@ public class LauncherSubsystem implements TelemetrySource {
     }
 
     private final List<MotorConfig> motorConfigs;
-    private final PidfConfig pidf;
+    private PidfConfig pidf;
     private final int feedVelocityMargin;
     private final List<DcMotorEx> motors = new ArrayList<>();
     private int targetVelocity = DEFAULT_TARGET_VELOCITY;
@@ -199,6 +199,21 @@ public class LauncherSubsystem implements TelemetrySource {
 
     public int getTargetVelocity() {
         return targetVelocity;
+    }
+
+    public PidfConfig getPidf() {
+        return pidf;
+    }
+
+    public void setPidf(PidfConfig pidf) {
+        requireInitialized();
+        Objects.requireNonNull(pidf, "Launcher PIDF configuration");
+        for (DcMotorEx motor : motors) {
+            motor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER,
+                    new PIDFCoefficients(pidf.p, pidf.i, pidf.d, pidf.f));
+        }
+        this.pidf = pidf;
+        resetReadiness();
     }
 
     public int getFeedVelocityThreshold() {

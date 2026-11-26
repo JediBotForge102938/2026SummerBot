@@ -134,6 +134,35 @@ public class LauncherSubsystemTest {
     }
 
     @Test
+    public void livePidfUpdatesEveryMotorAndRestartsReadinessWithoutChangingTarget() {
+        when(left.getVelocity()).thenReturn(1250.0);
+        when(right.getVelocity()).thenReturn(1250.0);
+        launcher.update(true);
+        now += 200_000_000L;
+        assertTrue(launcher.update(true));
+        LauncherSubsystem.PidfConfig updated = new LauncherSubsystem.PidfConfig(41, 0.01, 0.1, 13);
+        launcher.setPidf(updated);
+        assertSame(updated, launcher.getPidf());
+        assertFalse(launcher.isReady());
+        assertEquals(1250, launcher.getTargetVelocity());
+        for (DcMotorEx motor : Arrays.asList(left, right)) {
+            org.mockito.ArgumentCaptor<PIDFCoefficients> coefficients =
+                    org.mockito.ArgumentCaptor.forClass(PIDFCoefficients.class);
+            verify(motor).setPIDFCoefficients(eq(DcMotor.RunMode.RUN_USING_ENCODER),
+                    coefficients.capture());
+            assertEquals(41, coefficients.getValue().p, 0);
+            assertEquals(0.01, coefficients.getValue().i, 0);
+            assertEquals(0.1, coefficients.getValue().d, 0);
+            assertEquals(13, coefficients.getValue().f, 0);
+        }
+        assertFalse(launcher.update(true));
+        now += 200_000_000L;
+        assertTrue(launcher.update(true));
+        assertThrows(NullPointerException.class, () -> launcher.setPidf(null));
+        assertSame(updated, launcher.getPidf());
+    }
+
+    @Test
     public void bothMotorsMustQualifyTogetherAndEitherMotorCanResetDwell() {
         when(left.getVelocity()).thenReturn(1250.0);
         when(right.getVelocity()).thenReturn(1200.0);

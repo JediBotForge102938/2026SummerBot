@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S4-01: PIDF basics and launcher tuning | Stryker FTC</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <p class="eyebrow">S4-01 &middot; Lesson 1</p>
+      <h1>S4-01 &middot; PIDF basics and launcher tuning</h1>
+      <p>Learn what each coefficient changes, predict the speed response, and test one change at a time.</p>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="../index.html">Course map</a>
+        <a href="../mission.html">Mission</a>
+        <a href="../resources.html">Resources</a>
+        <a href="../notes.html">Instructor notes</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="layout">
+      <article>
+        <span class="tag">Feedback control &middot; Launcher velocity</span>
+        <p class="lede">A target speed is a request, not a guarantee. A controller repeatedly measures the launcher, compares it with the request, and adjusts motor effort. By the end, you should be able to explain P, I, D, and F, recognize their effects, and use Launcher Tuning to evaluate a change.</p>
+
+        <h2 id="loop">The control loop: request, measure, correct</h2>
+        <p>Our launcher uses <strong>encoder ticks per second</strong>, not RPM. The encoder counts motor movement; velocity tells us how quickly those counts change. A target of 1200 ticks/s asks the motor to maintain that speed even when its load changes. Converting to RPM requires the correct encoder counts per revolution and any relevant gearing.</p>
+        <table>
+          <thead><tr><th>Term</th><th>Meaning</th><th>Launcher example</th></tr></thead>
+          <tbody>
+            <tr><td>Target / setpoint</td><td>The requested speed</td><td>1200 ticks/s</td></tr>
+            <tr><td>Actual / measurement</td><td>The encoder's measured speed</td><td>1140 ticks/s</td></tr>
+            <tr><td>Error</td><td>Target minus actual</td><td>1200 - 1140 = +60 ticks/s</td></tr>
+            <tr><td>Control effort</td><td>The motor command used to correct speed</td><td>More or less electrical drive, within the controller's limits</td></tr>
+          </tbody>
+        </table>
+        <p>Positive error means too slow; negative error means too fast. <strong>Closed-loop control</strong> uses the measurement to correct the result. In contrast, simply commanding a fixed motor power does not correct speed when battery voltage or load changes.</p>
+        <p>In <a href="../../TeamCode/src/main/java/org/firstinspires/ftc/teamcode/subsystems/LauncherSubsystem.java"><code>LauncherSubsystem.java</code></a>, we select <code>RUN_USING_ENCODER</code>, apply <code>setPIDFCoefficients(...)</code>, and request speed with <code>setVelocity(...)</code>. The Hub runs the motor's velocity controller; the OpMode changes its settings and displays the result. We are not implementing a separate PID loop in Java.</p>
+
+        <h2 id="response">Describe the response before changing it</h2>
+        <table>
+          <thead><tr><th>Observation</th><th>What to watch</th></tr></thead>
+          <tbody>
+            <tr><td>Rise time</td><td>How quickly speed approaches a new target after spin-up</td></tr>
+            <tr><td>Overshoot</td><td>How far speed goes above the target before settling</td></tr>
+            <tr><td>Settling time</td><td>How long it takes to enter and stay in the desired speed band</td></tr>
+            <tr><td>Steady-state error</td><td>The persistent difference after the initial transient has settled</td></tr>
+            <tr><td>Oscillation</td><td>Repeated swings, rather than a stable speed with small measurement fluctuations</td></tr>
+            <tr><td>Disturbance recovery</td><td>How quickly speed returns after a shot removes energy from the flywheel</td></tr>
+          </tbody>
+        </table>
+        <p>Reading 1140 once during acceleration is different from holding near 1140 for ten seconds. Record the settled range, not only the highest reading. This OpMode displays live samples, not a plotted history or automatic response measurements; a teammate can record readings over time.</p>
+
+        <h2 id="parameters">What response does each parameter adjust?</h2>
+        <p>The letters name four contributions, combined into one motor command. This simplified equation explains the idea:</p>
+        <pre><code>error = target - actual
+effort = F * target
+       + P * error
+       + I * accumulated_error
+       + D * rate_of_change_of_error</code></pre>
+        <p>This is a <strong>conceptual model</strong>, not Java code to copy or an exact specification of Hub firmware. Controller scaling, sampling, output limits, and implementation details matter. A coefficient of 40 does not mean 40 percent power. Values from another robot, position controller, or software library are not automatically interchangeable.</p>
+        <table>
+          <thead><tr><th>Parameter</th><th>Responds to</th><th>Main response adjusted</th><th>Too little / too much</th></tr></thead>
+          <tbody>
+            <tr><td><strong>P: proportional</strong></td><td>Error right now</td><td>Immediate correction strength; rise and recovery speed</td><td>Too little: weak correction, sluggish recovery, possible offset. Too much: overshoot or repeated oscillation.</td></tr>
+            <tr><td><strong>I: integral</strong></td><td>Error accumulated over time</td><td>Removal of persistent steady-state error</td><td>Too little: a residual offset may remain. Too much: delayed overshoot, slow oscillation, or prolonged settling.</td></tr>
+            <tr><td><strong>D: derivative</strong></td><td>How quickly error changes</td><td>Damping of rapid changes; overshoot and settling behavior</td><td>Too little: an otherwise underdamped response may keep overshooting. Too much: noisy corrections or sluggish response.</td></tr>
+            <tr><td><strong>F: feedforward</strong></td><td>Requested speed, without waiting for error</td><td>Baseline effort for the target; how much feedback correction is needed</td><td>Too little: feedback must supply missing effort, possibly leaving an undershoot. Too much: feedback must counter excess effort, possibly causing overspeed.</td></tr>
+          </tbody>
+        </table>
+        <p><strong>P, I, and D are feedback; F is feedforward.</strong> Their effects interact. None exclusively controls one characteristic, and increasing a gain does not guarantee improvement.</p>
+
+        <h3>P: correct the error now</h3>
+        <p>At 1200 target and 1140 actual, P reacts to +60. If actual drops to 1080, the error becomes +120 and the proportional contribution doubles for the same P. Increasing P makes the same error produce a stronger correction. That can accelerate recovery, but an overly strong response can swing past the target and repeatedly correct in the opposite direction.</p>
+        <p>P alone does not guarantee zero steady-state error: with zero error, its contribution is zero. If F does not supply enough baseline effort, some positive error may remain to produce the needed P correction.</p>
+
+        <h3>I: correct an error that keeps happening</h3>
+        <p>If the launcher stays 60 ticks/s low, I remembers that continuing shortfall and builds additional correction. The same +60 error sustained for several seconds can produce more integral contribution than a brief +60 error. It can remove an offset that P and F leave behind.</p>
+        <p><strong>Integral windup</strong> means accumulated correction becomes excessive while the motor cannot satisfy the request, such as during a large spin-up error or output saturation. When conditions improve, that stored correction can cause overshoot. Firmware may have protections, but do not assume they make a large I safe. Use the smallest useful I and check longer runs and restarts.</p>
+
+        <h3>D: react to how the error is changing</h3>
+        <p>Imagine two readings with the same +60 error. In one trial, speed is rising quickly toward target; in the other, it is stationary at 1140. P sees the same error, but D distinguishes the changing trend. In the conceptual model, rapidly shrinking positive error gives a negative derivative contribution that can temper the approach and reduce overshoot.</p>
+        <p>D is not a fix for a constant 60-ticks/s shortfall: constant error has approximately zero derivative. Encoder noise also looks like rapid change, so D can amplify it. Start this velocity-tuning exercise with D at zero; a stable response may not need D at all. A sudden target change can also affect derivative response, depending on the controller implementation.</p>
+
+        <h3>F: supply the expected effort before an error develops</h3>
+        <p>A flywheel needs effort to maintain speed even when it is exactly on target. F supplies a target-dependent baseline instead of making feedback discover all that effort through error. With a reasonably matched F, P/I/D can focus on correcting deviations.</p>
+        <p>A launcher that settles below each target but willingly spins faster when the target increases suggests useful speed headroom. An insufficient F or other tuning mismatch is plausible; it is not proof against battery, encoder, controller, or mechanical problems. Increase F in small trials, rather than raising the requested speed to disguise the error. With P active, do not assume multiplying F by target/actual gives the correct new coefficient.</p>
+
+        <h2 id="opmode">Use Launcher Tuning</h2>
+        <div class="tip"><strong>Hardware safety:</strong> work with an instructor, secure the robot, keep the launcher empty and the discharge area clear, and keep hands, hair, and loose clothing away from moving parts. STOP before inspecting hardware. Use only approved operating speeds; the software's 6000-ticks/s limit is not a safe-speed recommendation.</div>
+        <ol>
+          <li>Select the matching StarterBot or CompetitionBot hardware configuration, then <strong>Launcher Tuning</strong> under <strong>2 - (Tests)</strong>.</li>
+          <li>Press INIT. Check <strong>Robot profile</strong>. The OpMode loads that profile's launcher motors, directions, and PIDF. Missing or invalid profiles stop initialization rather than guessing.</li>
+          <li>Press START. Gamepad 1 D-pad up/down selects a row; left/right decreases/increases its value. Release between presses; held arrows do not repeat. Opposing arrows cancel.</li>
+          <li>Hold RB to request spinning; release it to command zero speed. RB held across START must first be released. The flywheel may still coast after the command stops.</li>
+          <li>Watch actual/target, signed error, and the tracking indicator. The competition gate stays closed; this OpMode does not run the intake or feeder.</li>
+        </ol>
+        <table>
+          <thead><tr><th>Row</th><th>Normal step per press</th><th>With LB held</th></tr></thead>
+          <tbody>
+            <tr><td>Target</td><td>25 ticks/s; starts at 1200</td><td>Still 25 ticks/s</td></tr>
+            <tr><td>P</td><td>1</td><td>0.1</td></tr>
+            <tr><td>I</td><td>0.01</td><td>0.001</td></tr>
+            <tr><td>D</td><td>0.1</td><td>0.01</td></tr>
+            <tr><td>F</td><td>0.1</td><td>0.01</td></tr>
+          </tbody>
+        </table>
+        <p>Coefficients are nonnegative. Edits apply live to all configured launcher motors; actual is the slowest motor when several are configured. Changing PIDF resets the subsystem's readiness qualification. It does not promise to clear the Hub's internal integral state. All edits are temporary, and a new run reloads the profile.</p>
+
+        <h2 id="tolerance">Tracking is not the same as READY</h2>
+        <p>At 1200 target, 1140 actual gives +60 error. That is <strong>OUTSIDE</strong> the tuning display's desired +/-50-ticks/s band, even if the launcher eventually reports READY.</p>
+        <table>
+          <thead><tr><th>Indicator</th><th>Rule</th><th>What it tells us</th></tr></thead>
+          <tbody>
+            <tr><td>Tracking (+/-50 ticks/s)</td><td>WITHIN when absolute error is at most 50 and spinning is commanded; OFF otherwise when not commanded</td><td>Current closeness to target on either side; no dwell requirement</td></tr>
+            <tr><td>Readiness</td><td>Speed must stay strictly above target minus the profile margin for 200 ms to qualify; a lower dropout threshold adds hysteresis afterward</td><td>Whether the subsystem considers feeding available, not whether speed accurately tracks target</td></tr>
+          </tbody>
+        </table>
+        <p>The observed competition setup uses a 125-ticks/s margin, a workaround for its undershoot; StarterBot uses 50. Check the displayed profile margin because saved or deployed settings can differ. At 1200, margins of 125 and 50 give initial qualification thresholds strictly above 1075 and 1150, respectively. Exactly 1150 can show WITHIN in this tuner but cannot initially qualify a 50-margin launcher. Readiness also has no upper-speed rejection: substantial overspeed can still be READY. Aim comfortably inside the tracking band, not exactly on an edge.</p>
+
+        <h2 id="practice">Predict, change one value, observe</h2>
+        <p>Use a charged battery and one approved target for comparisons. Keep a driver ready to stop and a recorder watching telemetry. Do not deliberately create unstable behavior to demonstrate a parameter.</p>
+        <ol>
+          <li><strong>Baseline:</strong> record the loaded P/I/D/F. The competition setup observed during this exercise used (40, 0, 0, 13.0); StarterBot used (40, 0, 0, 12.5). These are examples, not recommended final gains. Trust the displayed active profile if saved or deployed values differ. Spin for 5-10 seconds and record settled error and fluctuations.</li>
+          <li><strong>F trial:</strong> predict what a +0.1 F change will do to a sustained undershoot. Keep P fixed and I/D at zero for this initial exercise. Adjust F once, allow several seconds to settle, and record the result. Repeat small trials; switch to +0.01 near the desired band. Back off if speed goes too high.</li>
+          <li><strong>P trial:</strong> after F is reasonably matched, predict what +1 P will do to spin-up and recovery. Compare with the previous value. If repeated swings or excessive overshoot appear, reduce P rather than adding more gain. Keep the responsive, stable choice.</li>
+          <li><strong>I trial, only if needed:</strong> if a small stable offset remains, try +0.01 I or a finer step. Observe longer runs and stop/restart cycles. Keep it only if the offset improves without delayed overshoot or slow oscillation.</li>
+          <li><strong>D decision:</strong> explain why D will not remove a constant offset. Leave it zero if the response is stable. If overshoot remains after reducing P, an instructor can supervise a fine +0.01 D trial and check whether damping improves without noisy corrections.</li>
+          <li><strong>Compare targets:</strong> repeat with approved low, normal, and high shooting targets. Seek one useful coefficient set across the operating range, not a perfect reading at only 1200.</li>
+        </ol>
+        <p>This sequence is a practical starting method, not a universal tuning recipe. Keep F fixed while comparing P, and so on; after a meaningful change, recheck earlier observations because the terms interact. If improvement stalls, review hardware and controller limits rather than endlessly increasing gains.</p>
+        <table>
+          <thead><tr><th>Trial</th><th>Target</th><th>P / I / D / F</th><th>Settled actual range</th><th>Error / overshoot / recovery</th><th>Battery voltage, if measured</th></tr></thead>
+          <tbody>
+            <tr><td>Baseline</td><td>1200</td><td>Copy displayed values</td><td>Record observations</td><td>Record observations</td><td>Record separately</td></tr>
+            <tr><td>One change</td><td>Same target</td><td>Change one coefficient</td><td>Record observations</td><td>Better, worse, or unchanged?</td><td>Keep conditions comparable</td></tr>
+          </tbody>
+        </table>
+        <p>The tuner does not display battery voltage or measure recovery time automatically. Record those separately where available. Never touch or obstruct a moving flywheel to create a disturbance.</p>
+
+        <h2 id="save">Keep and validate the result</h2>
+        <p>STOP, then copy the final P/I/D/F into <code>launcher.pidf</code> in the matching <code>robot-configs/biobuzz-competitionbot.profile.json</code> or <code>biobuzz-starterbot.profile.json</code>. Run <code>./gradlew pushRobotConfigs</code> with the intended Hub connected, and verify the same configuration is active. See the <a href="../../robot-configs/README.md#launcher-tuning">launcher tuning reference</a> and <a href="../reference-docs/upload-config.html">configuration upload guide</a>.</p>
+        <p>With an instructor, use normal TeleOp to validate shooting and recovery, since this tuner cannot feed. Repeat across normal battery conditions. Once tracking reliably supports it, restore the competition profile's <code>feedVelocityMarginTicksPerSecond</code> to the desired 50 and verify feeding and dropout behavior. That margin is a separate policy setting, not a PIDF gain.</p>
+        <div class="tip"><strong>Know the limits:</strong> no gain can create unavailable voltage or torque. Persistent problems may involve battery sag, output saturation, friction, load, motor choice, wiring, or encoder/motor configuration. The simulator can teach controls and code flow, but its idealized motor behavior cannot establish physical robot PIDF values.</div>
+
+        <h2 id="check">Quick retrieval check</h2>
+        <ol>
+          <li>The launcher settles at 1140 with a target of 1200. What is the signed error, and is it inside +/-50?</li>
+          <li>Which term reacts immediately to current error? Which reacts to a shortfall that persists?</li>
+          <li>Why can increasing P improve recovery but also increase oscillation?</li>
+          <li>Why does D distinguish a quickly shrinking error from an unchanged error of the same size?</li>
+          <li>Why does a flywheel need F even when the error is zero?</li>
+          <li>Can READY certify accurate tracking? Does increasing the readiness margin fix control?</li>
+          <li>Where do you save the tuned gains, and what must be tested outside this OpMode?</li>
+        </ol>
+        <details>
+          <summary>Check your explanations after discussing</summary>
+          <p>1: +60 ticks/s, outside. 2: P reacts now; I accumulates persistent error. 3: Stronger correction can recover faster but overshoot and repeatedly reverse correction. 4: D responds to the error's rate of change, not its size. 5: Maintaining speed requires baseline effort even with no error. 6: No; READY uses a separate lower threshold and dwell, and widening it changes permission to feed rather than motor control. 7: Save in the matching profile's <code>launcher.pidf</code>, upload it, then validate loaded shooting, recovery, and normal battery conditions on the physical robot.</p>
+        </details>
+        <nav class="lesson-nav" aria-label="Lesson navigation">
+          <a href="s3-02-field-centric.html">&larr; Previous: field-centric driving</a>
+          <a href="../index.html">Course map &rarr;</a>
+        </nav>
+      </article>
+      <aside class="toc" aria-label="On this page">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#loop">The control loop</a></li>
+          <li><a href="#response">Describe the response</a></li>
+          <li><a href="#parameters">P, I, D, and F</a></li>
+          <li><a href="#opmode">Launcher Tuning controls</a></li>
+          <li><a href="#tolerance">Tracking vs READY</a></li>
+          <li><a href="#practice">Tuning practice</a></li>
+          <li><a href="#save">Save and validate</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+        </ol>
+      </aside>
+    </div>
+    <footer>Use robot hardware only with instructor supervision and the matching configuration.</footer>
+  </main>
+  <script src="../assets/theme.js"></script>
+</body>
+</html>

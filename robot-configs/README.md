@@ -24,6 +24,7 @@ configuration at INIT and displays the selected name using **Robot profile**:
 | Field Tracking Test, Landmark Travel Test | Either robot |
 | Leave & Park, Simple Leave & Park, Auto Shoot | Either robot |
 | Both Limelight cluster tests | Either robot; camera name/pipeline from profile |
+| Launcher Tuning | Either robot; launcher motors/directions/PIDF from profile |
 
 Robot-specific modes validate the `robot` field **after loading the active
 configuration's profile**; they do not select a fixed StarterBot/CompetitionBot
@@ -125,6 +126,32 @@ the readiness margin below target: 100 for CompetitionBot and 50 for StarterBot.
 CompetitionBot's `launcher.gate` specifies the servo name and open/closed
 positions. Re-upload both version 9 profiles with the updated app; older profiles
 are rejected.
+
+### Launcher tuning
+
+Select **Launcher Tuning** under **2 - (Tests)**. INIT detects the active profile
+and applies its launcher PIDF without spinning. After START, gamepad 1 D-pad
+up/down selects Target, P, I, D, or F; left/right adjusts the selected row once
+per press. Target starts at 1200 ticks/s and changes by 25 within 0-6000.
+P changes by 1, I by 0.01, and D/F by 0.1; hold LB for ten-times-finer
+PIDF steps. Coefficients cannot go below zero.
+Hold RB to spin and release to stop; RB held across START must be released
+first. Changes apply live to every configured launcher motor. The competition
+gate stays closed and no intake/feeder is commanded.
+
+Telemetry shows actual/target, signed speed error, a separate +/-50-ticks/s
+tracking indicator, readiness, and the profile's feed threshold.
+The tracking indicator is OFF unless spinning is commanded, and WITHIN at an
+absolute error of 50 ticks/s or less. Actual is the slowest motor for a multi-motor launcher. READY
+uses the profile margin, not exact target tracking: 1140/1200 is inside the
+observed CompetitionBot 125-ticks/s margin but outside StarterBot's 50.
+The wider competition margin is a readiness workaround, not a tracking fix;
+use the separate 50-ticks/s indicator when tuning.
+All tuning changes are temporary. Copy the final P/I/D/F into the matching
+`launcher.pidf` profile and run `./gradlew pushRobotConfigs` to retain them.
+An undershoot can reflect tuning (including F or I), but also battery voltage,
+motor/controller saturation, encoder configuration, or mechanical load; compare
+at several targets on the physical robot rather than assuming PIDF is the cause.
 
 The current vision algorithm assumes the camera faces the launcher, and the
 field tracking uses `otos.mountingRotationDegrees` to rotate raw sensor X/Y
