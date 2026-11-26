@@ -73,7 +73,8 @@ public class HiveTrackingController implements TelemetrySource {
         hasValidResult = snapshot.hasValidResult;
         if (hasValidResult) {
             target = findNearestTrackableCluster(
-                    snapshot.clusters, true, confirmedScorableCluster);
+                    snapshot.clusters, true, vision.getScorableRollThresholdDegrees(),
+                    confirmedScorableCluster);
         }
         confirmedScorableCluster = target == null ? null : target.name;
         if (target != null) {
@@ -156,21 +157,22 @@ public class HiveTrackingController implements TelemetrySource {
                     aim.isCompensated() ? RobotTelemetry.Level.INFO : RobotTelemetry.Level.WARNING);
         }
         output.number("Tracking rotation request", turnPower, "power");
-        output.line("Hold A: aim at nearest scorable alliance hive; left stick drives at 35%");
+        output.line("Hold A: aim at nearest scorable alliance hive; left stick uses selected drive speed");
         output.line("While aiming, translation yields to rotation; tracking rotation is not slowed");
-        output.line("Continuous rumble while holding A: no trackable hive");
+        output.line("Continuous rumble while holding A: scorable hive locked");
         if (!configurationManaged) {
             output.line("D-pad left: RED | right: BLUE (saved automatically)");
         }
     }
 
     public static ClusterDetection findNearestTrackableCluster(
-            List<ClusterDetection> clusters, boolean scorableOnly) {
-        return findNearestTrackableCluster(clusters, scorableOnly, null);
+            List<ClusterDetection> clusters, boolean scorableOnly, double thresholdDegrees) {
+        return findNearestTrackableCluster(clusters, scorableOnly, thresholdDegrees, null);
     }
 
     private static ClusterDetection findNearestTrackableCluster(
-            List<ClusterDetection> clusters, boolean scorableOnly, String confirmedScorableCluster) {
+            List<ClusterDetection> clusters, boolean scorableOnly, double thresholdDegrees,
+            String confirmedScorableCluster) {
         ClusterDetection nearest = null;
         double nearestRange = Double.POSITIVE_INFINITY;
         for (ClusterDetection cluster : clusters) {
@@ -180,7 +182,8 @@ public class HiveTrackingController implements TelemetrySource {
             double x = cluster.poseCameraSpace.getPosition().x;
             double z = cluster.poseCameraSpace.getPosition().z;
             if (!Double.isFinite(x) || !Double.isFinite(z) || z <= 0
-                    || (scorableOnly && !isScorableOrConfirmed(cluster, confirmedScorableCluster))) {
+                    || (scorableOnly && !isScorableOrConfirmed(
+                            cluster, confirmedScorableCluster, thresholdDegrees))) {
                 continue;
             }
             double range = Math.hypot(x, z);
@@ -193,14 +196,14 @@ public class HiveTrackingController implements TelemetrySource {
     }
 
     private static boolean isScorableOrConfirmed(
-            ClusterDetection cluster, String confirmedScorableCluster) {
-        if (VisionSubsystem.classifyCell(cluster) == VisionSubsystem.CellStatus.SCORABLE) {
+            ClusterDetection cluster, String confirmedScorableCluster, double thresholdDegrees) {
+        if (VisionSubsystem.classifyCell(cluster, thresholdDegrees) == VisionSubsystem.CellStatus.SCORABLE) {
             return true;
         }
         // One tag cannot establish scorability, but can maintain the same confirmed target.
         return cluster.name.equals(confirmedScorableCluster)
                 && cluster.visibleTagIdsLeftToRight.size() == 1
-                && VisionSubsystem.classifyOpeningNormal(cluster) == VisionSubsystem.CellStatus.SCORABLE;
+                && VisionSubsystem.classifyRoll(cluster, thresholdDegrees) == VisionSubsystem.CellStatus.SCORABLE;
     }
 
     public static double getTurnPower(double horizontalAngleDegrees) {

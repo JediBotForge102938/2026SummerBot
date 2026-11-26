@@ -6,8 +6,8 @@
   "intake": { "motorDirection": "REVERSE", "defaultSpeedPercent": 75, "feedAssistPercent": 35 },
   "launcher": {
     "gate": { "name": "gate", "openPosition": 0, "closedPosition": 0.3 },
-    "feedVelocityMarginTicksPerSecond": 250,
-    "pidf": { "p": 40, "i": 0, "d": 0, "f": 12.5 },
+    "feedVelocityMarginTicksPerSecond": 125,
+    "pidf": { "p": 40, "i": 0, "d": 0, "f": 13.0 },
     "motors": [
       { "name": "launcher", "direction": "FORWARD" }
     ]
@@ -16,7 +16,8 @@
   "limelight": {
     "name": "limelight", "pipeline": 0, "aimDirection": "launcher", "inverted": true,
     "lensFromBackCm": 10.5, "lensFromLeftCm": 24.5, "lensHeightCm": 34.5,
-    "yawDegrees": 180, "pitchUpDegrees": 44, "rollDegrees": 180
+    "yawDegrees": 180, "pitchUpDegrees": 37, "rollDegrees": 180,
+    "scorableRollThresholdDegrees": 65
   },
   "otos": {
     "name": "otos",

@@ -51,7 +51,6 @@ public class LimelightAllianceClusterAdapterTestTeleOp extends OpMode {
         telemetry.addLine("Press Options to switch alliance");
         telemetry.addData("Robot profile", profile.name);
         telemetry.addData("Camera pitch up", "%.1f deg", profile.limelightPitchUpDegrees);
-        telemetry.addLine("Opening-up > 0: scorable; < 0: down; horizontal/disagreement: unknown");
         telemetry.addLine("Mount compensation assumes robot is level");
 
         VisionSubsystem.DetectionSnapshot snapshot = vision.update(selectedAlliance);
@@ -84,7 +83,7 @@ public class LimelightAllianceClusterAdapterTestTeleOp extends OpMode {
 
             Pose3D pose = cluster.poseCameraSpace;
             telemetry.addData(
-                    "Opening origin (in)",
+                    "Cluster origin (in)",
                     "X %6.2f right, Y %6.2f down, Z %6.2f forward",
                     pose.getPosition().x,
                     pose.getPosition().y,
@@ -97,15 +96,15 @@ public class LimelightAllianceClusterAdapterTestTeleOp extends OpMode {
                     pose.getOrientation().getRoll(AngleUnit.DEGREES));
 
             double clusterRoll = VisionSubsystem.getClusterRollDegrees(cluster);
-            VisionSubsystem.CellStatus cellStatus = VisionSubsystem.classifyCell(cluster);
+            VisionSubsystem.CellStatus cellStatus = VisionSubsystem.classifyCell(
+                    cluster, profile.limelightScorableRollThresholdDegrees);
             telemetry.addData(
                     "Cell status",
-                    "%s (ascending IDs and all opening normals up)",
-                    cellStatus);
+                    "%s (roll < %.1f deg)",
+                    cellStatus, profile.limelightScorableRollThresholdDegrees);
             telemetry.addData("Mount-compensated roll", "%.1f deg", clusterRoll);
             telemetry.addData("Opening normal up (verify sign)", "%.3f; tag range %.3f to %.3f",
                     cluster.openingNormalUp, cluster.minOpeningNormalUp, cluster.maxOpeningNormalUp);
-            telemetry.addLine("Known raised cell: expect positive opening-up; assumes tag +Z outward");
             if (cellStatus == VisionSubsystem.CellStatus.UNKNOWN_POSE) {
                 unknownPoseCells.add(cluster.name);
             } else if (cellStatus == VisionSubsystem.CellStatus.NOT_SCORABLE) {

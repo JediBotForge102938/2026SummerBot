@@ -128,7 +128,7 @@ public class TeleopControllerTest {
         verify(drive).driveRobotRelative(1, 0, 0, 0.4);
         gamepad.a = true;
         controller.update(gamepad, gunner);
-        verify(drive).driveRobotRelative(0.35, 0, 0, 1, true);
+        verify(drive).driveRobotRelative(0.4, 0, 0, 1, true);
         for (int i = 0; i < 21; i++) {
             gamepad.touchpad_finger_1 = false;
             controller.update(gamepad, gunner);
@@ -211,7 +211,7 @@ public class TeleopControllerTest {
     }
 
     @Test
-    public void gunnerReadinessRumbleIsIndependentOfDriverTargetWarning() {
+    public void gunnerReadinessRumbleIsIndependentOfDriverTargetLock() {
         ConfigurationSubsystem config = mock(ConfigurationSubsystem.class);
         when(config.isLocked()).thenReturn(true);
         when(config.isTwoControllers()).thenReturn(true);
@@ -219,6 +219,7 @@ public class TeleopControllerTest {
         controller.configure(config, gamepad, gunner);
         clearInvocations(gamepad, gunner);
         gamepad.a = true;
+        when(tracking.hasTarget()).thenReturn(true);
         when(mechanisms.isLauncherReady()).thenReturn(false, true, false);
         controller.update(gamepad, gunner);
         controller.update(gamepad, gunner);
@@ -228,7 +229,7 @@ public class TeleopControllerTest {
         verify(gamepad, never()).stopRumble();
         verify(gunner).rumble(200);
         verify(gunner).stopRumble();
-        when(tracking.hasTarget()).thenReturn(true);
+        when(tracking.hasTarget()).thenReturn(false);
         controller.update(gamepad, gunner);
         verify(gamepad).stopRumble();
     }
@@ -684,20 +685,24 @@ public class TeleopControllerTest {
     }
 
     @Test
-    public void missingHiveRumblesContinuouslyUntilAcquiredEvenWhenCentered() {
+    public void targetLockRumblesContinuouslyUntilLostOrReleasedEvenWhenCentered() {
         gamepad.a = true;
         controller.update(gamepad);
         controller.update(gamepad);
-        verify(gamepad).rumble(Gamepad.RUMBLE_DURATION_CONTINUOUS);
+        verify(gamepad, never()).rumble(Gamepad.RUMBLE_DURATION_CONTINUOUS);
         verify(gamepad, never()).stopRumble();
 
         when(tracking.hasTarget()).thenReturn(true);
         when(tracking.update(true)).thenReturn(0.0);
         controller.update(gamepad);
         controller.update(gamepad);
-        verify(gamepad).stopRumble();
+        verify(gamepad).rumble(Gamepad.RUMBLE_DURATION_CONTINUOUS);
+        verify(gamepad, never()).stopRumble();
 
         when(tracking.hasTarget()).thenReturn(false);
+        controller.update(gamepad);
+        verify(gamepad).stopRumble();
+        when(tracking.hasTarget()).thenReturn(true);
         controller.update(gamepad);
         verify(gamepad, times(2)).rumble(Gamepad.RUMBLE_DURATION_CONTINUOUS);
         gamepad.a = false;
@@ -707,8 +712,9 @@ public class TeleopControllerTest {
     }
 
     @Test
-    public void launcherReadinessChangesDoNotInterruptMissingHiveWarning() {
+    public void launcherReadinessChangesDoNotInterruptTargetLock() {
         gamepad.a = true;
+        when(tracking.hasTarget()).thenReturn(true);
         when(mechanisms.isLauncherReady()).thenReturn(false, true, false, true);
         for (int i = 0; i < 4; i++) {
             controller.update(gamepad);
@@ -716,7 +722,7 @@ public class TeleopControllerTest {
         verify(gamepad).rumble(Gamepad.RUMBLE_DURATION_CONTINUOUS);
         verify(gamepad, never()).rumble(200);
         verify(gamepad, never()).stopRumble();
-        when(tracking.hasTarget()).thenReturn(true);
+        when(tracking.hasTarget()).thenReturn(false);
         controller.update(gamepad);
         verify(gamepad).stopRumble();
     }
@@ -743,7 +749,7 @@ public class TeleopControllerTest {
     }
 
     @Test
-    public void configuredDriveAndBumperSpeedsAreIndependentAndAimingIsUnchanged() {
+    public void configuredDriveAndBumperSpeedsApplyToAimingTranslation() {
         ConfigurationSubsystem configuration = mock(ConfigurationSubsystem.class);
         when(configuration.isLocked()).thenReturn(true);
         when(configuration.getDriveSpeedPercent()).thenReturn(45);
@@ -753,13 +759,17 @@ public class TeleopControllerTest {
         gamepad.right_stick_x = 0.5f;
         controller.update(gamepad);
         verify(drive).driveRobotRelative(1, 0, 0.5, 0.45);
+        gamepad.a = true;
+        when(tracking.update(true)).thenReturn(0.2);
+        controller.update(gamepad);
+        verify(drive).driveRobotRelative(0.45, 0, 0.2, 1, true);
+        gamepad.a = false;
         gamepad.left_bumper = true;
         controller.update(gamepad);
         verify(drive).driveRobotRelative(1, 0, 0.5, 0.8);
         gamepad.a = true;
-        when(tracking.update(true)).thenReturn(0.2);
         controller.update(gamepad);
-        verify(drive).driveRobotRelative(0.35, 0, 0.2, 1, true);
+        verify(drive).driveRobotRelative(0.8, 0, 0.2, 1, true);
     }
 
     @Test
@@ -771,7 +781,7 @@ public class TeleopControllerTest {
         when(tracking.update(true)).thenReturn(0.3);
 
         controller.update(gamepad);
-        verify(drive).driveRobotRelative(0.175, 0.0875, 0.3, 1, true);
+        verify(drive).driveRobotRelative(0.5, 0.25, 0.3, 1, true);
         gamepad.a = false;
         controller.update(gamepad);
         verify(drive).driveRobotRelative(0.5, 0.25, -1, 1);
@@ -787,11 +797,11 @@ public class TeleopControllerTest {
 
         controller.update(gamepad);
 
-        verify(drive).driveRobotRelative(0.35, -0.175, 0, 1, true);
+        verify(drive).driveRobotRelative(1, -0.5, 0, 1, true);
     }
 
     @Test
-    public void trackingSlowsTranslationButNotRotationEvenWithPrecisionBumper() {
+    public void trackingUsesBumperSpeedForTranslationButNotRotation() {
         when(preferences.isFieldCentric()).thenReturn(true);
         controller = new TeleopController(drive, mechanisms, preferences, tracking);
         gamepad.a = true;
@@ -807,7 +817,7 @@ public class TeleopControllerTest {
         verify(mechanisms).update(0, true);
         RobotTelemetry output = mock(RobotTelemetry.class);
         controller.publishTelemetry(output);
-        verify(output).status("Driving", "AIMING (SLOW TRANSLATION)", RobotTelemetry.Level.WARNING);
+        verify(output).status("Driving", "AIMING (BUMPER)", RobotTelemetry.Level.WARNING);
         verify(output).number("Drive power limit", 100, "%");
         verify(output).number("Translation input scale", 35, "%");
 

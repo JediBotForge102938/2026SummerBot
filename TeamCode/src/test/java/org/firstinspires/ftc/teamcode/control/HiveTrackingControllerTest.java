@@ -47,7 +47,7 @@ public class HiveTrackingControllerTest {
         when(result.getFiducialResults()).thenReturn(tags);
         when(camera.getLatestResult()).thenReturn(result);
         vision = new VisionSubsystem();
-        vision.init(hardware);
+        vision.init(hardware, 65);
         preferences = mock(DriveModePreferences.class);
         tracking = new HiveTrackingController(vision, preferences, () -> 0);
     }
@@ -71,7 +71,7 @@ public class HiveTrackingControllerTest {
     @Test
     public void excludesNearNonScorableAndWrongAllianceAndTracksFarScorableHive() {
         addCluster(30, 5, 50, -10, false); // red, not the selected alliance
-        addCluster(38, -20, 70, 10, false); // blue, wrong roll
+        addCluster(38, -20, 70, 80, false); // blue, wrong roll
         addCluster(42, 40, 200, -10, false); // blue and scorable
 
         assertTrue(tracking.update(true) > 0);
@@ -80,6 +80,19 @@ public class HiveTrackingControllerTest {
         tracking.publishTelemetry(output);
         verify(output).value("Hive target", "BLUE SCORING");
         verify(output).status("Hive tracking", "LOCKED IN", RobotTelemetry.Level.SUCCESS);
+    }
+
+    @Test
+    public void trackingUsesConfiguredRollThreshold() {
+        addCluster(38, 40, 100, 50, false);
+        assertTrue(tracking.update(true) > 0);
+        HardwareMap hardware = mock(HardwareMap.class);
+        when(hardware.get(Limelight3A.class, "limelight")).thenReturn(camera);
+        VisionSubsystem stricterVision = new VisionSubsystem();
+        stricterVision.init(hardware, 45);
+        HiveTrackingController stricter = new HiveTrackingController(stricterVision, preferences, () -> 0);
+        assertEquals(0, stricter.update(true), 0);
+        assertFalse(stricter.hasTarget());
     }
 
     @Test
@@ -149,7 +162,7 @@ public class HiveTrackingControllerTest {
     public void unknownSingleTagAndDescendingAndWrongRollAreRejected() {
         addTag(38, -10, 100, -10);
         addCluster(42, 10, 100, -10, true);
-        addCluster(30, 10, 100, 10, false);
+        addCluster(30, 10, 100, 80, false);
 
         assertEquals(0, tracking.update(true), 0);
         tracking.selectAlliance(true, false);
@@ -180,7 +193,7 @@ public class HiveTrackingControllerTest {
         addCluster(38, 40, 100, -10, false);
         assertTrue(tracking.update(true) > 0);
         tags.clear();
-        addTag(39, 40, 100, 10);
+        addTag(39, 40, 100, 80);
         assertEquals(0, tracking.update(true), 0);
         tags.clear();
         addTag(39, 40, 100, -10);
@@ -308,14 +321,14 @@ public class HiveTrackingControllerTest {
         ClusterDetection cluster = mock(ClusterDetection.class);
         when(cluster.hasPose()).thenReturn(false);
         assertNull(HiveTrackingController.findNearestTrackableCluster(
-                Collections.singletonList(cluster), true));
+                Collections.singletonList(cluster), true, 65));
         addCluster(38, 0, -100, -10, false);
         List<ClusterDetection> clusters = new BioBuzzLimelightClusterAdapter().detect(result, Alliance.BLUE);
-        assertNull(HiveTrackingController.findNearestTrackableCluster(clusters, false));
+        assertNull(HiveTrackingController.findNearestTrackableCluster(clusters, false, 65));
         tags.clear();
         addCluster(38, Double.NaN, 100, -10, false);
         clusters = new BioBuzzLimelightClusterAdapter().detect(result, Alliance.BLUE);
-        assertNull(HiveTrackingController.findNearestTrackableCluster(clusters, true));
+        assertNull(HiveTrackingController.findNearestTrackableCluster(clusters, true, 65));
     }
 
     @Test
@@ -323,7 +336,7 @@ public class HiveTrackingControllerTest {
         addCluster(38, 40, 100, -10, false);
         assertTrue(tracking.update(true) > 0);
         tags.clear();
-        addCluster(38, 40, 100, 10, false);
+        addCluster(38, 40, 100, 80, false);
 
         assertEquals(0, tracking.update(true), 0);
         RobotTelemetry output = mock(RobotTelemetry.class);

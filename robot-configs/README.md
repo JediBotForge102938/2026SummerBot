@@ -51,7 +51,7 @@ navigator exactly once. The direct-return OTOS test intentionally uses zero
 hardware offset and raw sensor coordinates.
 
 The CompetitionBot profile has its own mounting measurements. Its camera optical
-axis points 44 degrees above horizontal, faces rearward, and is inverted.
+axis points 37 degrees above horizontal, faces rearward, and is inverted.
 Inspect the active configuration name shown on the configuration screen before driving.
 
 The profiles also store chassis length and width, and the Limelight lens
@@ -69,7 +69,7 @@ camera); the field-tracking diagnostic avoids applying that rotation twice.
 Profiles without the flag retain the upright behavior. Limelight's stream
 orientation is display-only and must not be used as an observation correction.
 Verify hive classification and aiming direction on the physical robot.
-Cell classification now uses a separate mount-compensated roll in a level frame
+The diagnostics include a separate mount-compensated roll in a level frame
 aligned with the camera heading (+X right, +Y down, +Z horizontally forward).
 Each tag's rotation is composed with the camera elevation and residual lens roll
 before averaging; this is not subtraction of Euler angles. Mounting yaw selects
@@ -78,32 +78,34 @@ level: this correction does not compensate chassis tilt or AprilTag pose ambigui
 The inversion-corrected camera-space pose remains unchanged for aiming and the
 approximate position diagnostic, so those consumers do not double-apply elevation.
 
-Both cluster Limelight tests display camera-space roll, mount-compensated roll,
-and the active profile/pitch. Classification no longer uses an Euler-roll cutoff.
-It requires ascending spatial tag IDs and an upward-facing opening normal from
-every posed tag. All downward normals mean NOT_SCORABLE; horizontal or conflicting
-normals mean UNKNOWN_POSE. A numerical tolerance of 0.000001 at zero handles
-floating-point boundary noise; it is not a calibrated confidence band.
-The same opening-normal gate retains a confirmed target with one visible tag,
-but one tag alone cannot establish a new scorable target.
+Both cluster Limelight tests display mount-compensated roll and the active
+profile/pitch. The tracking test displays camera-space and mount-compensated roll
+for each posed tag; the adapter test displays the cluster's camera-space roll.
+Classification requires ascending spatial tag IDs and a mount-compensated roll
+below the profile's `scorableRollThresholdDegrees` (65 degrees in both profiles).
+At or above the threshold, or with descending IDs, the cell is NOT_SCORABLE.
+Missing or indeterminate pose, fewer than two posed tags, or mixed tag order gives
+UNKNOWN_POSE. A confirmed target can be retained with one visible tag only while
+its roll remains below the threshold; one tag cannot establish a new target.
+This threshold is provisional: verify it across viewing angles and distances.
 The [official Competition Manual](https://ftc-resources.firstinspires.org/ftc/game/manual?season=biobuzz)
 Figure 9-10 (page 71) labels a 30-degree nominal hive tilt. Sections 9.6.2 and
 10.5.1 describe upward-facing cells and stable states/damper contact, not a
 numeric vision-roll threshold. The nominal tilt can inform expected orientations
 once the tag-to-cell rotation/sign is verified; it is not itself the cutoff.
-SDK cluster offsets locate the opening relative to the tags, but do not supply
-the stable-state orientation. Do not derive a scoring cutoff from those offsets alone.
+The SDK specifies a cluster origin relative to the tags, but does not identify
+its physical location on the cell or supply the stable-state orientation.
+Do not derive a scoring cutoff from those offsets alone.
 
-The cluster tests also display **Opening normal up (verify sign)** and its
+The adapter test also displays **Opening normal up (verify sign)** and its
 minimum/maximum across posed tags. This transforms tag +Z through the same mounting
 rotation and assumes it faces outward from the cell bottom, making the opening
 normal its negative. Values range from -1 (opening down) to +1 (opening up).
 Check that a known upward-facing cell is positive and the same cell after tipping
 is negative, on a level robot. A bottom plane 30 degrees from horizontal predicts
 an upward-component magnitude near 0.866. The per-tag range reveals disagreement
-that a mean could hide. This documented outward-normal convention now drives the
-gate; verify it on known raised/down cells before relying on shooting or Auto Shoot.
-An upward normal does not certify damper contact or a fully settled hive.
+that a mean could hide. These values are diagnostic only and do not drive the gate.
+Neither roll nor opening-normal readings certify damper contact or a fully settled hive.
 Each profile also specifies the intake motor direction: FORWARD for StarterBot
 and REVERSE for CompetitionBot. TeleOp intake defaults are 100% and 75%,
 respectively. StarterBot's `intake.leftServoDirection` is REVERSE and
@@ -118,10 +120,10 @@ to the motor range. Auto Shoot's intake powers are unchanged.
 and true for CompetitionBot, reversing only the robot-relative lateral drive
 component after any field-centric transform. `launcher.motors` lists each motor
 name and its `FORWARD` or `REVERSE` direction; `launcher.pidf` supplies the
-velocity controller's P, I, D and F coefficients for that robot. Both profiles
-initially retain the previous values (40, 0, 0, 12.5), which have not been tuned
-for CompetitionBot's launcher. `launcher.feedVelocityMarginTicksPerSecond` is
-the readiness margin below target: 100 for CompetitionBot and 50 for StarterBot.
+velocity controller's P, I, D and F coefficients for that robot. StarterBot uses
+(40, 0, 0, 12.5); CompetitionBot uses the provisional values (40, 0, 0, 13.0).
+`launcher.feedVelocityMarginTicksPerSecond` is the readiness margin below target:
+125 for CompetitionBot and 50 for StarterBot.
 CompetitionBot's `launcher.gate` specifies the servo name and open/closed
 positions. Re-upload both version 9 profiles with the updated app; older profiles
 are rejected.
@@ -224,7 +226,7 @@ Limelight name and pipeline. The hardware configuration also includes an OTOS de
 
 The competition profile maps `launcher` to Expansion Hub port 3 and uses
 FORWARD for its motor direction. Readiness requires its encoder speed above
-target minus 250 ticks/s for 200 ms; at or below target minus 275 ticks/s removes
+target minus 125 ticks/s for 200 ms; at or below target minus 150 ticks/s removes
 readiness. Its positional servo is named `gate`, with open position 0.0 and
 closed position 0.3. In TeleOp, B toggles the gate during INIT or after START,
 independently of launcher speed; it closes during initialization and STOP and
@@ -232,7 +234,7 @@ retains its position across START. Auto Shoot opens it only when
 its launcher readiness, alignment and stationary checks permit feeding.
 The StarterBot windmill is a separate feeder subsystem.
 The competition TeleOp now uses the same `TeleopController` and controls as the
-StarterBot, including hive tracking, slow aiming translation, rumble and alliance
+StarterBot, including hive tracking, selected-speed aiming translation, rumble and alliance
 LEDs. Drive mode, launcher target and alliance currently share the StarterBot
 preferences; the saved drive mode determines robot- versus field-centric driving.
 Competition intake servos are disabled because its profile has only an intake motor.
@@ -344,7 +346,8 @@ one or two controllers and is saved between runs (default: one). In two-controll
 mode, gamepad 1 keeps the sticks, A, left bumper, touchpad, and drive-mode/heading controls;
 gamepad 2 uses the trigger, right bumper, and D-pad mechanism controls below.
 The live speeds and controller count appear in telemetry.
-Shooter-ready rumble goes to the gunner; target-lock warnings go to the driver.
+Shooter-ready rumble goes to the gunner; the driver rumbles continuously while
+A is held and a scorable hive is locked.
 
 | Input | Action |
 | --- | --- |
@@ -372,8 +375,9 @@ Station STOP is the safety backup.
 Both TeleOps offer Drive speed and Bumper speed in the INIT menu. D-pad left/right
 adjusts each from 0% to 100% in 5% steps; selections are saved on the Robot
 Controller. Defaults are 60% and 100%. Bumper speed may be higher or lower than
-Drive speed. While aiming with A, the existing 35% translation and full rotation
-behavior takes precedence over both settings.
+Drive speed. While aiming with A, translation uses the selected drive or bumper
+speed, while automatic rotation remains at full strength. Translation yields to
+rotation when wheel power is saturated.
 The launcher target defaults to 1250 encoder ticks/second. Feeding is enabled
 only after the launcher holds above its target threshold for 200 ms; a zero
 target disables launcher feeding. Start and Options are SDK aliases, so the

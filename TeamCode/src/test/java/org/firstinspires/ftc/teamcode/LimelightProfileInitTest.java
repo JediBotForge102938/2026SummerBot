@@ -40,10 +40,12 @@ public class LimelightProfileInitTest {
         when(second.getFiducialId()).thenReturn(39);
         when(first.getTargetPoseCameraSpace()).thenReturn(new Pose3D(
                 new Position(DistanceUnit.INCH, 20, 0, 100, 0),
-                new YawPitchRollAngles(AngleUnit.DEGREES, 180, 0, -54, 0)));
+                new YawPitchRollAngles(AngleUnit.DEGREES, 180, 0,
+                        -10 - profile.limelightPitchUpDegrees, 0)));
         when(second.getTargetPoseCameraSpace()).thenReturn(new Pose3D(
                 new Position(DistanceUnit.INCH, 10, 0, 100, 0),
-                new YawPitchRollAngles(AngleUnit.DEGREES, 180, 0, -54, 0)));
+                new YawPitchRollAngles(AngleUnit.DEGREES, 180, 0,
+                        -10 - profile.limelightPitchUpDegrees, 0)));
         when(result.getFiducialResults()).thenReturn(Arrays.asList(first, second));
         VisionSubsystem realVision = new VisionSubsystem();
         realVision.init(hardware, profile);
@@ -65,24 +67,33 @@ public class LimelightProfileInitTest {
                 clearInvocations(op.telemetry);
                 op.loop();
                 verify(op.telemetry).addData("Robot profile", profile.name);
-                verify(op.telemetry).addData("Camera pitch up", "%.1f deg", 44.0);
+                verify(op.telemetry).addData("Camera pitch up", "%.1f deg", 37.0);
                 verify(op.telemetry).addData(eq("Mount-compensated roll"), eq("%.1f deg"),
                         doubleThat(value -> Math.abs(value + 10) < 1e-8));
-                verify(op.telemetry).addLine(
-                        "Opening-up > 0: scorable; < 0: down; horizontal/disagreement: unknown");
-                verify(op.telemetry).addData("Opening normal up (verify sign)",
-                        "%.3f; tag range %.3f to %.3f",
-                        snapshot.clusters.get(0).openingNormalUp,
-                        snapshot.clusters.get(0).minOpeningNormalUp,
-                        snapshot.clusters.get(0).maxOpeningNormalUp);
+                verify(op.telemetry).addData("Cell status", "%s (roll < %.1f deg)",
+                        VisionSubsystem.CellStatus.SCORABLE, 65.0);
                 if (mode == 0) {
-                    verify(op.telemetry).addData(eq("Camera-space roll"), eq("%.1f deg"),
-                            doubleThat(value -> Math.abs(value + 54) < 1e-8));
+                    verify(op.telemetry).addData(eq("Tag 38 roll"),
+                            eq("camera %.1f / level %.1f deg"),
+                            doubleThat(value -> Math.abs(value + 10
+                                    + profile.limelightPitchUpDegrees) < 1e-8),
+                            doubleThat(value -> Math.abs(value + 10) < 1e-8));
+                    verify(op.telemetry).addData(eq("Tag 39 roll"),
+                            eq("camera %.1f / level %.1f deg"),
+                            doubleThat(value -> Math.abs(value + 10
+                                    + profile.limelightPitchUpDegrees) < 1e-8),
+                            doubleThat(value -> Math.abs(value + 10) < 1e-8));
                 } else {
+                    verify(op.telemetry).addData("Opening normal up (verify sign)",
+                            "%.3f; tag range %.3f to %.3f",
+                            snapshot.clusters.get(0).openingNormalUp,
+                            snapshot.clusters.get(0).minOpeningNormalUp,
+                            snapshot.clusters.get(0).maxOpeningNormalUp);
                     verify(op.telemetry).addData(eq("Camera-space yaw / pitch / roll (deg)"),
                             eq("%6.1f / %6.1f / %6.1f"),
                             doubleThat(value -> Math.abs(value) < 1e-8), eq(0.0),
-                            doubleThat(value -> Math.abs(value + 54) < 1e-8));
+                            doubleThat(value -> Math.abs(value + 10
+                                    + profile.limelightPitchUpDegrees) < 1e-8));
                 }
                 op.stop();
             }

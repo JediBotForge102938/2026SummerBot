@@ -97,8 +97,9 @@ During TeleOp INIT, select **Drive speed** and **Bumper speed** with D-pad
 up/down, then adjust with left/right in 5% steps (0–100%). Defaults are 60%
 and 100%; values persist across runs on the same Robot Controller. Holding
 the left bumper selects Bumper speed, which can be a boost or a reduction.
-Holding A to aim retains 35% translation and full rotation regardless of these
-settings.
+Holding A to aim uses the selected drive or bumper speed for translation while
+keeping automatic rotation at full strength. Translation yields to rotation
+when wheel power is saturated.
 
 In the StarterBot and CompetitionBot INIT menu, select **Controllers** with
 either controller's D-pad and choose 1 or 2 with left/right. The choice is saved
@@ -123,8 +124,8 @@ return on the next run. Held D-pad buttons and intake triggers must be released
 and pressed again after START; a held gate button is also suppressed at INIT,
 START, and when its controlling gamepad changes. Selection is explicit: a
 disconnect does not transfer controls to the other gamepad. Use Driver Station
-STOP as the safety backup. Shooter-ready rumble goes to the gunner, while
-target-lock warnings go to the driver.
+STOP as the safety backup. Shooter-ready rumble goes to the gunner; the driver
+rumbles continuously while A is held and a scorable hive is locked.
 
 The competition, starter, and BioBuzz Cluster Tracking TeleOps use the drive IMU's
 measured yaw rate to compensate cluster bearings for rotation during camera latency.

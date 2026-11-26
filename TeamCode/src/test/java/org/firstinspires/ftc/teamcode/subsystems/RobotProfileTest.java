@@ -34,7 +34,8 @@ public class RobotProfileTest {
             + "\"imu\":{\"name\":\"custom-imu\",\"logoFacing\":\"UP\",\"usbFacing\":\"FORWARD\"},"
             + "\"limelight\":{\"name\":\"camera\",\"pipeline\":3,\"aimDirection\":\"launcher\","
             + "\"lensFromBackCm\":9.5,\"lensFromLeftCm\":22.86,\"lensHeightCm\":31.8,"
-            + "\"yawDegrees\":180,\"pitchUpDegrees\":37,\"rollDegrees\":0},"
+            + "\"yawDegrees\":180,\"pitchUpDegrees\":37,\"rollDegrees\":0,"
+            + "\"scorableRollThresholdDegrees\":65},"
             + "\"otos\":{\"name\":\"optical\",\"rawAxes\":"
             + "\"forward-negative-x-right-positive-y-clockwise-negative\","
             + "\"opticalCenterFromBackCm\":20,\"opticalCenterFromLeftCm\":10,\"mountingRotationDegrees\":0,"
@@ -78,9 +79,9 @@ public class RobotProfileTest {
         assertEquals(40, normal.launcherPidf.p, 0);
         assertEquals(0, normal.launcherPidf.i, 0);
         assertEquals(0, competition.launcherPidf.d, 0);
-        assertEquals(12.5, competition.launcherPidf.f, 0);
+        assertEquals(13.0, competition.launcherPidf.f, 0);
         assertEquals(50, normal.launcherFeedVelocityMargin);
-        assertEquals(250, competition.launcherFeedVelocityMargin);
+        assertEquals(125, competition.launcherFeedVelocityMargin);
         assertNull(normal.launcherGate);
         assertEquals("gate", competition.launcherGate.name);
         assertEquals(0.0, competition.launcherGate.openPosition, 0);
@@ -113,6 +114,8 @@ public class RobotProfileTest {
         assertEquals(180, starter.limelightYawDegrees, 0);
         assertEquals(37, starter.limelightPitchUpDegrees, 0);
         assertEquals(0, starter.limelightRollDegrees, 0);
+        assertEquals(65, starter.limelightScorableRollThresholdDegrees, 0);
+        assertEquals(65, competition.limelightScorableRollThresholdDegrees, 0);
         assertThrows(IllegalStateException.class,
                 () -> RobotProfile.load(directory, "biobuzz-starterbot", "competitionbot"));
     }
@@ -153,6 +156,10 @@ public class RobotProfileTest {
                 VALID.replace("\"pipeline\":3", "\"pipeline\":11"),
                 VALID.replace("\"pipeline\":3", "\"pipeline\":\"3\""),
                 VALID.replace("\"pipeline\":3", "\"pipeline\":3,\"inverted\":\"true\""),
+                VALID.replace(",\"scorableRollThresholdDegrees\":65", ""),
+                VALID.replace("\"scorableRollThresholdDegrees\":65", "\"scorableRollThresholdDegrees\":0"),
+                VALID.replace("\"scorableRollThresholdDegrees\":65", "\"scorableRollThresholdDegrees\":180"),
+                VALID.replace("\"scorableRollThresholdDegrees\":65", "\"scorableRollThresholdDegrees\":1e999"),
                 VALID.replace("\"usbFacing\":\"FORWARD\"", "\"usbFacing\":\"DOWN\""),
                 VALID.replace("\"linearScalar\":1.02", "\"linearScalar\":2"),
                 VALID.replace("\"lengthCm\":45.72", "\"lengthCm\":0"),
@@ -213,6 +220,7 @@ public class RobotProfileTest {
         verify(camera).start();
         assertEquals("camera", vision.getCameraName());
         assertEquals(3, vision.getPipeline());
+        assertEquals(65, vision.getScorableRollThresholdDegrees(), 0);
         assertEquals("optical", profile.otosName);
         assertEquals(1.02, profile.otosLinearScalar, 0);
         assertEquals(0.98, profile.otosAngularScalar, 0);

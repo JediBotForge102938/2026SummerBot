@@ -58,7 +58,8 @@ public class LimelightClusterTrackingTestTeleOp extends OpMode {
 
         VisionSubsystem.DetectionSnapshot snapshot = vision.update(selectedAlliance);
         BioBuzzLimelightClusterAdapter.ClusterDetection target =
-                HiveTrackingController.findNearestTrackableCluster(snapshot.clusters, false);
+                HiveTrackingController.findNearestTrackableCluster(snapshot.clusters, false,
+                        profile.limelightScorableRollThresholdDegrees);
 
         double forward = 0.0;
         double rotate = 0.0;
@@ -94,25 +95,26 @@ public class LimelightClusterTrackingTestTeleOp extends OpMode {
 
             drive.driveRobotRelative(forward, 0.0, rotate);
             telemetry.addData("Target", target.name);
-            telemetry.addData("Visible tags", target.visibleTagIds);
             telemetry.addData("Tags left to right", target.visibleTagIdsLeftToRight);
-            telemetry.addData("Target range", "%.1f in", Math.hypot(targetX, targetZ));
+            if (target.visibleTagIds.size() != target.visibleTagIdsLeftToRight.size()) {
+                telemetry.addData("Detected tags", target.visibleTagIds);
+            }
+            telemetry.addData("Cluster range (camera X/Z)", "%.1f in", Math.hypot(targetX, targetZ));
             telemetry.addData("Horizontal error", "%.1f deg", horizontalAngleDegrees);
             telemetry.addData("Turn power", "%.2f", rotate);
             telemetry.addData(
                     "Cell status",
-                    "%s (ascending IDs and all opening normals up)",
-                    VisionSubsystem.classifyCell(target));
+                    "%s (roll < %.1f deg)",
+                    VisionSubsystem.classifyCell(target, profile.limelightScorableRollThresholdDegrees),
+                    profile.limelightScorableRollThresholdDegrees);
             telemetry.addData(
                     "Mount-compensated roll",
                     "%.1f deg",
                     VisionSubsystem.getClusterRollDegrees(target));
-            telemetry.addData("Camera-space roll", "%.1f deg",
-                    VisionSubsystem.getCameraSpaceRollDegrees(target));
-            telemetry.addData("Opening normal up (verify sign)", "%.3f; tag range %.3f to %.3f",
-                    target.openingNormalUp, target.minOpeningNormalUp, target.maxOpeningNormalUp);
-            telemetry.addLine("Known raised cell: expect positive opening-up; assumes tag +Z outward");
-            telemetry.addLine("Opening-up > 0: scorable; < 0: down; horizontal/disagreement: unknown");
+            for (BioBuzzLimelightClusterAdapter.TagRoll tag : target.tagRolls) {
+                telemetry.addData("Tag " + tag.id + " roll", "camera %.1f / level %.1f deg",
+                        tag.cameraDegrees, tag.mountCompensatedDegrees);
+            }
         }
 
         telemetry.addData("Selected alliance", selectedAlliance);

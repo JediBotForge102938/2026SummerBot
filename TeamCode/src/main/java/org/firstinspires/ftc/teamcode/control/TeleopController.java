@@ -10,7 +10,6 @@ import org.firstinspires.ftc.teamcode.telemetry.RobotTelemetry;
 import org.firstinspires.ftc.teamcode.telemetry.TelemetrySource;
 
 public class TeleopController implements TelemetrySource {
-    private static final double AIM_TRANSLATION_SCALE = 0.35;
     private double driveSpeed = 1;
     private double bumperSpeed = 0.35;
     private final DriveSubsystem drive;
@@ -32,7 +31,7 @@ public class TeleopController implements TelemetrySource {
     private String intakeRobot;
     private int intakeSpeedPercent = 100;
     private boolean launcherWasReady;
-    private boolean missingTargetRumble;
+    private boolean targetLockRumble;
     private boolean precisionDriving;
     private boolean aiming;
     private Alliance controllerLedAlliance;
@@ -80,9 +79,9 @@ public class TeleopController implements TelemetrySource {
         double rotate = gamepad.a ? trackingRotation : gamepad.right_stick_x;
         double powerScale = precisionDriving ? bumperSpeed : driveSpeed;
         if (gamepad.a) {
-            forward *= AIM_TRANSLATION_SCALE;
-            strafe *= AIM_TRANSLATION_SCALE;
-            // While aiming, precision applies only to translation, not automatic rotation.
+            forward *= powerScale;
+            strafe *= powerScale;
+            // The selected speed limits translation, not automatic rotation.
             powerScale = 1;
         }
         if (fieldCentric) {
@@ -101,23 +100,23 @@ public class TeleopController implements TelemetrySource {
         updateIntakeToggle();
         mechanisms.update(intakeDirection * intakeSpeedPercent / 100.0, gunner.right_bumper);
         boolean ready = mechanisms.isLauncherReady();
-        boolean missingTarget = aiming && !tracking.hasTarget();
-        if (missingTarget) {
-            if (!missingTargetRumble) {
+        boolean targetLocked = aiming && tracking.hasTarget();
+        if (targetLocked) {
+            if (!targetLockRumble) {
                 gamepad.rumble(Gamepad.RUMBLE_DURATION_CONTINUOUS);
             }
-        } else if (missingTargetRumble) {
+        } else if (targetLockRumble) {
             gamepad.stopRumble();
         }
-        // A shared controller's target warning takes priority over readiness feedback.
-        if (gamepad != gunner || (!missingTarget && !missingTargetRumble)) {
+        // A shared controller's target lock takes priority over readiness feedback.
+        if (gamepad != gunner || (!targetLocked && !targetLockRumble)) {
             if (ready && !launcherWasReady) {
                 gunner.rumble(200);
             } else if (!ready && launcherWasReady) {
                 gunner.stopRumble();
             }
         }
-        missingTargetRumble = missingTarget;
+        targetLockRumble = targetLocked;
         launcherWasReady = ready;
     }
 
@@ -214,7 +213,7 @@ public class TeleopController implements TelemetrySource {
         mechanisms.stop();
         tracking.stop();
         launcherWasReady = false;
-        missingTargetRumble = false;
+        targetLockRumble = false;
         precisionDriving = false;
         aiming = false;
         leftTrigger = 0;
@@ -228,12 +227,13 @@ public class TeleopController implements TelemetrySource {
     public void publishTelemetry(RobotTelemetry output) {
         output.status("Drive mode", fieldCentric ? "FIELD-CENTRIC" : "ROBOT-CENTRIC",
                 RobotTelemetry.Level.INFO);
-        output.status("Driving", aiming ? "AIMING (SLOW TRANSLATION)"
+        output.status("Driving", aiming ? (precisionDriving ? "AIMING (BUMPER)" : "AIMING (NORMAL)")
                         : precisionDriving ? "BUMPER" : "NORMAL",
                 aiming || precisionDriving ? RobotTelemetry.Level.WARNING : RobotTelemetry.Level.INFO);
         output.number("Drive power limit", (aiming ? 1 : precisionDriving
                 ? bumperSpeed : driveSpeed) * 100, "%");
-        output.number("Translation input scale", (aiming ? AIM_TRANSLATION_SCALE : 1) * 100, "%");
+        output.number("Translation input scale",
+                (aiming ? (precisionDriving ? bumperSpeed : driveSpeed) : 1) * 100, "%");
         output.number("Left trigger", leftTrigger, "");
         output.number("Right trigger", rightTrigger, "");
         output.value("Intake toggle", getIntakeDirection());

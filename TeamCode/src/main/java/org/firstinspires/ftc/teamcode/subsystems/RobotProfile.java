@@ -46,6 +46,7 @@ public final class RobotProfile {
     public final double limelightYawDegrees;
     public final double limelightPitchUpDegrees;
     public final double limelightRollDegrees;
+    public final double limelightScorableRollThresholdDegrees;
     public final String otosName;
     public final double otosBackCm;
     public final double otosLeftCm;
@@ -133,7 +134,7 @@ public final class RobotProfile {
         JsonObject limelight = object(root, "limelight");
         requireKnownKeys(limelight, "name", "pipeline", "aimDirection", "lensFromBackCm",
                 "lensFromLeftCm", "lensHeightCm", "yawDegrees", "pitchUpDegrees", "rollDegrees",
-                "inverted");
+                "inverted", "scorableRollThresholdDegrees");
         limelightName = text(limelight, "name");
         limelightPipeline = integer(limelight, "pipeline");
         limelightInverted = limelight.has("inverted") && bool(limelight, "inverted");
@@ -143,6 +144,11 @@ public final class RobotProfile {
         limelightYawDegrees = number(limelight, "yawDegrees");
         limelightPitchUpDegrees = number(limelight, "pitchUpDegrees");
         limelightRollDegrees = number(limelight, "rollDegrees");
+        limelightScorableRollThresholdDegrees = number(limelight, "scorableRollThresholdDegrees");
+        if (limelightScorableRollThresholdDegrees <= 0
+                || limelightScorableRollThresholdDegrees >= 180) {
+            throw new IllegalArgumentException("Scorable roll threshold must be between 0 and 180 degrees");
+        }
         if (limelightHeightCm < 0) {
             throw new IllegalArgumentException("Limelight height must not be negative");
         }

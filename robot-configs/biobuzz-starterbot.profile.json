@@ -13,7 +13,8 @@
   "limelight": {
     "name": "limelight", "pipeline": 0, "aimDirection": "launcher", "inverted": false,
     "lensFromBackCm": 9.5, "lensFromLeftCm": 22.86, "lensHeightCm": 31.8,
-    "yawDegrees": 180, "pitchUpDegrees": 37, "rollDegrees": 0
+    "yawDegrees": 180, "pitchUpDegrees": 37, "rollDegrees": 0,
+    "scorableRollThresholdDegrees": 65
   },
   "otos": {
     "name": "otos",

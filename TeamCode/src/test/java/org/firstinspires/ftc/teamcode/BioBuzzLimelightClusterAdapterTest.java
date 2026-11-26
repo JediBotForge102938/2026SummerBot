@@ -59,9 +59,9 @@ public class BioBuzzLimelightClusterAdapterTest {
             ClusterDetection expected = adapter.detect(upright, Alliance.BLUE).get(0);
             ClusterDetection actual = adapter.detect(inverted, Alliance.BLUE, true).get(0);
             assertEquals(expected.visibleTagIdsLeftToRight, actual.visibleTagIdsLeftToRight);
-            assertEquals(VisionSubsystem.classifyCell(expected), VisionSubsystem.classifyCell(actual));
-            assertEquals(roll < 0 ? VisionSubsystem.CellStatus.SCORABLE
-                    : VisionSubsystem.CellStatus.NOT_SCORABLE, VisionSubsystem.classifyCell(actual));
+            assertEquals(VisionSubsystem.classifyCell(expected, 65),
+                    VisionSubsystem.classifyCell(actual, 65));
+            assertEquals(VisionSubsystem.CellStatus.SCORABLE, VisionSubsystem.classifyCell(actual, 65));
             Position expectedPosition = expected.poseCameraSpace.getPosition();
             Position actualPosition = actual.poseCameraSpace.getPosition();
             assertEquals(expectedPosition.x, actualPosition.x, 1e-8);
@@ -72,7 +72,7 @@ public class BioBuzzLimelightClusterAdapterTest {
             assertEquals(VisionSubsystem.getClusterRollDegrees(expected),
                     VisionSubsystem.getClusterRollDegrees(actual), 1e-8);
             assertEquals(VisionSubsystem.CellStatus.NOT_SCORABLE,
-                    VisionSubsystem.classifyCell(adapter.detect(inverted, Alliance.BLUE).get(0)));
+                    VisionSubsystem.classifyCell(adapter.detect(inverted, Alliance.BLUE).get(0), 65));
         }
     }
 
@@ -105,9 +105,9 @@ public class BioBuzzLimelightClusterAdapterTest {
                     assertEquals(VisionSubsystem.getCameraSpaceRollDegrees(camera),
                             VisionSubsystem.getCameraSpaceRollDegrees(compensated), 1e-8);
                     assertEquals(level[1][2], compensated.openingNormalUp, 1e-8);
-                    assertEquals(level[1][2] > 0 ? VisionSubsystem.CellStatus.SCORABLE
+                    assertEquals(cellRoll < 65 ? VisionSubsystem.CellStatus.SCORABLE
                             : VisionSubsystem.CellStatus.NOT_SCORABLE,
-                            VisionSubsystem.classifyCell(compensated));
+                            VisionSubsystem.classifyCell(compensated, 65));
                 }
             }
         }
@@ -132,7 +132,8 @@ public class BioBuzzLimelightClusterAdapterTest {
             verify(camera).pipelineSwitch(profile.limelightPipeline);
             ClusterDetection cell = vision.update(Alliance.BLUE).clusters.get(0);
             assertEquals(-20, VisionSubsystem.getClusterRollDegrees(cell), 1e-8);
-            assertEquals(VisionSubsystem.CellStatus.SCORABLE, VisionSubsystem.classifyCell(cell));
+            assertEquals(VisionSubsystem.CellStatus.SCORABLE,
+                    VisionSubsystem.classifyCell(cell, profile.limelightScorableRollThresholdDegrees));
             vision.stop();
         }
     }
@@ -148,7 +149,8 @@ public class BioBuzzLimelightClusterAdapterTest {
                     Alliance.BLUE, true, 44, 180).get(0);
             assertEquals(rawRoll, VisionSubsystem.getCameraSpaceRollDegrees(cell), 1e-8);
             assertEquals(rawRoll + 44, VisionSubsystem.getClusterRollDegrees(cell), 1e-8);
-            assertEquals(VisionSubsystem.CellStatus.NOT_SCORABLE, VisionSubsystem.classifyCell(cell));
+            assertEquals(rawRoll + 44 < 65 ? VisionSubsystem.CellStatus.SCORABLE
+                    : VisionSubsystem.CellStatus.NOT_SCORABLE, VisionSubsystem.classifyCell(cell, 65));
         }
     }
 
@@ -164,12 +166,36 @@ public class BioBuzzLimelightClusterAdapterTest {
                 posedTag(38, -20, angles(rotation(1, 90))),
                 posedTag(39, -10, angles(rotation(1, 90))));
         assertEquals(VisionSubsystem.CellStatus.UNKNOWN_POSE,
-                VisionSubsystem.classifyCell(adapter.detect(singular, Alliance.BLUE).get(0)));
+                VisionSubsystem.classifyCell(adapter.detect(singular, Alliance.BLUE).get(0), 65));
         LLResult invalid = result(posedTag(38, -20,
                 new YawPitchRollAngles(AngleUnit.DEGREES, 0, 0, Double.NaN, 0)));
         assertFalse(adapter.detect(invalid, Alliance.BLUE).get(0).hasPose());
         assertThrows(IllegalArgumentException.class,
                 () -> adapter.detect(observation, Alliance.BLUE, false, Double.NaN, 0));
+    }
+
+    @Test
+    public void reportsRollsForEachPosedTagBeforeAveraging() {
+        LLResultTypes.FiducialResult noPose = mock(LLResultTypes.FiducialResult.class);
+        when(noPose.getFiducialId()).thenReturn(40);
+        LLResult observation = result(
+                posedTag(39, 10, new YawPitchRollAngles(AngleUnit.DEGREES, 180, 0, 5, 0)),
+                noPose,
+                posedTag(38, 20, new YawPitchRollAngles(AngleUnit.DEGREES, 180, 0, -15, 0)));
+        ClusterDetection cluster = new BioBuzzLimelightClusterAdapter()
+                .detect(observation, Alliance.BLUE, true, 37, 180).get(0);
+
+        assertEquals(Arrays.asList(38, 39, 40), cluster.visibleTagIds);
+        assertEquals(Arrays.asList(38, 39), cluster.visibleTagIdsLeftToRight);
+        assertEquals(2, cluster.tagRolls.size());
+        assertEquals(38, cluster.tagRolls.get(0).id);
+        assertEquals(-15, cluster.tagRolls.get(0).cameraDegrees, 1e-8);
+        assertEquals(22, cluster.tagRolls.get(0).mountCompensatedDegrees, 1e-8);
+        assertEquals(39, cluster.tagRolls.get(1).id);
+        assertEquals(5, cluster.tagRolls.get(1).cameraDegrees, 1e-8);
+        assertEquals(42, cluster.tagRolls.get(1).mountCompensatedDegrees, 1e-8);
+        assertEquals(32, cluster.mountCompensatedRollDegrees, 1e-8);
+        assertThrows(UnsupportedOperationException.class, () -> cluster.tagRolls.clear());
     }
 
     private static LLResultTypes.FiducialResult posedTag(int id, double x, YawPitchRollAngles angles) {
@@ -202,17 +228,36 @@ public class BioBuzzLimelightClusterAdapterTest {
         assertEquals(0, disagreement.openingNormalUp, 1e-8);
         assertEquals(-Math.sqrt(3) / 2, disagreement.minOpeningNormalUp, 1e-8);
         assertEquals(Math.sqrt(3) / 2, disagreement.maxOpeningNormalUp, 1e-8);
-        assertEquals(VisionSubsystem.CellStatus.UNKNOWN_POSE,
-                VisionSubsystem.classifyCell(disagreement));
-        for (double roll : new double[] {-60, 60, 0, 180, 0.00001, -0.00001}) {
-            ClusterDetection cell = adapter.detect(result(
-                    posedTag(38, -20, angles(rotation(0, roll))),
-                    posedTag(39, -10, angles(rotation(0, roll)))), Alliance.BLUE).get(0);
-            VisionSubsystem.CellStatus expected = roll == -60 ? VisionSubsystem.CellStatus.SCORABLE
-                    : roll == 60 ? VisionSubsystem.CellStatus.NOT_SCORABLE
-                    : VisionSubsystem.CellStatus.UNKNOWN_POSE;
-            assertEquals(expected, VisionSubsystem.classifyCell(cell));
-        }
+    }
+
+    @Test
+    public void rollGateUsesConfiguredThresholdAndRequiresReliableTagOrder() {
+        BioBuzzLimelightClusterAdapter adapter = new BioBuzzLimelightClusterAdapter();
+        ClusterDetection raised = adapter.detect(result(
+                posedTag(38, -20, angles(rotation(0, 49))),
+                posedTag(39, -10, angles(rotation(0, 49)))), Alliance.BLUE).get(0);
+        ClusterDetection tipped = adapter.detect(result(
+                posedTag(38, -20, angles(rotation(0, 105))),
+                posedTag(39, -10, angles(rotation(0, 105)))), Alliance.BLUE).get(0);
+        assertEquals(VisionSubsystem.CellStatus.SCORABLE, VisionSubsystem.classifyCell(raised, 65));
+        assertEquals(VisionSubsystem.CellStatus.NOT_SCORABLE, VisionSubsystem.classifyCell(tipped, 65));
+        assertEquals(VisionSubsystem.CellStatus.NOT_SCORABLE,
+                VisionSubsystem.classifyCell(raised, raised.mountCompensatedRollDegrees));
+        assertEquals(VisionSubsystem.CellStatus.SCORABLE,
+                VisionSubsystem.classifyCell(raised, raised.mountCompensatedRollDegrees + 0.01));
+        assertEquals(VisionSubsystem.CellStatus.NOT_SCORABLE, VisionSubsystem.classifyCell(raised, 45));
+        ClusterDetection oneTag = adapter.detect(result(
+                posedTag(38, -20, angles(rotation(0, 20)))), Alliance.BLUE).get(0);
+        assertEquals(VisionSubsystem.CellStatus.UNKNOWN_POSE, VisionSubsystem.classifyCell(oneTag, 65));
+        ClusterDetection reversed = adapter.detect(result(
+                posedTag(38, -10, angles(rotation(0, 20))),
+                posedTag(39, -20, angles(rotation(0, 20)))), Alliance.BLUE).get(0);
+        assertEquals(VisionSubsystem.CellStatus.NOT_SCORABLE, VisionSubsystem.classifyCell(reversed, 65));
+        ClusterDetection mixed = adapter.detect(result(
+                posedTag(38, -30, angles(rotation(0, 20))),
+                posedTag(39, -10, angles(rotation(0, 20))),
+                posedTag(40, -20, angles(rotation(0, 20)))), Alliance.BLUE).get(0);
+        assertEquals(VisionSubsystem.CellStatus.UNKNOWN_POSE, VisionSubsystem.classifyCell(mixed, 65));
     }
 
     private static double[][] rotation(int axis, double degrees) {

@@ -36,8 +36,20 @@ public final class BioBuzzLimelightClusterAdapter {
         BOTH
     }
 
+    public static final class TagRoll {
+        public final int id;
+        public final double cameraDegrees;
+        public final double mountCompensatedDegrees;
+
+        private TagRoll(int id, double cameraDegrees, double mountCompensatedDegrees) {
+            this.id = id;
+            this.cameraDegrees = cameraDegrees;
+            this.mountCompensatedDegrees = mountCompensatedDegrees;
+        }
+    }
+
     /**
-     * The pose is the cell-opening origin in camera space, in inches, normalized
+     * The pose is the SDK cluster origin in camera space, in inches, normalized
      * for an inverted mounting: X points right, Y down, and Z forward.
      */
     public static final class ClusterDetection {
@@ -46,6 +58,7 @@ public final class BioBuzzLimelightClusterAdapter {
         public final boolean audienceSide;
         public final List<Integer> visibleTagIds;
         public final List<Integer> visibleTagIdsLeftToRight;
+        public final List<TagRoll> tagRolls;
         public final int percentClusterFound;
         public final Pose3D poseCameraSpace;
         /** Tag roll in a level frame aligned with the camera heading; robot assumed level. */
@@ -61,6 +74,7 @@ public final class BioBuzzLimelightClusterAdapter {
                 boolean audienceSide,
                 List<Integer> visibleTagIds,
                 List<Integer> visibleTagIdsLeftToRight,
+                List<TagRoll> tagRolls,
                 int percentClusterFound,
                 Pose3D poseCameraSpace,
                 double mountCompensatedRollDegrees,
@@ -73,6 +87,7 @@ public final class BioBuzzLimelightClusterAdapter {
             this.visibleTagIds = Collections.unmodifiableList(new ArrayList<>(visibleTagIds));
             this.visibleTagIdsLeftToRight =
                     Collections.unmodifiableList(new ArrayList<>(visibleTagIdsLeftToRight));
+            this.tagRolls = Collections.unmodifiableList(new ArrayList<>(tagRolls));
             this.percentClusterFound = percentClusterFound;
             this.poseCameraSpace = poseCameraSpace;
             this.mountCompensatedRollDegrees = mountCompensatedRollDegrees;
@@ -121,6 +136,7 @@ public final class BioBuzzLimelightClusterAdapter {
 
             List<Integer> visibleTagIds = new ArrayList<>();
             List<TagObservation> posedTags = new ArrayList<>();
+            List<TagRoll> tagRolls = new ArrayList<>();
             PoseAccumulator poseAccumulator = new PoseAccumulator(inverted, pitchUpDegrees,
                     mountingRollDegrees);
             for (int memberIndex = 0; memberIndex < TAGS_PER_CLUSTER; memberIndex++) {
@@ -135,7 +151,10 @@ public final class BioBuzzLimelightClusterAdapter {
                 if (hasUsablePose(tagPose)) {
                     Position tagPosition = tagPose.getPosition().toUnit(DistanceUnit.INCH);
                     posedTags.add(new TagObservation(tagId, inverted ? -tagPosition.x : tagPosition.x));
-                    poseAccumulator.add(tagPose, TAG_X_INCHES[memberIndex], TAG_Y_INCHES, TAG_Z_INCHES);
+                    double compensatedRoll = poseAccumulator.add(
+                            tagPose, TAG_X_INCHES[memberIndex], TAG_Y_INCHES, TAG_Z_INCHES);
+                    tagRolls.add(new TagRoll(tagId,
+                            tagPose.getOrientation().getRoll(AngleUnit.DEGREES), compensatedRoll));
                 }
             }
 
@@ -152,6 +171,7 @@ public final class BioBuzzLimelightClusterAdapter {
                         cluster.firstTagId == 34 || cluster.firstTagId == 38,
                         visibleTagIds,
                         visibleTagIdsLeftToRight,
+                        tagRolls,
                         percentFound,
                         normalizePose(poseAccumulator.build(), inverted),
                         poseAccumulator.buildCompensatedRollDegrees(),
@@ -245,7 +265,7 @@ public final class BioBuzzLimelightClusterAdapter {
             residualMountingRoll = Math.toRadians(mountingRollDegrees - (inverted ? 180 : 0));
         }
 
-        void add(Pose3D tagPose, double tagX, double tagY, double tagZ) {
+        double add(Pose3D tagPose, double tagX, double tagY, double tagZ) {
             Position tagPosition = tagPose.getPosition().toUnit(DistanceUnit.INCH);
             YawPitchRollAngles orientation = tagPose.getOrientation();
             double[] offset = rotateTagOffsetToCamera(-tagX, -tagY, -tagZ, orientation);
@@ -284,6 +304,7 @@ public final class BioBuzzLimelightClusterAdapter {
             compensatedRollCos += Math.cos(compensatedRoll);
             acquisitionTime = orientation.getAcquisitionTime();
             count++;
+            return Math.toDegrees(compensatedRoll);
         }
 
         private double levelForwardComponent(double[] vector) {
