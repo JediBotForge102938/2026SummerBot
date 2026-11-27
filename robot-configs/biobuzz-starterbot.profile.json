@@ -22,7 +22,7 @@
     "mountingRotationDegrees": 0,
     "opticalCenterFromBackCm": 18.8,
     "opticalCenterFromLeftCm": 7.5,
-    "linearScalar": 1.0,
-    "angularScalar": 1.0
+    "linearScalar": 1.0288628792171002,
+    "angularScalar": 0.92307258924002
   }
 }

@@ -33,6 +33,10 @@ public class ForesightTuner extends Procedure {
         Inputs distanceInput = inputs("Distance", "The distance to drive in inches for the Max Achievable Forward and Strafe Identifiers");
         Inputs.Field<Double> distance = distanceInput.d("Distance").withDefault(48.0);
         awaitInputs(distanceInput);
+        if (distance.get() == null || !Double.isFinite(distance.get()) || distance.get() <= 0) {
+            abort("Enter a positive, finite distance in inches.");
+            return;
+        }
 
         double forwardVelocity = step(new ForwardVelocity(localizerFunction, drivetrainFunction, distance.get()));
         double strafeVelocity = step(new StrafeVelocity(localizerFunction, drivetrainFunction, distance.get()));
@@ -198,20 +202,26 @@ class ForwardVelocity extends TuningOpMode<Double> {
         localizer.setPose(Pose.zero());
         localizer.update();
 
-        while (!end) {
-            localizer.update();
-            if (Math.abs(localizer.pose().x()) > distance) {
-                end = true;
-                drivetrain.stop();
-            } else {
-                drivetrain.drive(power, true);
-                double currentVelocity = Math.abs(localizer.twist().toVector2D().x());
-                velocities.addLast(currentVelocity);
-                velocities.removeFirst();
+        try {
+            while (!end && opModeIsActive()) {
+                localizer.update();
+                double x = localizer.pose().x();
+                if (!Double.isFinite(x)) {
+                    throw new IllegalStateException("OTOS forward position is not finite");
+                }
+                if (Math.abs(x) > distance) {
+                    end = true;
+                } else {
+                    drivetrain.drive(power, true);
+                    double currentVelocity = Math.abs(localizer.twist().toVector2D().x());
+                    velocities.addLast(currentVelocity);
+                    velocities.removeFirst();
+                }
             }
+        } finally {
+            drivetrain.stop();
         }
-
-        drivetrain.stop();
+        if (!end) throw new InterruptedException("Max Forward Velocity stopped before completing");
         double average = 0;
         for (double velocity : velocities) {
                 average += velocity;
@@ -256,20 +266,26 @@ class StrafeVelocity extends TuningOpMode<Double> {
         localizer.setPose(Pose.zero());
         localizer.update();
 
-        while (!end) {
-            localizer.update();
-            if (Math.abs(localizer.pose().y()) > distance) {
-                end = true;
-                drivetrain.stop();
-            } else {
-                drivetrain.drive(power, false);
-                double currentVelocity = Math.abs(localizer.twist().toVector2D().y());
-                velocities.addLast(currentVelocity);
-                velocities.removeFirst();
+        try {
+            while (!end && opModeIsActive()) {
+                localizer.update();
+                double y = localizer.pose().y();
+                if (!Double.isFinite(y)) {
+                    throw new IllegalStateException("OTOS strafe position is not finite");
+                }
+                if (Math.abs(y) > distance) {
+                    end = true;
+                } else {
+                    drivetrain.drive(power, false);
+                    double currentVelocity = Math.abs(localizer.twist().toVector2D().y());
+                    velocities.addLast(currentVelocity);
+                    velocities.removeFirst();
+                }
             }
+        } finally {
+            drivetrain.stop();
         }
-
-        drivetrain.stop();
+        if (!end) throw new InterruptedException("Max Strafe Velocity stopped before completing");
         double average = 0;
         for (double velocity : velocities) {
             average += velocity;
@@ -731,6 +747,7 @@ class HeadingTuner extends TuningOpMode<Double> {
     }
 }
 class ForwardBraking extends TuningOpMode<List<Double>> {
+    private BrakingDiagnostics diagnostics;
     Function<HardwareMap, Localizer> localizerFunction;
     Function<HardwareMap, Drivetrain> drivetrainFunction;
     private final double headingLinear;
@@ -773,6 +790,7 @@ class ForwardBraking extends TuningOpMode<List<Double>> {
 
     @Override
     protected List<Double> runTuningOpMode() throws InterruptedException {
+        diagnostics = new BrakingDiagnostics(telemetry, "forward");
         Localizer localizer = localizerFunction.apply(hardwareMap);
         Drivetrain drivetrain = drivetrainFunction.apply(hardwareMap);
 
@@ -855,7 +873,9 @@ class ForwardBraking extends TuningOpMode<List<Double>> {
 
 
     private void drive(Drivetrain drivetrain, Localizer localizer) {
-        drivetrain.drive(new DrivePowers(power * direction, 0.0, getHeadingPower(localizer)), false);
+        DrivePowers command = new DrivePowers(power * direction, 0.0, getHeadingPower(localizer));
+        drivetrain.drive(command, false);
+        diagnostics.record(getRuntime(), "DRIVE", iteration, localizer, command);
     }
 
     private void brake(Drivetrain drivetrain, Localizer localizer) {
@@ -869,7 +889,9 @@ class ForwardBraking extends TuningOpMode<List<Double>> {
             brake = Math.max(brake, minBrake);
         }
 
-        drivetrain.drive(new DrivePowers(brake, 0, headingPower), false);
+        DrivePowers command = new DrivePowers(brake, 0, headingPower);
+        drivetrain.drive(command, false);
+        diagnostics.record(getRuntime(), "BRAKE", iteration, localizer, command);
     }
 
     private void collectTrialData(Localizer localizer, Drivetrain drivetrain) {
@@ -909,6 +931,7 @@ class ForwardBraking extends TuningOpMode<List<Double>> {
 }
 
 class StrafeBraking extends TuningOpMode<List<Double>> {
+    private BrakingDiagnostics diagnostics;
     Function<HardwareMap, Localizer> localizerFunction;
     Function<HardwareMap, Drivetrain> drivetrainFunction;
     private final double headingLinear;
@@ -951,6 +974,7 @@ class StrafeBraking extends TuningOpMode<List<Double>> {
 
     @Override
     protected List<Double> runTuningOpMode() throws InterruptedException {
+        diagnostics = new BrakingDiagnostics(telemetry, "strafe");
         Localizer localizer = localizerFunction.apply(hardwareMap);
         Drivetrain drivetrain = drivetrainFunction.apply(hardwareMap);
 
@@ -1033,7 +1057,9 @@ class StrafeBraking extends TuningOpMode<List<Double>> {
     }
 
     private void drive(Drivetrain drivetrain, Localizer localizer) {
-        drivetrain.drive(new DrivePowers(0.0, power * direction, getHeadingPower(localizer)), false);
+        DrivePowers command = new DrivePowers(0.0, power * direction, getHeadingPower(localizer));
+        drivetrain.drive(command, false);
+        diagnostics.record(getRuntime(), "DRIVE", iteration, localizer, command);
     }
 
     private void brake(Drivetrain drivetrain, Localizer localizer) {
@@ -1047,7 +1073,9 @@ class StrafeBraking extends TuningOpMode<List<Double>> {
             brake = Math.max(brake, minBrake);
         }
 
-        drivetrain.drive(new DrivePowers(0, brake, headingPower), false);
+        DrivePowers command = new DrivePowers(0, brake, headingPower);
+        drivetrain.drive(command, false);
+        diagnostics.record(getRuntime(), "BRAKE", iteration, localizer, command);
     }
 
     private void collectTrialData(Localizer localizer, Drivetrain drivetrain) {

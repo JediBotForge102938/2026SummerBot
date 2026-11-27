@@ -45,10 +45,10 @@ Reinstalling the APK alone does not install JSON profiles.
 The StarterBot profile records the existing hub orientation (logo RIGHT, USB UP),
 Limelight name and pipeline 0, and the approved OTOS measurements: optical
 center 18.8 cm from the back and 7.5 cm from the left of the 18-inch square robot.
-OTOS scalars of 1.0 are nominal, **not calibrated**. Field navigation leaves
-the OTOS hardware offset at zero and subtracts the rotating lever arm in the
-navigator exactly once. The direct-return OTOS test intentionally uses zero
-hardware offset and raw sensor coordinates.
+StarterBot OTOS scalars are calibrated: linear 1.0288628792171002 and angular
+0.92307258924002. Pedro uses the profile's scalars and mounting rotation but
+not its sensor position offsets. The
+direct-return OTOS test uses zero hardware offset and raw sensor coordinates.
 
 The CompetitionBot profile has its own mounting measurements. Its camera optical
 axis points 37 degrees above horizontal, faces rearward, and is inverted.
@@ -269,15 +269,63 @@ See Pedro Pathing's [tuning guide](https://pedropathing.com/docs/pathing/tuning)
 With the Robot Controller running and connected, open AutoTune at
 `http://192.168.43.1:10158`. AutoTune starts its temporary tuning OpMode through
 the Driver Station. For each robot, run the Mecanum Tuner and OTOS Tuner first.
-Copy the generated `MecanumConfig` and `OTOSConfig` into that robot's
-`starterDrivetrainConfig` / `starterOtosConfig` or `competitionDrivetrainConfig` /
-`competitionOtosConfig` methods in `PedroConstants.java`, then rebuild and deploy.
-Verify OTOS mounting orientation and the localization test before running
-Foresight Tuner; its generated `ForesightConfig` goes into the matching
+Copy the generated `MecanumConfig` into the corresponding drivetrain method in
+`PedroConstants.java`. Record valid OTOS scalars in the robot profile and upload
+it with `./gradlew pushRobotConfigs`. The OTOS tuner and Pedro localizer use the
+profile's mounting rotation; sensor position offsets are not yet applied by
+Pedro. Do not copy the generated OTOS config over the profile-backed settings.
+Before powered tuning, use AutoTune's Pose Test with the robot moved by hand:
+forward must increase X, left must increase Y, and counterclockwise rotation
+must increase heading. Confirm distances against physical marks. Investigate
+incorrect or missing readings before continuing.
+Pedro reverses the strafe mix only for the physical StarterBot, whose standard
+Pedro left command otherwise moves right. Forward/turn commands, motor names,
+and OTOS axes are unchanged; CompetitionBot and the simulator retain their
+existing mixes. Verify left/right motion with a brief Driving Test before
+retuning. Foresight measurements taken with the wrong strafe direction are not
+validated by this correction.
+Run Foresight Tuner only in a clear area with STOP ready: its velocity tests
+drive at full power until the OTOS position reaches the requested distance,
+then may coast beyond it. Its generated `ForesightConfig` goes into the matching
 `starterForesightConfig` or `competitionForesightConfig` method. Rebuild and deploy
-again. The initial motor directions and OTOS settings are placeholders, not
-calibrated values; the physical Landmark Travel Test cannot initialize until
-the matching Foresight configuration has been supplied.
+again. The initial motor directions and OTOS settings require verification.
+CompetitionBot uses a forward braking rerun's trial fit: linear coefficient
+0.0429160763321019 and quadratic coefficient 0.0030923137162084838. Runs produced
+inconsistent fits; positive coefficients alone do not validate the measurements.
+Controller gains, coast/brake feedforward, maximum velocities, and natural
+decelerations use the Foresight rerun taken after OTOS scalar calibration.
+Translation and heading braking coefficients retain their previous values.
+The original AutoTune
+output is preserved in `robot-configs/pedro-tuning.java`; its negative forward
+quadratic braking fit produces undefined path calculations beyond about
+5.5 inches. The heading braking fit still predicts the wrong direction above
+about 162 degrees/second; these settings are not validated physical tuning.
+Do not run powered tests while OTOS readings drop out or axis directions are
+incorrect. Verify stable readings by hand first; keep powered checks short and
+supervised with STOP ready.
+StarterBot now has its own Foresight rerun taken after OTOS calibration and the
+physical strafe correction. Both translation quadratic braking coefficients
+are positive; its generated heading quadratic remains negative. These are
+trial measurements requiring supervised Hold/Line validation, not established
+physical tuning. Deploy the updated app to use them in Tests, Braking Only,
+and Landmark Travel Test.
+
+To repeat only braking, choose **Braking Only** in AutoTune, then **Forward
+Braking**, **Strafe Braking**, or **Heading Braking**. Forward/strafe reuse the
+active robot's existing proportional heading gain and heading braking fit;
+heading braking can run without an existing Foresight configuration. Enter a
+distance of at least 15 inches for translation (default 36). These are the
+same powered tests as the full tuner, including their speeds and overshoot.
+The result contains the two measured coefficients and Java that preserves the
+untested axis. Apply results manually; no constants or profiles are saved
+automatically. Negative fits are flagged for review, not silently corrected.
+Forward and strafe braking show live position, velocity, heading, angular
+velocity, and commanded translation/turn power at 10 Hz on the Driver Station.
+The same samples are written to the Robot Controller log with tag
+`PedroBraking` (heading/rate in radians). These diagnostics do not change
+controller gains or drive commands. For a connected, authorized Control Hub,
+capture a supervised run with the SDK's `adb logcat -v threadtime
+PedroBraking:I '*:S'` and stop capture afterward.
 
 Landmark Travel Test uses Pedro's native OTOS and mecanum drivetrain. During INIT,
 select the robot's actual starting pose and place the robot at the displayed
